@@ -4,7 +4,11 @@
   "version": "1.0.0",
   "description": "Geolocation plugin for Cordova",
   "scripts": {
-    "build": "rimraf ./dist && vite build"
+    "lint": "npm run eslint && npm run prettier -- --check",
+    "eslint": "eslint . --ext ts",
+    "prettier": "prettier \"**/*.{css,html,ts,js}\"",
+    "docgen": "docgen --api IGeolocationPlugin --output-readme README.md --output-json ./dist/docs.json",
+    "build": "rimraf ./dist && npm run docgen && vite build"
   },
   "keywords": [
     "ecosystem:cordova",
@@ -23,7 +27,13 @@
   "dependencies": {
     "@capacitor/synapse": "^1.0.1"
   },
+  "eslintConfig": {
+    "extends": "@ionic/eslint-config/recommended"
+  },
+  "prettier": "@ionic/prettier-config",
+  "docs": "typedoc",
   "devDependencies": {
+    "@capacitor/docgen": "^0.2.2",
     "@rollup/plugin-typescript": "^11.1.6",
     "@types/cordova": "^11.0.3",
     "@types/node": "^20.14.8",
