@@ -122,6 +122,7 @@ class OSGeolocation {
             // (it's the same clobber)
             // @ts-ignore
             navigator.geolocation.clearWatch(options.id)
+            success()
             return
         }
 
