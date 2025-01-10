@@ -1,0 +1,73 @@
+name: Github Release
+
+on:
+  workflow_call:  
+    inputs:
+      tag: 
+        required: true
+        type: string
+      plugin: 
+        description: 'Plugin'
+        required: true
+        type: string
+      environment:
+        description: 'The O11 environment we are downloading from'
+        required: true
+        type: string
+      notes:
+        description: 'The release notes'
+        required: true
+        type: string
+      pipelineID:
+        description: 'Where to download ODC OML from'
+        required: true
+        type: string
+      forgeVersionO11:
+        description: 'The plugin version on the O11 forge'
+        required: true
+        type: string
+      forgeVersionODC:
+        description: 'The plugin version on the ODC forge'
+        required: true
+        type: string
+
+jobs:    
+  download:
+    name: '📦 Download OutSystems Assets'
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: 18
+
+    - name: Install dependencies
+      run: npm install
+
+    - name: '⬇️ Download the O11 OAP from LifeTime'
+      id: download_file
+      run: npm run download --plugin="${{inputs.plugin}}" --forge=${{inputs.forgeVersionO11}} --environment=${{inputs.environment}} --lifetime=${{ secrets.LIFETIME }} --authentication='${{ secrets.AUTOMATION_TOKEN }}'
+
+      
+    - name: '⬇️ Download OML from Azure'
+      uses: azure/cli@v2
+      with:
+          azcliversion: latest
+          inlineScript: |
+            echo "${{ secrets.AZURE_DEVOPS_TOKEN }}" | az devops login --organization https://dev.azure.com/OutSystemsRD
+            az pipelines runs artifact download --artifact-name v${{ inputs.forgeVersionODC }}.oml --path $GITHUB_WORKSPACE/downloads --run-id ${{inputs.pipelineID}} --organization https://dev.azure.com/OutSystemsRD --project "Mobile Supported Plugins"
+            ls downloads
+            az devops logout
+
+    - name: '🚀 Create GitHub Release'
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        echo "📝 Extracting release notes"
+        sh scripts/extract_release_notes.sh "${{ inputs.tag }}" >> release_notes.md
+        RELEASE_NOTES="$(cat release_notes.md)"
+        echo "🚀 Creating release"
+        gh release create ${{ inputs.tag }} ./downloads/*.* -t "${{inputs.tag}}" -n "$RELEASE_NOTES"
