@@ -1,11 +1,11 @@
 <?xml version='1.0' encoding='utf-8'?>
-<widget id="com.outsystems.plugins.osgeolocation" version="1.0.0" xmlns="http://apache.org/cordova/ns/plugins/1.0" xmlns:android="http://schemas.android.com/apk/res/android">
+<widget id="com.outsystems.plugins.geolocation" version="1.0.0" xmlns="http://apache.org/cordova/ns/plugins/1.0" xmlns:android="http://schemas.android.com/apk/res/android">
     <name>OSGeolocationPlugin</name>
     <description>OutSystems' cordova geolocation plugin</description>
     <author>OutSystems Inc</author>
 
-    <js-module name="OSGeolocation" src="packages/cordova-plugin/dist/plugin.js">
-        <clobbers target="cordova.plugins.OSGeolocation" />
+    <js-module name="Geolocation" src="packages/cordova-plugin/dist/plugin.js">
+        <clobbers target="cordova.plugins.Geolocation" />
     </js-module>
     <platform name="android">
         <config-file parent="/*" target="res/xml/config.xml">
@@ -30,7 +30,7 @@
         <framework src="packages/cordova-plugin/android/build.gradle" custom="true" type="gradleReference" />
         
     </platform>
-    <platform name="ios">
+   <platform name="ios">
         <config-file parent="/*" target="config.xml">
             <feature name="OSGeolocation">
                 <param name="ios-package" value="OSGeolocation" />
@@ -38,15 +38,23 @@
             <preference name="SwiftVersion" value="5" />
         </config-file>
 
-        <source-file src="packages/cordova-plugin/ios/OSGeolocation.swift" />
+        <source-file src="packages/cordova-plugin/ios/OSGeolocationCallbackManager.swift" />
+        <source-file src="packages/cordova-plugin/ios/OSGeolocationConstants.swift" />
+        <source-file src="packages/cordova-plugin/ios/OSGeolocationError.swift" />
+        <source-file src="packages/cordova-plugin/ios/OSGeolocationModels.swift" />
+        <source-file src="packages/cordova-plugin/ios/OSGeolocationPlugin.swift" />
+        <source-file src="packages/cordova-plugin/ios/OSGLOCConfigurationModel+Accuracy.swift" />
+        <source-file src="packages/cordova-plugin/ios/OSGLOCPositionModel+JSONTransformer.swift" />
 
-        <podspec>
+        <framework src="packages/cordova-plugin/ios/OSGeolocationLib.xcframework" embed="true" custom="true" />
+
+        <!--podspec>
             <config>
                 <source url="https://cdn.cocoapods.org/"/>
             </config>
             <pods use-frameworks="true">
-                <pod name="OSGeolocationLib" path="packages/ios-lib" />
+                <pod name="OSGeolocationLib" path="../../../ios-lib" />
             </pods>
-        </podspec> 
+        </podspec--> 
     </platform>
 </widget>

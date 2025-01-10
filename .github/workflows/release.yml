@@ -1,0 +1,75 @@
+name: Release Plugin
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag: 
+        description: 'The repo version tag'
+        required: true
+        type: string
+      forgeVersionO11:
+        description: 'The plugin version on the O11 forge'
+        required: true
+        type: string
+      forgeVersionODC:
+        description: 'The plugin version on the ODC forge'
+        required: true
+        type: string
+      mabsMin:
+        description: 'Minimum MABS version'
+        required: true
+        type: string
+      releaseNotes:
+        description: 'Release Notes'
+        required: true
+        type: string
+
+jobs:    
+  change_extensibility:
+    uses: ./.github/workflows/o11_change_extensibility.yml
+    name: '✍🏻 Update O11 OML Extensibility'
+    secrets: inherit
+    with:
+      plugin: Location Plugin
+      configName: LocationPlugin
+      tag: ${{ github.event.inputs.tag }}
+      forgeVersion: ${{ github.event.inputs.forgeVersionO11 }}
+      mabsMin: ${{ github.event.inputs.mabsMin }}
+      environment: enmobile11-dev.outsystemsenterprise.com
+
+  deploy_o11:
+    uses: ./.github/workflows/o11_release.yml
+    needs:
+      - change_extensibility
+    secrets: inherit
+    with:
+      plugin: LocationPlugin
+
+  deploy_odc:
+    name: '🔌  Update ODC OML Extensibility & Tenant Release'
+    uses: ./.github/workflows/odc_release.yml
+    secrets: inherit
+    with:
+      tag: ${{ github.event.inputs.tag }}
+      forgeVersion: ${{ github.event.inputs.forgeVersionODC }}
+      mabsMin: ${{ github.event.inputs.mabsMin }}
+      releaseNotes: ${{ github.event.inputs.releaseNotes }}
+      odcPluginKey: b4fbc077-8725-4361-815f-021d8f5b75e8
+  
+  release:
+    uses: ./.github/workflows/github_release.yml
+    name: '🚀 Create Github release'
+    secrets: inherit
+    needs: 
+      - deploy_o11
+      - deploy_odc
+    with:
+      tag: ${{ github.event.inputs.tag }}
+      environment: Production
+      plugin: Location Plugin
+      notes: ${{ github.event.inputs.releaseNotes }}
+      pipelineID: ${{ needs.deploy_odc.outputs.pipelineID }}
+      forgeVersionO11: ${{ github.event.inputs.forgeVersionO11 }}
+      forgeVersionODC:  ${{ github.event.inputs.forgeVersionODC }}
+
+

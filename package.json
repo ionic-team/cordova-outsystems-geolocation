@@ -2,6 +2,12 @@
   "name": "root",
   "private": true,
   "dependencies": {},
+  "scripts": {
+    "update:tag": "node ./scripts/change-extensibility.js",
+    "update:version": "node ./scripts/tag-applications-o11.js",
+    "deploy": "node ./scripts/deploy.js",
+    "download": "node ./scripts/download.js"
+  },
   "devDependencies": {
     "@types/node": "^20.14.8",
     "lerna": "^8.1.8",
