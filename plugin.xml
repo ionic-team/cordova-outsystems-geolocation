@@ -1,11 +1,11 @@
 <?xml version='1.0' encoding='utf-8'?>
-<widget id="com.outsystems.plugins.osgeolocation" version="1.0.0" xmlns="http://apache.org/cordova/ns/plugins/1.0" xmlns:android="http://schemas.android.com/apk/res/android">
+<widget id="com.outsystems.plugins.geolocation" version="1.0.0" xmlns="http://apache.org/cordova/ns/plugins/1.0" xmlns:android="http://schemas.android.com/apk/res/android">
     <name>OSGeolocationPlugin</name>
     <description>OutSystems' cordova geolocation plugin</description>
     <author>OutSystems Inc</author>
 
-    <js-module name="OSGeolocation" src="packages/cordova-plugin/dist/plugin.js">
-        <clobbers target="cordova.plugins.OSGeolocation" />
+    <js-module name="Geolocation" src="packages/cordova-plugin/dist/plugin.js">
+        <clobbers target="cordova.plugins.Geolocation" />
     </js-module>
     <platform name="android">
         <config-file parent="/*" target="res/xml/config.xml">

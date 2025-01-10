@@ -61,7 +61,7 @@ class OSGeolocation {
             }
 
             // @ts-ignore
-            CapacitorUtils.Synapse.OSGeolocation.getCurrentPosition(options, successCallback, errorCallback)
+            CapacitorUtils.Synapse.Geolocation.getCurrentPosition(options, successCallback, errorCallback)
         }
     }
 
@@ -108,7 +108,7 @@ class OSGeolocation {
         options.id = watchId
 
         // @ts-ignore
-        CapacitorUtils.Synapse.OSGeolocation.watchPosition(options, successCallback, errorCallback)
+        CapacitorUtils.Synapse.Geolocation.watchPosition(options, successCallback, errorCallback)
         return watchId
     }
 
@@ -129,7 +129,7 @@ class OSGeolocation {
         clearTimeout(this.#timers[options.id])
         delete this.#timers[options.id]
         // @ts-ignore
-        CapacitorUtils.Synapse.OSGeolocation.clearWatch(options, success, error)
+        CapacitorUtils.Synapse.Geolocation.clearWatch(options, success, error)
     }
 
 
