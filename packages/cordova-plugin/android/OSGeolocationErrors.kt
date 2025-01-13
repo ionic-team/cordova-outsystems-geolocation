@@ -38,25 +38,25 @@ object OSGeolocationErrors {
         code = formatErrorCode(6),
         message = "The 'ClearWatch' input parameters aren't valid."
     )
-    
+
+    val WATCH_ID_NOT_FOUND = ErrorInfo(
+        code = formatErrorCode(8),
+        message = "WatchId not found."
+    )
+
     val LOCATION_ENABLE_REQUEST_DENIED = ErrorInfo(
-        code = formatErrorCode(9),
+        code = formatErrorCode(10),
         message = "Request to enable location was denied."
     )
 
     val GET_LOCATION_TIMEOUT = ErrorInfo(
-        code = formatErrorCode(10),
+        code = formatErrorCode(11),
         message = "Could not obtain location in time. Try with a higher timeout."
     )
 
     val INVALID_TIMEOUT = ErrorInfo(
-        code = formatErrorCode(11),
-        message = "Timeout needs to be a positive value."
-    )
-
-    val WATCH_ID_NOT_FOUND = ErrorInfo(
         code = formatErrorCode(12),
-        message = "WatchId not found."
+        message = "Timeout needs to be a positive value."
     )
 
     val WATCH_ID_NOT_PROVIDED = ErrorInfo(
