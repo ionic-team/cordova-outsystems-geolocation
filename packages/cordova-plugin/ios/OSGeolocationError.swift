@@ -14,7 +14,7 @@ enum OSGeolocationError: Error {
     func toDictionary() -> [String: String] {
         [
             "code": "OS-PLUG-GLOC-\(String(format: "%04d", code))",
-            "description": description
+            "message": description
         ]
     }
 }
