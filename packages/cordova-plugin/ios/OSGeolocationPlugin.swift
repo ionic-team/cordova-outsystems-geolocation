@@ -40,11 +40,7 @@ final class OSGeolocation: CDVPlugin {
             callbackManager?.sendError(.inputArgumentsIssue(target: .clearWatch))
             return
         }
-        
-        if !(callbackManager?.clearWatchCallbackIfExists(config.id) ?? false) {
-            callbackManager?.sendError(.watchIdNotFound)
-            return
-        }
+        callbackManager?.clearWatchCallbackIfExists(config.id)
 
         if (callbackManager?.watchCallbacks.isEmpty) ?? false {
             locationService?.stopMonitoringLocation()

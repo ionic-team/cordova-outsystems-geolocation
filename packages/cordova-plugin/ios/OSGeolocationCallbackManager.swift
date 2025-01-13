@@ -45,8 +45,10 @@ final class OSGeolocationCallbackManager {
         watchCallbacks[watchId] = callbackId
     }
 
-    func clearWatchCallbackIfExists(_ watchId: String) -> Bool {
-        return watchCallbacks.removeValue(forKey: watchId) != nil
+    func clearWatchCallbackIfExists(_ watchId: String) {
+        if watchCallbacks.keys.contains(watchId) {
+            watchCallbacks.removeValue(forKey: watchId)
+        }
     }
 
     func sendSuccess(_ callbackId: String) {
