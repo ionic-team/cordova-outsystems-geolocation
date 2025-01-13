@@ -7,4 +7,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.0.0]
 
 ### 2025-01-10
-- Feat: Add implementation for `getCurrentPosition`, `watchPosition`, `clearWatch`, `checkPermissions`, and `requestPermissions` on both Android and iOS.
+- Feat: Add implementation for `getCurrentPosition`, `watchPosition`, and `clearWatch` on both Android and iOS.
