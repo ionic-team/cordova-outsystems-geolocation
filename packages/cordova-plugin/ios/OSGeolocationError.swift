@@ -10,6 +10,7 @@ enum OSGeolocationError: Error {
     case permissionRestricted
     case positionUnavailable
     case inputArgumentsIssue(target: OSGeolocationMethod)
+    case watchIdNotFound
 
     func toDictionary() -> [String: String] {
         [
@@ -25,13 +26,14 @@ private extension OSGeolocationError {
         case .positionUnavailable: 2
         case .permissionDenied: 3
         case .locationServicesDisabled: 7
-        case .permissionRestricted: 8
+        case .permissionRestricted: 9
         case .inputArgumentsIssue(let target):
             switch target {
             case .getCurrentPosition: 4
             case .watchPosition: 5
             case .clearWatch: 6
             }
+        case .watchIdNotFound: 8
         }
     }
 
@@ -42,6 +44,7 @@ private extension OSGeolocationError {
         case .locationServicesDisabled: "Location services are not enabled."
         case .permissionRestricted: "Application's use of location services was restricted."
         case .inputArgumentsIssue(let target): "The '\(target.rawValue)' input parameters aren't valid."
+        case .watchIdNotFound: "WatchId not found."
         }
     }
 }
