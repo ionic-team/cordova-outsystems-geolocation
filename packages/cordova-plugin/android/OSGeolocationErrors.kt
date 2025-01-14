@@ -14,54 +14,39 @@ object OSGeolocationErrors {
         val message: String
     )
 
-    val GOOGLE_SERVICES_RESOLVABLE = ErrorInfo(
-        code = formatErrorCode(1),
-        message = "Google Play Services error user resolvable."
-    )
-
-    val GOOGLE_SERVICES_ERROR = ErrorInfo(
+    val POSITION_UNAVAILABLE = ErrorInfo(
         code = formatErrorCode(2),
-        message = "Google Play Services error."
-    )
-
-    val INVALID_INPUT_GET_POSITION = ErrorInfo(
-        code = formatErrorCode(3),
-        message = "The input parameters for GetLocation aren't valid."
-    )
-
-    val INVALID_INPUT_WATCH_POSITION = ErrorInfo(
-        code = formatErrorCode(4),
-        message = "The input parameters for WatchPosition aren't valid."
-    )
-
-    val INVALID_INPUT_CLEAR_WATCH = ErrorInfo(
-        code = formatErrorCode(5),
-        message = "The input parameters for ClearWatch aren't valid."
-    )
-
-    val GET_LOCATION_TIMEOUT = ErrorInfo(
-        code = formatErrorCode(6),
-        message = "Could not obtain location in time. Try with a higher timeout."
-    )
-
-    val GET_LOCATION_GENERAL = ErrorInfo(
-        code = formatErrorCode(7),
         message = "There was en error trying to obtain the location."
     )
 
     val LOCATION_PERMISSIONS_DENIED = ErrorInfo(
-        code = formatErrorCode(8),
+        code = formatErrorCode(3),
         message = "Location permission request was denied."
     )
 
-    val LOCATION_ENABLE_REQUEST_DENIED = ErrorInfo(
-        code = formatErrorCode(9),
-        message = "Request to enable location denied."
+    val INVALID_INPUT_GET_POSITION = ErrorInfo(
+        code = formatErrorCode(4),
+        message = "The 'GetLocation' input parameters aren't valid."
     )
 
-    val LOCATION_SETTINGS_ERROR = ErrorInfo(
+    val INVALID_INPUT_WATCH_POSITION = ErrorInfo(
+        code = formatErrorCode(5),
+        message = "The 'WatchPosition' input parameters aren't valid."
+    )
+
+    val INVALID_INPUT_CLEAR_WATCH = ErrorInfo(
+        code = formatErrorCode(6),
+        message = "The 'ClearWatch' input parameters aren't valid."
+    )
+    
+    val LOCATION_ENABLE_REQUEST_DENIED = ErrorInfo(
+        code = formatErrorCode(9),
+        message = "Request to enable location was denied."
+    )
+
+    val GET_LOCATION_TIMEOUT = ErrorInfo(
         code = formatErrorCode(10),
-        message = "Location settings error."
+        message = "Could not obtain location in time. Try with a higher timeout."
     )
 
     val INVALID_TIMEOUT = ErrorInfo(
@@ -71,7 +56,7 @@ object OSGeolocationErrors {
 
     val WATCH_ID_NOT_FOUND = ErrorInfo(
         code = formatErrorCode(12),
-        message = "WatchId not found"
+        message = "WatchId not found."
     )
 
     val WATCH_ID_NOT_PROVIDED = ErrorInfo(
@@ -79,4 +64,18 @@ object OSGeolocationErrors {
         message = "WatchId needs to be provided."
     )
 
+    val GOOGLE_SERVICES_RESOLVABLE = ErrorInfo(
+        code = formatErrorCode(14),
+        message = "Google Play Services error user resolvable."
+    )
+
+    val GOOGLE_SERVICES_ERROR = ErrorInfo(
+        code = formatErrorCode(15),
+        message = "Google Play Services error."
+    )
+
+    val LOCATION_SETTINGS_ERROR = ErrorInfo(
+        code = formatErrorCode(16),
+        message = "Location settings error."
+    )
 }

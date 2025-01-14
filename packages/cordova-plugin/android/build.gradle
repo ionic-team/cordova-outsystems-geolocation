@@ -17,10 +17,7 @@ allprojects {
 }
 
 dependencies{
-
-    //implementation "com.github.outsystems:osgeolocationlib-android:1.0.0@aar"
-    implementation (files("libs/android-lib-debug.aar"))
-
+    implementation("io.ionic.libs:osgeolocation-android:1.0.0")
     implementation("androidx.browser:browser:1.8.0")
     implementation("com.google.android.gms:play-services-auth:21.2.0")
     implementation("com.google.android.gms:play-services-location:21.3.0")

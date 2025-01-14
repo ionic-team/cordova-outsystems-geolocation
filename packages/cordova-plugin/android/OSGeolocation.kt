@@ -192,7 +192,7 @@ class OSGeolocation : CordovaPlugin() {
             }
 
             else -> {
-                callbackContext.sendError(OSGeolocationErrors.GET_LOCATION_GENERAL)
+                callbackContext.sendError(OSGeolocationErrors.POSITION_UNAVAILABLE)
             }
         }
     }
