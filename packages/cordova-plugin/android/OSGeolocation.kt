@@ -1,4 +1,4 @@
-package com.outsystems.plugins.osgeolocation
+package com.outsystems.plugins.geolocation
 
 import com.google.android.gms.location.LocationServices
 import com.google.gson.Gson
@@ -16,9 +16,9 @@ import org.json.JSONObject
 import android.Manifest
 import android.content.pm.PackageManager
 import androidx.activity.result.contract.ActivityResultContracts
-import com.outsystems.plugins.osgeolocation.controller.OSGLOCController
-import com.outsystems.plugins.osgeolocation.model.OSGLOCException
-import com.outsystems.plugins.osgeolocation.model.OSGLOCLocationOptions
+import io.ionic.libs.osgeolocationlib.controller.OSGLOCController
+import io.ionic.libs.osgeolocationlib.model.OSGLOCException
+import io.ionic.libs.osgeolocationlib.model.OSGLOCLocationOptions
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableSharedFlow
 
