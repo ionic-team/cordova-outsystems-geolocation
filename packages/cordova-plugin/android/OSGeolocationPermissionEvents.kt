@@ -1,4 +1,4 @@
-package com.outsystems.plugins.osgeolocation
+package com.outsystems.plugins.geolocation
 
 /**
  * Sealed class containing the Location permission events

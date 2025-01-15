@@ -1,4 +1,4 @@
-package com.outsystems.plugins.osgeolocation
+package com.outsystems.plugins.geolocation
 
 import com.google.android.gms.location.LocationServices
 import com.google.gson.Gson
