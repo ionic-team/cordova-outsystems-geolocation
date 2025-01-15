@@ -24,6 +24,6 @@
 
 This project has two packages:
 
-1. the cordova plugin, `com.outsystems.plugins.osgeolocation`
+1. the cordova plugin, `com.outsystems.plugins.geolocation`
 2. a wrapper consumed by the OutSystems' low-code module, `outsystems-wrapper`
  
