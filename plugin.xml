@@ -42,8 +42,8 @@
         <source-file src="packages/cordova-plugin/ios/OSGeolocationError.swift" />
         <source-file src="packages/cordova-plugin/ios/OSGeolocationModels.swift" />
         <source-file src="packages/cordova-plugin/ios/OSGeolocationPlugin.swift" />
-        <source-file src="packages/cordova-plugin/ios/OSGLOCConfigurationModel+Accuracy.swift" />
-        <source-file src="packages/cordova-plugin/ios/OSGLOCPositionModel+JSONTransformer.swift" />
+        <source-file src="packages/cordova-plugin/ios/IONGLOCConfigurationModel+Accuracy.swift" />
+        <source-file src="packages/cordova-plugin/ios/IONGLOCPositionModel+JSONTransformer.swift" />
 
         <framework src="packages/cordova-plugin/ios/IONGeolocationLib.xcframework" embed="true" custom="true" />
 
