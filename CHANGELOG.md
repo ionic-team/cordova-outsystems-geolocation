@@ -6,8 +6,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.0.0]
 
-### 2025-01-20
-- Feat: Update dependency to `IONGeolocationLib-Android`.
-
 ### 2025-01-10
 - Feat: Add implementation for `getCurrentPosition`, `watchPosition`, and `clearWatch` on both Android and iOS.
