@@ -1,4 +1,3 @@
-import OSGeolocationLib
 import IONGeolocationLib
 
 private enum OSGeolocationCallbackType {
