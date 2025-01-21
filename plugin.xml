@@ -45,7 +45,7 @@
         <source-file src="packages/cordova-plugin/ios/OSGLOCConfigurationModel+Accuracy.swift" />
         <source-file src="packages/cordova-plugin/ios/OSGLOCPositionModel+JSONTransformer.swift" />
 
-        <framework src="packages/cordova-plugin/ios/OSGeolocationLib.xcframework" embed="true" custom="true" />
+        <framework src="packages/cordova-plugin/ios/IONGeolocationLib.xcframework" embed="true" custom="true" />
 
         <!--podspec>
             <config>
