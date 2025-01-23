@@ -42,18 +42,16 @@
         <source-file src="packages/cordova-plugin/ios/OSGeolocationError.swift" />
         <source-file src="packages/cordova-plugin/ios/OSGeolocationModels.swift" />
         <source-file src="packages/cordova-plugin/ios/OSGeolocationPlugin.swift" />
-        <source-file src="packages/cordova-plugin/ios/OSGLOCConfigurationModel+Accuracy.swift" />
-        <source-file src="packages/cordova-plugin/ios/OSGLOCPositionModel+JSONTransformer.swift" />
+        <source-file src="packages/cordova-plugin/ios/IONGLOCConfigurationModel+Accuracy.swift" />
+        <source-file src="packages/cordova-plugin/ios/IONGLOCPositionModel+JSONTransformer.swift" />
 
-        <framework src="packages/cordova-plugin/ios/OSGeolocationLib.xcframework" embed="true" custom="true" />
-
-        <!--podspec>
+        <podspec>
             <config>
                 <source url="https://cdn.cocoapods.org/"/>
             </config>
             <pods use-frameworks="true">
-                <pod name="OSGeolocationLib" path="../../../ios-lib" />
+                <pod name="IONGeolocationLib" spec="1.0.0" />
             </pods>
-        </podspec--> 
+        </podspec>
     </platform>
 </widget>
