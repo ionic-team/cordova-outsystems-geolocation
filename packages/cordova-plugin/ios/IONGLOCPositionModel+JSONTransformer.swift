@@ -1,6 +1,6 @@
-import OSGeolocationLib
+import IONGeolocationLib
 
-extension OSGLOCPositionModel {
+extension IONGLOCPositionModel {
     func toResultDictionary() -> [String: Double] {
         [
             Constants.Position.altitude: altitude,

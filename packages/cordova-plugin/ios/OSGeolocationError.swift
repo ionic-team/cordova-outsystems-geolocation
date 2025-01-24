@@ -14,7 +14,7 @@ enum OSGeolocationError: Error {
     func toDictionary() -> [String: String] {
         [
             "code": "OS-PLUG-GLOC-\(String(format: "%04d", code))",
-            "description": description
+            "message": description
         ]
     }
 }
@@ -22,15 +22,15 @@ enum OSGeolocationError: Error {
 private extension OSGeolocationError {
     var code: Int {
         switch self {
-        case .positionUnavailable: 4
-        case .permissionDenied: 5
-        case .locationServicesDisabled: 11
-        case .permissionRestricted: 12
+        case .positionUnavailable: 2
+        case .permissionDenied: 3
+        case .locationServicesDisabled: 7
+        case .permissionRestricted: 8
         case .inputArgumentsIssue(let target):
             switch target {
-            case .getCurrentPosition: 13
-            case .watchPosition: 14
-            case .clearWatch: 15
+            case .getCurrentPosition: 4
+            case .watchPosition: 5
+            case .clearWatch: 6
             }
         }
     }

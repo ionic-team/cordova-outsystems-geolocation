@@ -1,4 +1,4 @@
-package com.outsystems.plugins.osgeolocation
+package com.outsystems.plugins.geolocation
 
 import com.google.android.gms.location.LocationServices
 import com.google.gson.Gson
@@ -16,9 +16,9 @@ import org.json.JSONObject
 import android.Manifest
 import android.content.pm.PackageManager
 import androidx.activity.result.contract.ActivityResultContracts
-import com.outsystems.plugins.osgeolocation.controller.OSGLOCController
-import com.outsystems.plugins.osgeolocation.model.OSGLOCException
-import com.outsystems.plugins.osgeolocation.model.OSGLOCLocationOptions
+import io.ionic.libs.iongeolocationlib.controller.IONGLOCController
+import io.ionic.libs.iongeolocationlib.model.IONGLOCException
+import io.ionic.libs.iongeolocationlib.model.IONGLOCLocationOptions
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableSharedFlow
 
@@ -27,7 +27,7 @@ import kotlinx.coroutines.flow.MutableSharedFlow
  */
 class OSGeolocation : CordovaPlugin() {
 
-    private lateinit var controller: OSGLOCController
+    private lateinit var controller: IONGLOCController
     private val gson by lazy { Gson() }
 
     // for permissions
@@ -54,7 +54,7 @@ class OSGeolocation : CordovaPlugin() {
             }
         }
 
-        this.controller = OSGLOCController(
+        this.controller = IONGLOCController(
             LocationServices.getFusedLocationProviderClient(cordova.context),
             activityLauncher
         )
@@ -100,7 +100,7 @@ class OSGeolocation : CordovaPlugin() {
 
         coroutineScope.launch {
             handleLocationPermission(callbackContext) {
-                val locationOptions = OSGLOCLocationOptions(
+                val locationOptions = IONGLOCLocationOptions(
                     options.getLong(TIMEOUT),
                     options.getLong(MAXIMUM_AGE),
                     options.getBoolean(ENABLE_HIGH_ACCURACY))
@@ -133,7 +133,7 @@ class OSGeolocation : CordovaPlugin() {
 
         coroutineScope.launch {
             handleLocationPermission(callbackContext) {
-                val locationOptions = OSGLOCLocationOptions(
+                val locationOptions = IONGLOCLocationOptions(
                     timeout = options.getLong(TIMEOUT),
                     maximumAge = options.getLong(MAXIMUM_AGE),
                     enableHighAccuracy = options.getBoolean(ENABLE_HIGH_ACCURACY),
@@ -167,19 +167,19 @@ class OSGeolocation : CordovaPlugin() {
         callbackContext: CallbackContext
     ) {
         when (exception) {
-            is OSGLOCException.OSGLOCRequestDeniedException -> {
+            is IONGLOCException.IONGLOCRequestDeniedException -> {
                 callbackContext.sendError(OSGeolocationErrors.LOCATION_ENABLE_REQUEST_DENIED)
             }
 
-            is OSGLOCException.OSGLOCSettingsException -> {
+            is IONGLOCException.IONGLOCSettingsException -> {
                 callbackContext.sendError(OSGeolocationErrors.LOCATION_SETTINGS_ERROR)
             }
 
-            is OSGLOCException.OSGLOCInvalidTimeoutException -> {
+            is IONGLOCException.IONGLOCInvalidTimeoutException -> {
                 callbackContext.sendError(OSGeolocationErrors.INVALID_TIMEOUT)
             }
 
-            is OSGLOCException.OSGLOCGoogleServicesException -> {
+            is IONGLOCException.IONGLOCGoogleServicesException -> {
                 if (exception.resolvable) {
                     callbackContext.sendError(OSGeolocationErrors.GOOGLE_SERVICES_RESOLVABLE)
                 } else {
@@ -187,12 +187,12 @@ class OSGeolocation : CordovaPlugin() {
                 }
             }
 
-            is OSGLOCException.OSGLOCLocationRetrievalTimeoutException -> {
+            is IONGLOCException.IONGLOCLocationRetrievalTimeoutException -> {
                 callbackContext.sendError(OSGeolocationErrors.GET_LOCATION_TIMEOUT)
             }
 
             else -> {
-                callbackContext.sendError(OSGeolocationErrors.GET_LOCATION_GENERAL)
+                callbackContext.sendError(OSGeolocationErrors.POSITION_UNAVAILABLE)
             }
         }
     }

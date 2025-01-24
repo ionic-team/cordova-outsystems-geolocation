@@ -1,14 +1,14 @@
-import OSGeolocationLib
+import IONGeolocationLib
 import Combine
 
 @objc(OSGeolocation)
 final class OSGeolocation: CDVPlugin {
-    private var locationService: (any OSGLOCService)?
+    private var locationService: (any IONGLOCService)?
     private var cancellables = Set<AnyCancellable>()
     private var callbackManager: OSGeolocationCallbackManager?
 
     override func pluginInitialize() {
-        self.locationService = OSGLOCManagerWrapper()
+        self.locationService = IONGLOCManagerWrapper()
         self.callbackManager = .init(commandDelegate: commandDelegate)
         setupBindings()
     }
@@ -82,7 +82,7 @@ private extension OSGeolocation {
             .store(in: &cancellables)
     }
 
-    func requestLocationAuthorisation(type requestType: OSGLOCAuthorisationRequestType) {
+    func requestLocationAuthorisation(type requestType: IONGLOCAuthorisationRequestType) {
         commandDelegate.run { [weak self] in
             guard let self else { return }
 
@@ -116,7 +116,7 @@ private extension OSGeolocation {
     }
 
     func handleLocationRequest(_ enableHighAccuracy: Bool, watchUUID: String? = nil, _ callbackId: String) {
-        let configurationModel = OSGLOCConfigurationModel.createWithAccuracy(enableHighAccuracy)
+        let configurationModel = IONGLOCConfigurationModel.createWithAccuracy(enableHighAccuracy)
         locationService?.updateConfiguration(configurationModel)
 
         if let watchUUID {

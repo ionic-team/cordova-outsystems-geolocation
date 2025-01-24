@@ -1,4 +1,4 @@
-import OSGeolocationLib
+import IONGeolocationLib
 
 private enum OSGeolocationCallbackType {
     case location
@@ -56,7 +56,7 @@ final class OSGeolocationCallbackManager {
         commandDelegate.send(result, callbackId: callbackId)
     }
 
-    func sendSuccess(with position: OSGLOCPositionModel) {
+    func sendSuccess(with position: IONGLOCPositionModel) {
         createPluginResult(status: .ok, message: position.toResultDictionary())
     }
 

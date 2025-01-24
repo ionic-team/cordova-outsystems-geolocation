@@ -1,7 +1,7 @@
-import OSGeolocationLib
+import IONGeolocationLib
 
-extension OSGLOCConfigurationModel {
-    static func createWithAccuracy(_ isHighAccuracyEnabled: Bool) -> OSGLOCConfigurationModel {
+extension IONGLOCConfigurationModel {
+    static func createWithAccuracy(_ isHighAccuracyEnabled: Bool) -> IONGLOCConfigurationModel {
         let minimumDistance = isHighAccuracyEnabled ?
             Constants.MinimumDistance.highAccuracy :
             Constants.MinimumDistance.lowAccuracy
