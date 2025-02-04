@@ -161,7 +161,7 @@ class OSGeolocation {
         delete this.#timers[options.id]
 
         let optionsWithCorrectId = options;
-        if (this.#callbackIdsMap[options.id] != 'undefined') {
+        if (this.#callbackIdsMap[options.id]) {
             // Capacitor uses a different a callback id instead of the watch id generated here in the wrapper
             optionsWithCorrectId = { id: this.#callbackIdsMap[options.id] }
         }
