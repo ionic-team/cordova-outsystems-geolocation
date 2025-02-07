@@ -4,10 +4,11 @@ import { v4 as uuidv4 } from 'uuid'
 class OSGeolocation {
     #lastPosition: Position | null = null
     #timers: { [key: string]: ReturnType<typeof setTimeout> | undefined } = {}
+    #callbackIdsMap: { [watchId: string]: string } = {}
 
     getCurrentPosition(success: (position: Position) => void, error: (err: PluginError | GeolocationPositionError) => void, options: CurrentPositionOptions): void {
         // @ts-ignore
-        if (typeof (CapacitorUtils) === 'undefined') {
+        if (typeof (CapacitorUtils) === 'undefined' && !this.#isCapacitorPluginDefined()) {
             // if we're not in synapse land, we call the good old bridge or web api 
             // (it's the same clobber)
             navigator.geolocation.getCurrentPosition(success, error, options)
@@ -61,13 +62,23 @@ class OSGeolocation {
             }
 
             // @ts-ignore
-            CapacitorUtils.Synapse.Geolocation.getCurrentPosition(options, successCallback, errorCallback)
+            if (typeof (CapacitorUtils) === "undefined") {
+                // if synapse is not available, we call the Capacitor plugin directly
+                // currently Synapse doesn't work in MABS 12 builds, so we need to call the Capacitor plugin directly in this case
+                // @ts-ignore
+                Capacitor.Plugins.Geolocation.getCurrentPosition(options)
+                    .then(successCallback)
+                    .catch(errorCallback);
+            } else {
+                // @ts-ignore
+                CapacitorUtils.Synapse.Geolocation.getCurrentPosition(options, successCallback, errorCallback)
+            }
         }
     }
 
     watchPosition(success: (result: Position) => void, error: (error: PluginError | GeolocationPositionError) => void, options: WatchPositionOptions): string | number {
         // @ts-ignore
-        if (typeof (CapacitorUtils) === 'undefined') {
+        if (typeof (CapacitorUtils) === 'undefined' && !this.#isCapacitorPluginDefined()) {
             // if we're not in synapse land, we call the good old bridge or web api 
             // (it's the same clobber)
             return navigator.geolocation.watchPosition(success, error, options)
@@ -107,9 +118,29 @@ class OSGeolocation {
         }
         options.id = watchId
 
-        // @ts-ignore
-        CapacitorUtils.Synapse.Geolocation.watchPosition(options, successCallback, errorCallback)
-        return watchId
+        if (this.#isCapacitorPluginDefined()) {
+            // if synapse is not available, we call the Capacitor plugin directly
+            // currently Synapse doesn't work in MABS 12 builds, so we need to call the Capacitor plugin directly in this case
+            // Moreover, for the case of watch location, capacitor returns a callback id that should be stored on the wrapper to make sure watches are cleared properly
+            //  So in other words, Synapse can't be used in watchPosition.
+            // @ts-ignore
+            let callbackId: string = Capacitor.Plugins.Geolocation.watchPosition(
+                options, 
+                (position: Position | OSGLOCPosition, err?: any) => {
+                    if (err) {
+                        errorCallback(err);
+                    }
+                    else if (position) {
+                        successCallback(position)
+                    }
+                }
+            );
+            this.#callbackIdsMap[watchId] = callbackId;
+        } else {
+            // @ts-ignore
+            CapacitorUtils.Synapse.Geolocation.watchPosition(options, successCallback, errorCallback);
+        }
+        return watchId;
     }
 
     /**
@@ -117,7 +148,7 @@ class OSGeolocation {
     */
     clearWatch(options: ClearWatchOptions, success: () => void = () => { }, error: (error: PluginError | GeolocationPositionError) => void = () => { }): void {
         // @ts-ignore
-        if (typeof (CapacitorUtils) === 'undefined') {
+        if (typeof (CapacitorUtils) === 'undefined' && !this.#isCapacitorPluginDefined()) {
             // if we're not in synapse land, we call the good old bridge or web api 
             // (it's the same clobber)
             // @ts-ignore
@@ -128,8 +159,28 @@ class OSGeolocation {
 
         clearTimeout(this.#timers[options.id])
         delete this.#timers[options.id]
+
+        let optionsWithCorrectId = options;
+        if (this.#callbackIdsMap[options.id]) {
+            // Capacitor uses a different a callback id instead of the watch id generated here in the wrapper
+            optionsWithCorrectId = { id: this.#callbackIdsMap[options.id] }
+        }
+        const successCallback = () => {
+            delete this.#callbackIdsMap[options.id];
+            success()
+        }
         // @ts-ignore
-        CapacitorUtils.Synapse.Geolocation.clearWatch(options, success, error)
+        if (typeof (CapacitorUtils) === "undefined") {
+            // if synapse is not available, we call the Capacitor plugin directly
+            // currently Synapse doesn't work in MABS 12 builds, so we need to call the Capacitor plugin directly in this case
+            // @ts-ignore
+            Capacitor.Plugins.Geolocation.clearWatch(optionsWithCorrectId)
+                .then(successCallback)
+                .catch(error);
+        } else {
+            // @ts-ignore
+            CapacitorUtils.Synapse.Geolocation.clearWatch(optionsWithCorrectId, successCallback, error)
+        }
     }
 
 
@@ -183,6 +234,16 @@ class OSGeolocation {
      */
     #isLegacyPosition(position: Position | OSGLOCPosition): position is OSGLOCPosition {
         return (position as OSGLOCPosition).velocity !== undefined
+    }
+
+    /**
+     * Checks if @capacitor/geolocation plugin is defined
+     * 
+     * @returns true if geolocation capacitor plugin is available; false otherwise
+     */
+    #isCapacitorPluginDefined(): boolean {
+        // @ts-ignore
+        return (typeof(Capacitor) !== "undefined" && typeof(Capacitor.Plugins) !== "undefined" && typeof(Capacitor.Plugins.Geolocation) !== "undefined")
     }
 }
 
