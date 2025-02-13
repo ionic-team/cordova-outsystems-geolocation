@@ -7,9 +7,8 @@ class OSGeolocation {
     #callbackIdsMap: { [watchId: string]: string } = {}
 
     getCurrentPosition(success: (position: Position) => void, error: (err: PluginError | GeolocationPositionError) => void, options: CurrentPositionOptions): void {
-        // @ts-ignore
-        if (typeof (CapacitorUtils) === 'undefined' && !this.#isCapacitorPluginDefined()) {
-            // if we're not in synapse land, we call the good old bridge or web api 
+        if (this.#shouldUseWebApi()) {
+            // if we're not in a native mobile app, we call the good old bridge or web api 
             // (it's the same clobber)
             navigator.geolocation.getCurrentPosition(success, error, options)
             return
@@ -61,25 +60,28 @@ class OSGeolocation {
                 this.#timers[id] = timeoutID
             }
 
-            // @ts-ignore
-            if (typeof (CapacitorUtils) === "undefined") {
-                // if synapse is not available, we call the Capacitor plugin directly
-                // currently Synapse doesn't work in MABS 12 builds, so we need to call the Capacitor plugin directly in this case
-                // @ts-ignore
-                Capacitor.Plugins.Geolocation.getCurrentPosition(options)
-                    .then(successCallback)
-                    .catch(errorCallback);
-            } else {
+            if (this.#isSynapseDefined()) {
                 // @ts-ignore
                 CapacitorUtils.Synapse.Geolocation.getCurrentPosition(options, successCallback, errorCallback)
+            } else {
+                // if synapse is not available, we call the plugins directly
+                // currently Synapse doesn't work in MABS 12 builds, so we need to call the Capacitor/Cordova plugin directly in this case
+                if (this.#isCapacitorPluginDefined()) {
+                    // @ts-ignore
+                    Capacitor.Plugins.Geolocation.getCurrentPosition(options)
+                        .then(successCallback)
+                        .catch(errorCallback);
+                } else {
+                    // @ts-ignore
+                    cordova.plugins.Geolocation.clearWatch(options, successCallback, errorCallback)
+                }
             }
         }
     }
 
     watchPosition(success: (result: Position) => void, error: (error: PluginError | GeolocationPositionError) => void, options: WatchPositionOptions): string | number {
-        // @ts-ignore
-        if (typeof (CapacitorUtils) === 'undefined' && !this.#isCapacitorPluginDefined()) {
-            // if we're not in synapse land, we call the good old bridge or web api 
+        if (this.#shouldUseWebApi()) {
+            // if we're not in a native mobile app, we call the good old bridge or web api 
             // (it's the same clobber)
             return navigator.geolocation.watchPosition(success, error, options)
         }
@@ -119,10 +121,8 @@ class OSGeolocation {
         options.id = watchId
 
         if (this.#isCapacitorPluginDefined()) {
-            // if synapse is not available, we call the Capacitor plugin directly
-            // currently Synapse doesn't work in MABS 12 builds, so we need to call the Capacitor plugin directly in this case
-            // Moreover, for the case of watch location, capacitor returns a callback id that should be stored on the wrapper to make sure watches are cleared properly
-            //  So in other words, Synapse can't be used in watchPosition.
+            // For the case of watch location, capacitor returns a callback id that should be stored on the wrapper to make sure watches are cleared properly
+            //  So in other words, Synapse can't be used in watchPosition for Capacitor.
             // @ts-ignore
             let callbackId: string = Capacitor.Plugins.Geolocation.watchPosition(
                 options, 
@@ -137,8 +137,14 @@ class OSGeolocation {
             );
             this.#callbackIdsMap[watchId] = callbackId;
         } else {
-            // @ts-ignore
-            CapacitorUtils.Synapse.Geolocation.watchPosition(options, successCallback, errorCallback);
+            if (this.#isSynapseDefined()) {
+                // @ts-ignore
+                CapacitorUtils.Synapse.Geolocation.watchPosition(options, successCallback, errorCallback);
+            } else {
+                // currently Synapse doesn't work in MABS 12 builds, so we need to call the Cordova plugin directly in this case
+                // @ts-ignore
+                cordova.plugins.Geolocation.watchPosition(options, successCallback, errorCallback)
+            }
         }
         return watchId;
     }
@@ -147,10 +153,8 @@ class OSGeolocation {
     * Clears the specified heading watch.
     */
     clearWatch(options: ClearWatchOptions, success: () => void = () => { }, error: (error: PluginError | GeolocationPositionError) => void = () => { }): void {
-        // @ts-ignore
-        if (typeof (CapacitorUtils) === 'undefined' && !this.#isCapacitorPluginDefined()) {
-            // if we're not in synapse land, we call the good old bridge or web api 
-            // (it's the same clobber)
+        if (this.#shouldUseWebApi()) {
+            // if we're not in a native mobile app, we call the good old bridge or web api 
             // @ts-ignore
             navigator.geolocation.clearWatch(options.id)
             success()
@@ -169,17 +173,21 @@ class OSGeolocation {
             delete this.#callbackIdsMap[options.id];
             success()
         }
-        // @ts-ignore
-        if (typeof (CapacitorUtils) === "undefined") {
-            // if synapse is not available, we call the Capacitor plugin directly
-            // currently Synapse doesn't work in MABS 12 builds, so we need to call the Capacitor plugin directly in this case
-            // @ts-ignore
-            Capacitor.Plugins.Geolocation.clearWatch(optionsWithCorrectId)
-                .then(successCallback)
-                .catch(error);
-        } else {
+        if (this.#isSynapseDefined()) {
             // @ts-ignore
             CapacitorUtils.Synapse.Geolocation.clearWatch(optionsWithCorrectId, successCallback, error)
+        } else {
+            // if synapse is not available, we call the plugins directly
+            // currently Synapse doesn't work in MABS 12 builds, so we need to call the Capacitor/Cordova plugin directly in this case
+            if (this.#isCapacitorPluginDefined()) {
+                // @ts-ignore
+                Capacitor.Plugins.Geolocation.clearWatch(optionsWithCorrectId)
+                .then(successCallback)
+                .catch(error);
+            } else {
+                // @ts-ignore
+                cordova.plugins.Geolocation.clearWatch(optionsWithCorrectId, successCallback, error)
+            }
         }
     }
 
@@ -237,6 +245,39 @@ class OSGeolocation {
     }
 
     /**
+     * @returns true if should use web API, false otherwise
+     */
+    #shouldUseWebApi(): boolean {
+        // @ts-ignore
+        if (this.#isSynapseDefined()) {
+            // synapse is defined, which means the app is a native mobile app (PWAs don't need synapse)
+            return true
+        }
+        // TODO once synapse dependency is correctly installed in MABS 12
+        //  we can remove the if's specific to cordova / capacitor here
+        if (this.#isCordovaPluginDefined()) {
+            const platformId = cordova.platformId
+            return platformId === "browser"
+        }
+        if (this.#isCapacitorPluginDefined()) {
+            // @ts-ignore
+            const platform = Capacitor.getPlatform() 
+            return platform === "web"
+        }
+        return false
+    }
+
+    /**
+     * Checks if the cordova-outsystems-geolocation plugin is defined
+     * 
+     * @returns true if geolocation cordova plugin is available; false otherwise
+     */
+    #isCordovaPluginDefined(): boolean {
+        // @ts-ignore
+        return (typeof(cordova) !== "undefined" && typeof(cordova.plugins) !== "undefined" && typeof(cordova.plugins.Geolocation) !== "undefined")
+    }
+
+    /**
      * Checks if @capacitor/geolocation plugin is defined
      * 
      * @returns true if geolocation capacitor plugin is available; false otherwise
@@ -244,6 +285,14 @@ class OSGeolocation {
     #isCapacitorPluginDefined(): boolean {
         // @ts-ignore
         return (typeof(Capacitor) !== "undefined" && typeof(Capacitor.Plugins) !== "undefined" && typeof(Capacitor.Plugins.Geolocation) !== "undefined")
+    }
+
+    /**
+     * @returns true if synapse is defined, false otherwise
+     */
+    #isSynapseDefined(): boolean {
+        // @ts-ignore
+        return typeof (CapacitorUtils) !== "undefined"
     }
 }
 
