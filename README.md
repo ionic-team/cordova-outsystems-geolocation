@@ -1,29 +1,111 @@
-<div align="center">
-  <a href="https://github.com/ionic-team/cordova-outsystems-geolocation">
-    <img src="images/logo.png" alt="Logo" width="auto" height="100">
-  </a>
+# GeolocationPlugin-Cordova
 
-<h3 align="center"> cordova-outsystems-geolocation</h3>
+*This plugin is SUPPORTED by OutSystems. Customers entitled to Support Services may obtain assistance through Support.*
 
-  <p align="center">
-    OutSystems' Cordova Plugin for Geolocation.
-    <br />
-    <a href="https://github.com/github_username/repo_name">🔌 Capacitor Plugin</a>
-    ·
-    <a href="https://github.com/ionic-team/cordova-outsystems-geolocation">🤖 Android Library</a>
-    ·
-    <a href="https://github.com/github_username/repo_name">🍏 iOS Library</a>
-  </p>
-  <p align="center">
-    <a href="https://github.com/ionic-team/cordova-outsystems-geolocation/issues/new?labels=bug&template=bug-report---.md">🐛 Report Bug</a>
-    ·
-    <a href="https://github.com/ionic-team/cordova-outsystems-geolocation/issues/new?labels=enhancement&template=feature-request---.md">   💡 Request Feature</a>
-  </p>
-</div>
+## Installation
+
+```console
+cordova plugin add <path-to-repo-local-clone>
+```
+
+## API
+
+<docgen-index>
+
+* [`getCurrentPosition(...)`](#getcurrentposition)
+* [`watchPosition(...)`](#watchposition)
+* [`clearWatch(...)`](#clearwatch)
+* [Interfaces](#interfaces)
+* [Type Aliases](#type-aliases)
+
+</docgen-index>
+
+<docgen-api>
+<!--Update the source file JSDoc comments and rerun docgen to update the docs below-->
+
+### getCurrentPosition(...)
+
+```typescript
+getCurrentPosition(options: CurrentPositionOptions, success: (output: Position) => void, error: (error: PluginError) => void) => void
+```
+
+Get the current GPS location of the device
+
+| Param         | Type                                                                      |
+| ------------- | ------------------------------------------------------------------------- |
+| **`options`** | <code><a href="#currentpositionoptions">CurrentPositionOptions</a></code> |
+| **`success`** | <code>(output: <a href="#position">Position</a>) =&gt; void</code>        |
+| **`error`**   | <code>(error: <a href="#pluginerror">PluginError</a>) =&gt; void</code>   |
+
+--------------------
 
 
-This project has two packages:
+### watchPosition(...)
 
-1. the cordova plugin, `com.outsystems.plugins.geolocation`
-2. a wrapper consumed by the OutSystems' low-code module, `outsystems-wrapper`
- 
+```typescript
+watchPosition(options: WatchPositionOptions, success: (output: Position) => void, error: (error: PluginError) => void) => void
+```
+
+Set up a watch for location changes. Note that watching for location changes
+can consume a large amount of energy. Be smart about listening only when you need to.
+
+| Param         | Type                                                                    |
+| ------------- | ----------------------------------------------------------------------- |
+| **`options`** | <code><a href="#watchpositionoptions">WatchPositionOptions</a></code>   |
+| **`success`** | <code>(output: <a href="#position">Position</a>) =&gt; void</code>      |
+| **`error`**   | <code>(error: <a href="#pluginerror">PluginError</a>) =&gt; void</code> |
+
+--------------------
+
+
+### clearWatch(...)
+
+```typescript
+clearWatch(options: ClearWatchOptions, success: () => void, error: (error: PluginError) => void) => void
+```
+
+Clear a given watch
+
+| Param         | Type                                                                    |
+| ------------- | ----------------------------------------------------------------------- |
+| **`options`** | <code><a href="#clearwatchoptions">ClearWatchOptions</a></code>         |
+| **`success`** | <code>() =&gt; void</code>                                              |
+| **`error`**   | <code>(error: <a href="#pluginerror">PluginError</a>) =&gt; void</code> |
+
+--------------------
+
+### Type Aliases
+
+
+#### CurrentPositionOptions
+
+<code>{  enableHighAccuracy?: boolean;  timeout?: number; maximumAge?: number; minimumUpdateInterval?: number; }
+</code>
+
+#### Position
+
+<code>{ timestamp: number; coords: {
+    latitude: number; 
+    longitude: number; 
+    accuracy: number; 
+    altitudeAccuracy: number | null;
+    altitude: number | null;
+     speed: number | null;
+     heading: number | null; }; }</code>
+
+
+#### PluginError
+
+<code>{ code: string, message: string }</code>
+
+
+#### WatchPositionOptions
+
+<code><a href="#currentpositionoptions">CurrentPositionOptions</a> & <a href="#clearwatchoptions">ClearWatchOptions</a></code>
+
+
+#### ClearWatchOptions
+
+<code>{ id: string; }</code>
+
+</docgen-api>
