@@ -137,14 +137,8 @@ class OSGeolocation {
             );
             this.#callbackIdsMap[watchId] = callbackId;
         } else {
-            if (this.#isSynapseDefined()) {
-                // @ts-ignore
-                CapacitorUtils.Synapse.Geolocation.watchPosition(options, successCallback, errorCallback);
-            } else {
-                // currently Synapse doesn't work in MABS 12 builds, so we need to call the Cordova plugin directly in this case
-                // @ts-ignore
-                cordova.plugins.Geolocation.watchPosition(options, successCallback, errorCallback)
-            }
+            // @ts-ignore
+            cordova.plugins.Geolocation.watchPosition(options, successCallback, errorCallback)
         }
         return watchId;
     }
