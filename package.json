@@ -1,16 +1,48 @@
 {
-  "name": "root",
-  "private": true,
-  "dependencies": {},
+  "name": "com.outsystems.plugins.geolocation",
+  "displayName": "Geolocation",
+  "version": "1.0.0",
+  "description": "Geolocation plugin for Cordova",
   "scripts": {
-    "update:tag": "node ./scripts/change-extensibility.js",
-    "update:version": "node ./scripts/tag-applications-o11.js",
-    "deploy": "node ./scripts/deploy.js",
-    "download": "node ./scripts/download.js"
+    "lint": "npm run eslint && npm run prettier -- --check",
+    "eslint": "eslint . --ext ts",
+    "prettier": "prettier \"**/*.{css,html,ts,js}\"",
+    "docgen": "docgen --api IGeolocationPlugin --output-readme README.md --output-json ./dist/docs.json",
+    "build": "rimraf ./dist && npm run docgen && vite build"
   },
+  "keywords": [
+    "ecosystem:cordova",
+    "cordova-android",
+    "cordova-ios"
+  ],
+  "cordova": {
+    "id": "com.outsystems.plugins.geolocation",
+    "platforms": [
+      "android",
+      "ios"
+    ]
+  },
+  "author": "OutSystems",
+  "license": "MIT",
+  "dependencies": {
+    "@capacitor/synapse": "^1.0.1"
+  },
+  "eslintConfig": {
+    "extends": "@ionic/eslint-config/recommended"
+  },
+  "prettier": "@ionic/prettier-config",
+  "docs": "typedoc",
   "devDependencies": {
+    "@capacitor/docgen": "^0.2.2",
+    "@rollup/plugin-typescript": "^11.1.6",
+    "@types/cordova": "^11.0.3",
     "@types/node": "^20.14.8",
-    "lerna": "^8.1.8",
-    "typescript": "~5.4.5"
+    "cordova-common": "^5.0.0",
+    "eslint": "^7.11.0",
+    "prettier": "~2.3.0",
+    "rimraf": "^3.0.2",
+    "typescript": "~5.4.5",
+    "vite": "^5.2.11",
+    "vite-plugin-dts": "^3.9.1"
   }
 }
