@@ -251,7 +251,7 @@ class OSGeolocation {
         // @ts-ignore
         if (this.#isSynapseDefined()) {
             // synapse is defined, which means the app is a native mobile app (PWAs don't need synapse)
-            return true
+            return false
         }
         // TODO once synapse dependency is correctly installed in MABS 12
         //  we can remove the if's specific to cordova / capacitor here
@@ -264,7 +264,7 @@ class OSGeolocation {
             const platform = Capacitor.getPlatform() 
             return platform === "web"
         }
-        return false
+        return true
     }
 
     /**
