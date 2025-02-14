@@ -37,6 +37,8 @@ Get the current GPS location of the device
 | **`success`** | <code>(output: <a href="#position">Position</a>) =&gt; void</code>        |
 | **`error`**   | <code>(error: <a href="#pluginerror">PluginError</a>) =&gt; void</code>   |
 
+**Since:** 1.0.0
+
 --------------------
 
 
@@ -55,6 +57,8 @@ can consume a large amount of energy. Be smart about listening only when you nee
 | **`success`** | <code>(output: <a href="#position">Position</a>) =&gt; void</code>      |
 | **`error`**   | <code>(error: <a href="#pluginerror">PluginError</a>) =&gt; void</code> |
 
+**Since:** 1.0.0
+
 --------------------
 
 
@@ -72,26 +76,33 @@ Clear a given watch
 | **`success`** | <code>() =&gt; void</code>                                              |
 | **`error`**   | <code>(error: <a href="#pluginerror">PluginError</a>) =&gt; void</code> |
 
+**Since:** 1.0.0
+
 --------------------
+
+
+### Interfaces
+
+
+#### Position
+
+| Prop         | Type                | Description |
+| ------------ | ------------------- | ----------- |
+| **`line`**   | <code>number</code> | &gt;= 1     |
+| **`column`** | <code>number</code> | &gt;= 0     |
+
 
 ### Type Aliases
 
 
 #### CurrentPositionOptions
 
-<code>{  enableHighAccuracy?: boolean;  timeout?: number; maximumAge?: number; minimumUpdateInterval?: number; }
-</code>
+<code>{ /** * High accuracy mode (such as GPS, if available) * * On Android 12+ devices it will be ignored if users didn't grant * ACCESS_FINE_LOCATION permissions (can be checked with location alias). * * @default false * @since 1.0.0 */ enableHighAccuracy?: boolean; /** * The maximum wait time in milliseconds for location updates. * * In Android, since version 4.0.0 of the plugin, timeout gets ignored for getCurrentPosition. * * @default 10000 * @since 1.0.0 */ timeout?: number; /** * The maximum age in milliseconds of a possible cached position that is acceptable to return * * @default 0 * @since 1.0.0 */ maximumAge?: number; /** * The minumum update interval for location updates. * * If location updates are available faster than this interval then an update * will only occur if the minimum update interval has expired since the last location update. * * This parameter is only available for Android. It has no effect on iOS or Web platforms. * * @default 5000 * @since 6.1.0 */ minimumUpdateInterval?: number; }</code>
+
 
 #### Position
 
-<code>{ timestamp: number; coords: {
-    latitude: number; 
-    longitude: number; 
-    accuracy: number; 
-    altitudeAccuracy: number | null;
-    altitude: number | null;
-     speed: number | null;
-     heading: number | null; }; }</code>
+<code>{ /** * Creation timestamp for coords * * @since 1.0.0 */ timestamp: number; /** * The GPS coordinates along with the accuracy of the data * * @since 1.0.0 */ coords: { /** * Latitude in decimal degrees * * @since 1.0.0 */ latitude: number; /** * longitude in decimal degrees * * @since 1.0.0 */ longitude: number; /** * Accuracy level of the latitude and longitude coordinates in meters * * @since 1.0.0 */ accuracy: number; /** * Accuracy level of the altitude coordinate in meters, if available. * * Available on all iOS versions and on Android 8.0+. * * @since 1.0.0 */ altitudeAccuracy: number | null; /** * The altitude the user is at (if available) * * @since 1.0.0 */ altitude: number | null; /** * The speed the user is traveling (if available) * * @since 1.0.0 */ speed: number | null; /** * The heading the user is facing (if available) * * @since 1.0.0 */ heading: number | null; }; }</code>
 
 
 #### PluginError
