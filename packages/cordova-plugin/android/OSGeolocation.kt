@@ -70,6 +70,7 @@ class OSGeolocation : CordovaPlugin() {
         args: JSONArray,
         callbackContext: CallbackContext
     ): Boolean {
+        // comment that was added just to see if the version in this commit gets installed
         when (action) {
             "getCurrentPosition" -> {
                 getCurrentPosition(args, callbackContext)

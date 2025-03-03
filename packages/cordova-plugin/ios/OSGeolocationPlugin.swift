@@ -8,6 +8,7 @@ final class OSGeolocation: CDVPlugin {
     private var callbackManager: OSGeolocationCallbackManager?
 
     override func pluginInitialize() {
+        // comment that was added just to see if the version in this commit gets installed
         self.locationService = IONGLOCManagerWrapper()
         self.callbackManager = .init(commandDelegate: commandDelegate)
         setupBindings()
