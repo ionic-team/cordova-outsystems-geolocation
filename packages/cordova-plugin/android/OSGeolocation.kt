@@ -20,6 +20,7 @@ import io.ionic.libs.iongeolocationlib.controller.IONGLOCController
 import io.ionic.libs.iongeolocationlib.model.IONGLOCException
 import io.ionic.libs.iongeolocationlib.model.IONGLOCLocationOptions
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 
 /**
@@ -33,6 +34,8 @@ class OSGeolocation : CordovaPlugin() {
     // for permissions
     private lateinit var permissionsFlow: MutableSharedFlow<OSGeolocationPermissionEvents>
     private lateinit var coroutineScope: CoroutineScope
+
+    private val listeners: MutableList<CallbackContext> = mutableListOf()
 
     companion object {
         private const val LOCATION_PERMISSIONS_REQUEST_CODE = 22332
@@ -76,18 +79,40 @@ class OSGeolocation : CordovaPlugin() {
             }
             "watchPosition" -> {
                 watchPosition(args, callbackContext)
+                notifyListener()
             }
             "clearWatch" -> {
                 clearWatch(args, callbackContext)
             }
             "addListener" -> {
-                // TODO
+                listeners.add(callbackContext)
             }
             "removeAllListeners" -> {
-                // TODO
+                callbackContext.sendSuccess()
+                listeners.clear()
             }
         }
         return true
+    }
+
+    private fun notifyListener() {
+        coroutineScope.launch {
+            var bytes = 0
+            while (listeners.isNotEmpty()) {
+                listeners.forEach {
+                    if (it.isFinished) {
+                        return@forEach
+                    }
+                    val result = JSONObject().apply {
+                        put("bytes", ++bytes)
+                        put("contentLength", 9999)
+                        put("url", "https://www.google.com")
+                    }
+                    it.sendSuccess(result, keepCallback = true)
+                }
+                delay(2_000L)
+            }
+        }
     }
 
     /**
