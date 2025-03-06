@@ -48,6 +48,16 @@ final class OSGeolocation: CDVPlugin {
 
         callbackManager?.sendSuccess(command.callbackId)
     }
+
+    @objc(addListener:)
+    func addListener(command: CDVInvokedUrlCommand) {
+        // TODO
+    }
+
+    @objc(removeAllListeners:)
+    func removeAllListeners(command: CDVInvokedUrlCommand) {
+        // TODO
+    }
 }
 
 private extension OSGeolocation {

@@ -22,6 +22,12 @@ export interface IGeolocationPlugin {
    */
   clearWatch(options: ClearWatchOptions, success: () => void, error: (error: PluginError) => void): void;
 
+  addListener(
+    eventName: 'progress',
+    listenerFunc: ProgressListener,
+  ): Promise<void>;
+
+  removeAllListeners(): Promise<void>;
 }
 
 export type PluginError = {
@@ -163,3 +169,31 @@ export type Position = {
     heading: number | null;
   };
 }
+
+export interface ProgressStatus {
+  /**
+   * The url of the file being downloaded.
+   *
+   * @since 5.1.0
+   */
+  url: string;
+  /**
+   * The number of bytes downloaded so far.
+   *
+   * @since 5.1.0
+   */
+  bytes: number;
+  /**
+   * The total number of bytes to download for this file.
+   *
+   * @since 5.1.0
+   */
+  contentLength: number;
+}
+
+/**
+ * A listener function that receives progress events.
+ *
+ * @since 5.1.0
+ */
+export type ProgressListener = (progress: ProgressStatus) => void;

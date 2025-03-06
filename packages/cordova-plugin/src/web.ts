@@ -1,5 +1,5 @@
 import { require } from "cordova";
-import { ClearWatchOptions, OSGLOCPosition, PluginError, Position, CurrentPositionOptions, WatchPositionOptions } from "./definitions";
+import { ClearWatchOptions, OSGLOCPosition, PluginError, Position, CurrentPositionOptions, WatchPositionOptions, ProgressStatus } from "./definitions";
 import { ClearWatchOptionsDefault, CurrentPositionOptionsDefault, WatchPositionOptionsDefault } from "./defaults";
 
 var exec = require('cordova/exec');
@@ -51,8 +51,21 @@ function clearWatch(options: ClearWatchOptions, success: () => void, error: (err
   exec(success, error, "OSGeolocation", "clearWatch", [options]);
 }
 
+function addListener(
+    eventName: 'progress',
+    listenerFunc: (progress: ProgressStatus) => void,
+): void {
+  exec(listenerFunc, {}, "OSGeolocation", "addListener", [eventName]);
+}
+
+function removeAllListeners(): void {
+  exec({}, {}, "OSGeolocation", "removeAllListeners", []);
+}
+
 module.exports = {
   getCurrentPosition,
   watchPosition,
-  clearWatch
+  clearWatch,
+  addListener,
+  removeAllListeners
 };

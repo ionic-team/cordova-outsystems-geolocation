@@ -1,4 +1,4 @@
-import { ClearWatchOptions, OSGLOCPosition, PluginError, Position, CurrentPositionOptions, WatchPositionOptions } from "../../cordova-plugin/src/definitions"
+import { ClearWatchOptions, OSGLOCPosition, PluginError, Position, CurrentPositionOptions, WatchPositionOptions, ProgressStatus } from "../../cordova-plugin/src/definitions"
 import { v4 as uuidv4 } from 'uuid'
 
 class OSGeolocation {
@@ -135,6 +135,13 @@ class OSGeolocation {
         } else {
             // @ts-ignore
             cordova.plugins.Geolocation.watchPosition(options, successCallback, errorCallback)
+            // @ts-ignore
+            cordova.plugins.Geolocation.addListener(
+                'progress', 
+                (status: ProgressStatus) => {
+                    console.log(JSON.stringify(status));
+                }
+            );
         }
         return watchId;
     }
@@ -166,6 +173,8 @@ class OSGeolocation {
         if (this.#isSynapseDefined()) {
             // @ts-ignore
             CapacitorUtils.Synapse.Geolocation.clearWatch(optionsWithCorrectId, successCallback, error)
+            // @ts-ignore
+            cordova.plugins.Geolocation.removeAllListeners();
         } else {
             // currently Synapse doesn't work in MABS 12 builds with Capacitor npm package
             //  But it works with cordova via Github repository

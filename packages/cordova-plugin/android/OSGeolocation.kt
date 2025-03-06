@@ -80,6 +80,12 @@ class OSGeolocation : CordovaPlugin() {
             "clearWatch" -> {
                 clearWatch(args, callbackContext)
             }
+            "addListener" -> {
+                // TODO
+            }
+            "removeAllListeners" -> {
+                // TODO
+            }
         }
         return true
     }

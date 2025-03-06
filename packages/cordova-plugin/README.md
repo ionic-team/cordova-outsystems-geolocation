@@ -15,6 +15,9 @@ cordova plugin add <path-to-repo-local-clone>
 * [`getCurrentPosition(...)`](#getcurrentposition)
 * [`watchPosition(...)`](#watchposition)
 * [`clearWatch(...)`](#clearwatch)
+* [`addListener('progress', ...)`](#addlistenerprogress-)
+* [`removeAllListeners()`](#removealllisteners)
+* [Interfaces](#interfaces)
 * [Type Aliases](#type-aliases)
 
 </docgen-index>
@@ -80,6 +83,41 @@ Clear a given watch
 --------------------
 
 
+### addListener('progress', ...)
+
+```typescript
+addListener(eventName: 'progress', listenerFunc: ProgressListener) => Promise<void>
+```
+
+| Param              | Type                                                          |
+| ------------------ | ------------------------------------------------------------- |
+| **`eventName`**    | <code>'progress'</code>                                       |
+| **`listenerFunc`** | <code><a href="#progresslistener">ProgressListener</a></code> |
+
+--------------------
+
+
+### removeAllListeners()
+
+```typescript
+removeAllListeners() => Promise<void>
+```
+
+--------------------
+
+
+### Interfaces
+
+
+#### ProgressStatus
+
+| Prop                | Type                | Description                                          | Since |
+| ------------------- | ------------------- | ---------------------------------------------------- | ----- |
+| **`url`**           | <code>string</code> | The url of the file being downloaded.                | 5.1.0 |
+| **`bytes`**         | <code>number</code> | The number of bytes downloaded so far.               | 5.1.0 |
+| **`contentLength`** | <code>number</code> | The total number of bytes to download for this file. | 5.1.0 |
+
+
 ### Type Aliases
 
 
@@ -106,5 +144,12 @@ Clear a given watch
 #### ClearWatchOptions
 
 <code>{ id: string; }</code>
+
+
+#### ProgressListener
+
+A listener function that receives progress events.
+
+<code>(progress: <a href="#progressstatus">ProgressStatus</a>): void</code>
 
 </docgen-api>
