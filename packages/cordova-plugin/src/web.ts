@@ -55,11 +55,15 @@ function addListener(
     eventName: 'progress',
     listenerFunc: (progress: ProgressStatus) => void,
 ): void {
-  exec(listenerFunc, {}, "OSGeolocation", "addListener", [eventName]);
+  exec(listenerFunc, emptyListener, "OSGeolocation", "addListener", [eventName]);
 }
 
 function removeAllListeners(): void {
-  exec({}, {}, "OSGeolocation", "removeAllListeners", []);
+  exec(emptyListener, emptyListener, "OSGeolocation", "removeAllListeners", []);
+}
+
+function emptyListener(_: any): void {
+  return
 }
 
 module.exports = {

@@ -102,10 +102,13 @@ function clearWatch(options, success, error) {
   exec(success, error, "OSGeolocation", "clearWatch", [options]);
 }
 function addListener(eventName, listenerFunc) {
-  exec(listenerFunc, {}, "OSGeolocation", "addListener", [eventName]);
+  exec(listenerFunc, emptyListener, "OSGeolocation", "addListener", [eventName]);
 }
 function removeAllListeners() {
-  exec({}, {}, "OSGeolocation", "removeAllListeners", []);
+  exec(emptyListener, emptyListener, "OSGeolocation", "removeAllListeners", []);
+}
+function emptyListener(_) {
+  return;
 }
 module.exports = {
   getCurrentPosition,
