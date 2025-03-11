@@ -43,7 +43,7 @@ jobs:
       - change_extensibility
     secrets: inherit
     with:
-      plugin: LocationPlugin
+      plugin: Location Plugin
 
   deploy_odc:
     name: '🔌  Update ODC OML Extensibility & Tenant Release'

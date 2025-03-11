@@ -41,8 +41,8 @@ function u(t) {
     }
   );
 }
-function y() {
-  window.CapacitorUtils = window.CapacitorUtils || {}, window.Capacitor !== void 0 ? s(window) : window.cordova !== void 0 && u(window);
+function y(t = false) {
+  window.CapacitorUtils = window.CapacitorUtils || {}, window.Capacitor !== void 0 && !t ? s(window) : window.cordova !== void 0 && u(window);
 }
 const CurrentPositionOptionsDefault = {
   enableHighAccuracy: false,
@@ -105,4 +105,4 @@ module.exports = {
   watchPosition,
   clearWatch
 };
-y();
+y(true);
