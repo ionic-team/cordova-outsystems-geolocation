@@ -264,7 +264,7 @@ class OSGeolocation {
      */
     #isSynapseDefined(): boolean {
         // @ts-ignore
-        return typeof (CapacitorUtils) !== "undefined"
+        return typeof (CapacitorUtils) !== "undefined" && typeof (CapacitorUtils.Synapse) !== "undefined" && typeof (CapacitorUtils.Synapse.Geolocation) !== "undefined"
     }
 }
 
