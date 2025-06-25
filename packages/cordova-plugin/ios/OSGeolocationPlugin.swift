@@ -1,16 +1,45 @@
 import IONGeolocationLib
 import Combine
+import UIKit
 
 @objc(OSGeolocation)
 final class OSGeolocation: CDVPlugin {
     private var locationService: (any IONGLOCService)?
     private var cancellables = Set<AnyCancellable>()
+    private var locationCancellable: AnyCancellable?
     private var callbackManager: OSGeolocationCallbackManager?
+    private var statusInitialized = false
+    private var locationInitialized: Bool = false
 
     override func pluginInitialize() {
         self.locationService = IONGLOCManagerWrapper()
         self.callbackManager = .init(commandDelegate: commandDelegate)
+        
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(appDidBecomeActive),
+            name: UIApplication.didBecomeActiveNotification,
+            object: nil
+        )
+        
         setupBindings()
+    }
+
+    @objc private func appDidBecomeActive() {
+        if let watchCallbacksEmpty = callbackManager?.watchCallbacks.isEmpty, !watchCallbacksEmpty {
+            print("App became active. Restarting location monitoring for watch callbacks.")
+            locationCancellable?.cancel()
+            locationCancellable = nil
+            locationInitialized = false
+            
+            locationService?.stopMonitoringLocation()
+            locationService?.startMonitoringLocation()
+            bindLocationPublisher()
+        }
+    }
+
+    deinit {
+        NotificationCenter.default.removeObserver(self)
     }
 
     @objc(getCurrentPosition:)
@@ -44,6 +73,9 @@ final class OSGeolocation: CDVPlugin {
 
         if (callbackManager?.watchCallbacks.isEmpty) ?? false {
             locationService?.stopMonitoringLocation()
+            locationCancellable?.cancel()
+            locationCancellable = nil
+            locationInitialized = false
         }
 
         callbackManager?.sendSuccess(command.callbackId)
@@ -52,6 +84,13 @@ final class OSGeolocation: CDVPlugin {
 
 private extension OSGeolocation {
     func setupBindings() {
+        bindAuthorisationStatusPublisher()
+        bindLocationPublisher()
+    }
+
+    func bindAuthorisationStatusPublisher() {
+        guard !statusInitialized else { return }
+        statusInitialized = true
         locationService?.authorisationStatusPublisher
             .sink { [weak self] status in
                 guard let self else { return }
@@ -69,17 +108,29 @@ private extension OSGeolocation {
                 }
             }
             .store(in: &cancellables)
+    }
 
-        locationService?.currentLocationPublisher
-            .sink(receiveCompletion: { [weak self] completion in
-                if case .failure(let error) = completion {
-                    print("An error was found while retrieving the location: \(error)")
+    func bindLocationPublisher() {
+        guard !locationInitialized else { return }
+        locationInitialized = true
+        locationCancellable = locationService?.currentLocationPublisher
+            .catch { [weak self] error -> AnyPublisher<IONGLOCPositionModel, Never> in
+                print("An error was found while retrieving the location: \(error)")
+                
+                if case IONGLOCLocationError.locationUnavailable = error {
+                    print("Location unavailable (likely due to backgrounding). Keeping watch callbacks alive.")
                     self?.callbackManager?.sendError(.positionUnavailable)
+                    return Empty<IONGLOCPositionModel, Never>()
+                        .eraseToAnyPublisher()
+                } else {
+                    self?.callbackManager?.sendError(.positionUnavailable)
+                    return Empty<IONGLOCPositionModel, Never>()
+                        .eraseToAnyPublisher()
                 }
-            }, receiveValue: { [weak self] currentPosition in
-                self?.callbackManager?.sendSuccess(with: currentPosition)
+            }
+            .sink(receiveValue: { [weak self] position in
+                self?.callbackManager?.sendSuccess(with: position)
             })
-            .store(in: &cancellables)
     }
 
     func requestLocationAuthorisation(type requestType: IONGLOCAuthorisationRequestType) {
