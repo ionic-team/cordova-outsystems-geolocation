@@ -106,6 +106,9 @@ class OSGeolocation {
             }
             error(e)
         }
+        const watchAddedCallback = (callbackId: string) => {
+            this.#callbackIdsMap[watchId] = callbackId;
+        }
 
         if (options.timeout !== Infinity) {
             // If the timeout value was not set to Infinity (default), then
@@ -120,7 +123,7 @@ class OSGeolocation {
             // For the case of watch location, capacitor returns a callback id that should be stored on the wrapper to make sure watches are cleared properly
             //  So in other words, Synapse can't be used in watchPosition for Capacitor.
             // @ts-ignore
-            let callbackId: string = Capacitor.Plugins.Geolocation.watchPosition(
+            Capacitor.Plugins.Geolocation.watchPosition(
                 options, 
                 (position: Position | OSGLOCPosition, err?: any) => {
                     if (err) {
@@ -130,8 +133,7 @@ class OSGeolocation {
                         successCallback(position)
                     }
                 }
-            );
-            this.#callbackIdsMap[watchId] = callbackId;
+            ).then(watchAddedCallback);
         } else {
             // @ts-ignore
             cordova.plugins.Geolocation.watchPosition(options, successCallback, errorCallback)
