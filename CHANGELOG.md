@@ -10,6 +10,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Fix: getting watch id for Capacitor in OutSystems Wrapper.
 
+### 2025-04-17
+
+- Fix: Properly check if synapse is defined.
+
 ## [1.0.1]
 
 ### 2025-02-14
