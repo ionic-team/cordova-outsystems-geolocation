@@ -173,7 +173,7 @@ private extension OSGeolocation {
             }
         }
         
-        if watchIsActive && !singleRequestNeeded {
+        if shouldRequestLocationMonitoring && !shouldRequestCurrentPosition {
             locationService?.startMonitoringLocation()
         }
     }
