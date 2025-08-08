@@ -158,7 +158,7 @@ private extension OSGeolocation {
     }
     
     func requestLocation() {
-        self.checkIfPublisherActivated()
+        self.bindLocationPublisher()
         
         let shouldRequestLocationMonitoring = callbackManager?.watchCallbacks.isEmpty == false
         let shouldRequestCurrentPosition = callbackManager?.locationCallbacks.isEmpty == false
@@ -175,12 +175,6 @@ private extension OSGeolocation {
         
         if shouldRequestLocationMonitoring && !shouldRequestCurrentPosition {
             locationService?.startMonitoringLocation()
-        }
-    }
-    
-    func checkIfPublisherActivated(){
-        if self.locationInitialized {
-            self.bindLocationPublisher()
         }
     }
     
@@ -210,4 +204,3 @@ private extension OSGeolocation {
         }
     }
 }
-
