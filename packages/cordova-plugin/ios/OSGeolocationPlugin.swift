@@ -10,7 +10,8 @@ final class OSGeolocation: CDVPlugin {
     private var callbackManager: OSGeolocationCallbackManager?
     private var statusInitialized = false
     private var locationInitialized: Bool = false
-
+    private var resumeWatchAfterSingleRequest: Bool = false
+    
     override func pluginInitialize() {
         self.locationService = IONGLOCManagerWrapper()
         self.callbackManager = .init(commandDelegate: commandDelegate)
@@ -130,6 +131,17 @@ private extension OSGeolocation {
             }
             .sink(receiveValue: { [weak self] position in
                 self?.callbackManager?.sendSuccess(with: position)
+                
+                if self?.resumeWatchAfterSingleRequest == true {
+                    self?.resumeWatchAfterSingleRequest = false
+                    self?.locationCancellable?.cancel()
+                    self?.locationCancellable = nil
+                    self?.locationInitialized = false
+                    
+                    self?.locationService?.stopMonitoringLocation()
+                    self?.locationService?.startMonitoringLocation()
+                    self?.bindLocationPublisher()
+                }
             })
     }
 
@@ -144,20 +156,34 @@ private extension OSGeolocation {
             self.locationService?.requestAuthorisation(withType: requestType)
         }
     }
-
+    
     func requestLocation() {
-        // should request if callbacks exist and are not empty
-        let shouldRequestCurrentPosition = callbackManager?.locationCallbacks.isEmpty == false
+        self.checkIfPublisherActivated()
+        
         let shouldRequestLocationMonitoring = callbackManager?.watchCallbacks.isEmpty == false
-
+        let shouldRequestCurrentPosition = callbackManager?.locationCallbacks.isEmpty == false
+        
         if shouldRequestCurrentPosition {
-            locationService?.requestSingleLocation()
+            if shouldRequestLocationMonitoring {
+                self.resumeWatchAfterSingleRequest = true
+                locationService?.stopMonitoringLocation()
+                locationService?.requestSingleLocation()
+            } else {
+                locationService?.requestSingleLocation()
+            }
         }
-        if shouldRequestLocationMonitoring {
+        
+        if watchIsActive && !singleRequestNeeded {
             locationService?.startMonitoringLocation()
         }
     }
-
+    
+    func checkIfPublisherActivated(){
+        if self.locationInitialized {
+            self.bindLocationPublisher()
+        }
+    }
+    
     func createModel<T: Decodable>(for inputArgument: Any?) -> T? {
         guard let argumentsDictionary = inputArgument as? [String: Any],
               let argumentsData = try? JSONSerialization.data(withJSONObject: argumentsDictionary),
@@ -184,3 +210,4 @@ private extension OSGeolocation {
         }
     }
 }
+
