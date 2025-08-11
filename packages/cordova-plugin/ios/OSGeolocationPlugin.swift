@@ -167,6 +167,7 @@ private extension OSGeolocation {
     }
 
     func handleLocationRequest(_ enableHighAccuracy: Bool, watchUUID: String? = nil, _ callbackId: String) {
+        bindLocationPublisher()
         let configurationModel = IONGLOCConfigurationModel.createWithAccuracy(enableHighAccuracy)
         locationService?.updateConfiguration(configurationModel)
 
