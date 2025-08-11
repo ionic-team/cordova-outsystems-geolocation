@@ -6,8 +6,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
-### Unreleased
+## [1.0.3]
 
+### 2025-08-11
 - Fix(ios): fixes an issue where the plugin stops receiving location updates after calling the clearWatch method.
 - Chore(iOS): update native library IONGeolocationLib to version 1.0.1
 
