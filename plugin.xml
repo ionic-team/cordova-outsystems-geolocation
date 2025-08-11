@@ -50,7 +50,7 @@
                 <source url="https://cdn.cocoapods.org/"/>
             </config>
             <pods use-frameworks="true">
-                <pod name="IONGeolocationLib" spec="1.0.0" />
+                <pod name="IONGeolocationLib" spec="1.0.1" />
             </pods>
         </podspec>
     </platform>
