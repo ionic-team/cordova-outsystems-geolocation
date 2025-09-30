@@ -1,9 +1,16 @@
 package com.outsystems.plugins.geolocation
 
-import com.google.android.gms.location.LocationServices
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.activity.result.contract.ActivityResultContracts
 import com.google.gson.Gson
+import io.ionic.libs.iongeolocationlib.controller.IONGLOCController
+import io.ionic.libs.iongeolocationlib.model.IONGLOCException
+import io.ionic.libs.iongeolocationlib.model.IONGLOCLocationOptions
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.launch
 import org.apache.cordova.CallbackContext
 import org.apache.cordova.CordovaInterface
@@ -13,14 +20,6 @@ import org.apache.cordova.PermissionHelper
 import org.apache.cordova.PluginResult
 import org.json.JSONArray
 import org.json.JSONObject
-import android.Manifest
-import android.content.pm.PackageManager
-import androidx.activity.result.contract.ActivityResultContracts
-import io.ionic.libs.iongeolocationlib.controller.IONGLOCController
-import io.ionic.libs.iongeolocationlib.model.IONGLOCException
-import io.ionic.libs.iongeolocationlib.model.IONGLOCLocationOptions
-import kotlinx.coroutines.cancel
-import kotlinx.coroutines.flow.MutableSharedFlow
 
 /**
  * Cordova bridge, inherits from CordovaPlugin
@@ -40,6 +39,7 @@ class OSGeolocation : CordovaPlugin() {
         private const val TIMEOUT = "timeout"
         private const val MAXIMUM_AGE = "maximumAge"
         private const val ENABLE_HIGH_ACCURACY = "enableHighAccuracy"
+        private const val ENABLE_FALLBACK = "enableLocationFallback"
     }
 
     override fun initialize(cordova: CordovaInterface, webView: CordovaWebView) {
@@ -54,10 +54,7 @@ class OSGeolocation : CordovaPlugin() {
             }
         }
 
-        this.controller = IONGLOCController(
-            LocationServices.getFusedLocationProviderClient(cordova.context),
-            activityLauncher
-        )
+        this.controller = IONGLOCController(cordova.context, activityLauncher)
     }
 
     override fun onDestroy() {
@@ -103,7 +100,9 @@ class OSGeolocation : CordovaPlugin() {
                 val locationOptions = IONGLOCLocationOptions(
                     options.getLong(TIMEOUT),
                     options.getLong(MAXIMUM_AGE),
-                    options.getBoolean(ENABLE_HIGH_ACCURACY))
+                    options.getBoolean(ENABLE_HIGH_ACCURACY),
+                    enableLocationManagerFallback = options.optBoolean(ENABLE_FALLBACK, true)
+                )
 
                 val locationResult = controller.getCurrentPosition(cordova.activity, locationOptions)
 
@@ -137,6 +136,7 @@ class OSGeolocation : CordovaPlugin() {
                     timeout = options.getLong(TIMEOUT),
                     maximumAge = options.getLong(MAXIMUM_AGE),
                     enableHighAccuracy = options.getBoolean(ENABLE_HIGH_ACCURACY),
+                    enableLocationManagerFallback = options.optBoolean(ENABLE_FALLBACK, true)
                 )
 
                 controller.addWatch(cordova.activity, locationOptions, watchId).collect { result ->
