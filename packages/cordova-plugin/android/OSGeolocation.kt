@@ -175,6 +175,10 @@ class OSGeolocation : CordovaPlugin() {
                 callbackContext.sendError(OSGeolocationErrors.LOCATION_SETTINGS_ERROR)
             }
 
+            is IONGLOCException.IONGLOCLocationAndNetworkDisabledException -> {
+                callbackContext.sendError(OSGeolocationErrors.NETWORK_LOCATION_DISABLED_ERROR)
+            }
+
             is IONGLOCException.IONGLOCInvalidTimeoutException -> {
                 callbackContext.sendError(OSGeolocationErrors.INVALID_TIMEOUT)
             }
