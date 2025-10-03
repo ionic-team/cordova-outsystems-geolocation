@@ -86,9 +86,19 @@ export type CurrentPositionOptions = {
    * This parameter is only available for Android. It has no effect on iOS or Web platforms.
    *
    * @default 5000
-   * @since 6.1.0
+   * @since 1.0.0
    */
   minimumUpdateInterval?: number;
+
+  /**
+   * This option applies to Android only.
+   * 
+   * TODO document
+   * 
+   * @default true
+   * @since 1.1.0
+   */
+  enableLocationFallback?: boolean
 }
 
 export type ClearWatchOptions = {
