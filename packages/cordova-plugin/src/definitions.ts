@@ -93,7 +93,12 @@ export type CurrentPositionOptions = {
   /**
    * This option applies to Android only.
    * 
-   * TODO document
+   * Whether to fall back to the Android framework's `LocationManager` in case Google Play Service's location settings checks fail.
+   * This can happen for multiple reasons - e.g. device has no Play Services or device has no network connection (Airplane Mode)
+   * If set to `false`, failures are propagated to the caller.
+   * Note that `LocationManager` may not be as effective as Google Play Services implementation.
+   * If the device's in airplane mode, only the GPS provider is used, which may take longer to return a location, depending on GPS signal.
+   * This means that to receive location in such circumstances, you may need to provide a higher timeout.
    * 
    * @default true
    * @since 1.1.0
