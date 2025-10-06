@@ -4,7 +4,8 @@ export const CurrentPositionOptionsDefault: CurrentPositionOptions = {
     enableHighAccuracy: false,
     timeout: 1000,
     maximumAge: 0,
-    minimumUpdateInterval: 5000
+    minimumUpdateInterval: 5000,
+    enableLocationFallback: true
 }
 
 export const ClearWatchOptionsDefault: ClearWatchOptions = {

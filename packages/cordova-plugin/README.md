@@ -15,6 +15,7 @@ cordova plugin add <path-to-repo-local-clone>
 * [`getCurrentPosition(...)`](#getcurrentposition)
 * [`watchPosition(...)`](#watchposition)
 * [`clearWatch(...)`](#clearwatch)
+* [Interfaces](#interfaces)
 * [Type Aliases](#type-aliases)
 
 </docgen-index>
@@ -80,12 +81,23 @@ Clear a given watch
 --------------------
 
 
+### Interfaces
+
+
+#### Position
+
+| Prop         | Type                | Description |
+| ------------ | ------------------- | ----------- |
+| **`line`**   | <code>number</code> | &gt;= 1     |
+| **`column`** | <code>number</code> | &gt;= 0     |
+
+
 ### Type Aliases
 
 
 #### CurrentPositionOptions
 
-<code>{ /** * High accuracy mode (such as GPS, if available) * * On Android 12+ devices it will be ignored if users didn't grant * ACCESS_FINE_LOCATION permissions (can be checked with location alias). * * @default false * @since 1.0.0 */ enableHighAccuracy?: boolean; /** * The maximum wait time in milliseconds for location updates. * * In Android, since version 4.0.0 of the plugin, timeout gets ignored for getCurrentPosition. * * @default 10000 * @since 1.0.0 */ timeout?: number; /** * The maximum age in milliseconds of a possible cached position that is acceptable to return * * @default 0 * @since 1.0.0 */ maximumAge?: number; /** * The minumum update interval for location updates. * * If location updates are available faster than this interval then an update * will only occur if the minimum update interval has expired since the last location update. * * This parameter is only available for Android. It has no effect on iOS or Web platforms. * * @default 5000 * @since 6.1.0 */ minimumUpdateInterval?: number; }</code>
+<code>{ /** * High accuracy mode (such as GPS, if available) * * On Android 12+ devices it will be ignored if users didn't grant * ACCESS_FINE_LOCATION permissions (can be checked with location alias). * * @default false * @since 1.0.0 */ enableHighAccuracy?: boolean; /** * The maximum wait time in milliseconds for location updates. * * In Android, since version 4.0.0 of the plugin, timeout gets ignored for getCurrentPosition. * * @default 10000 * @since 1.0.0 */ timeout?: number; /** * The maximum age in milliseconds of a possible cached position that is acceptable to return * * @default 0 * @since 1.0.0 */ maximumAge?: number; /** * The minumum update interval for location updates. * * If location updates are available faster than this interval then an update * will only occur if the minimum update interval has expired since the last location update. * * This parameter is only available for Android. It has no effect on iOS or Web platforms. * * @default 5000 * @since 1.0.0 */ minimumUpdateInterval?: number; /** * This option applies to Android only. * * Whether to fall back to the Android framework's `LocationManager` in case Google Play Service's location settings checks fail. * This can happen for multiple reasons - e.g. device has no Play Services or device has no network connection (Airplane Mode) * If set to `false`, failures are propagated to the caller. * Note that `LocationManager` may not be as effective as Google Play Services implementation. * If the device's in airplane mode, only the GPS provider is used, which may take longer to return a location, depending on GPS signal. * This means that to receive location in such circumstances, you may need to provide a higher timeout. * * @default true * @since 1.1.0 */ enableLocationFallback?: boolean }</code>
 
 
 #### Position

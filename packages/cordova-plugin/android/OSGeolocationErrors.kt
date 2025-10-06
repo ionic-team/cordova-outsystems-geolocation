@@ -78,4 +78,9 @@ object OSGeolocationErrors {
         code = formatErrorCode(16),
         message = "Location settings error."
     )
+
+    val NETWORK_LOCATION_DISABLED_ERROR = ErrorInfo(
+        code = formatErrorCode(17),
+        message = "Unable to retrieve location because device has both Network and Location turned off."
+    )
 }
