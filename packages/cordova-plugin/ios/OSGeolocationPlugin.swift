@@ -1,4 +1,4 @@
-import IONGeolocationLib
+//import IONGeolocationLib
 import Combine
 import UIKit
 
@@ -7,9 +7,11 @@ final class OSGeolocation: CDVPlugin {
     private var locationService: (any IONGLOCService)?
     private var cancellables = Set<AnyCancellable>()
     private var locationCancellable: AnyCancellable?
+    private var timeoutCancellable: AnyCancellable?
     private var callbackManager: OSGeolocationCallbackManager?
     private var statusInitialized = false
     private var locationInitialized: Bool = false
+    private var timeout : Int?
 
     override func pluginInitialize() {
         self.locationService = IONGLOCManagerWrapper()
@@ -30,6 +32,8 @@ final class OSGeolocation: CDVPlugin {
             print("App became active. Restarting location monitoring for watch callbacks.")
             locationCancellable?.cancel()
             locationCancellable = nil
+            timeoutCancellable?.cancel()
+            timeoutCancellable = nil
             locationInitialized = false
             
             locationService?.stopMonitoringLocation()
@@ -49,6 +53,8 @@ final class OSGeolocation: CDVPlugin {
             callbackManager?.sendError(.inputArgumentsIssue(target: .getCurrentPosition))
             return
         }
+        
+        self.timeout = config.timeout
         handleLocationRequest(config.enableHighAccuracy, command.callbackId)
     }
 
@@ -59,6 +65,8 @@ final class OSGeolocation: CDVPlugin {
             callbackManager?.sendError(.inputArgumentsIssue(target: .watchPosition))
             return
         }
+        
+        self.timeout = config.timeout
         handleLocationRequest(config.enableHighAccuracy, watchUUID: config.id, command.callbackId)
     }
 
@@ -75,6 +83,8 @@ final class OSGeolocation: CDVPlugin {
             locationService?.stopMonitoringLocation()
             locationCancellable?.cancel()
             locationCancellable = nil
+            timeoutCancellable?.cancel()
+            timeoutCancellable = nil
             locationInitialized = false
         }
 
@@ -109,7 +119,7 @@ private extension OSGeolocation {
             }
             .store(in: &cancellables)
     }
-
+    
     func bindLocationPublisher() {
         guard !locationInitialized else { return }
         locationInitialized = true
@@ -131,6 +141,15 @@ private extension OSGeolocation {
             .sink(receiveValue: { [weak self] position in
                 self?.callbackManager?.sendSuccess(with: position)
             })
+        
+        timeoutCancellable = locationService?.locationTimeoutPublisher
+            .sink(receiveValue: { [weak self] error in
+                if case .timeout = error {
+                    self?.callbackManager?.sendError(.timeout)
+                } else {
+                    self?.callbackManager?.sendError(.positionUnavailable)
+                }
+            })
     }
 
     func requestLocationAuthorisation(type requestType: IONGLOCAuthorisationRequestType) {
@@ -151,10 +170,10 @@ private extension OSGeolocation {
         let shouldRequestLocationMonitoring = callbackManager?.watchCallbacks.isEmpty == false
 
         if shouldRequestCurrentPosition {
-            locationService?.requestSingleLocation()
+            locationService?.requestSingleLocation(timeout: self.timeout)
         }
         if shouldRequestLocationMonitoring {
-            locationService?.startMonitoringLocation()
+            locationService?.startMonitoringLocation(timeout: self.timeout)
         }
     }
 

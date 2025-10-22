@@ -1,4 +1,4 @@
-import IONGeolocationLib
+//import IONGeolocationLib
 
 extension IONGLOCPositionModel {
     func toResultDictionary() -> [String: Double] {

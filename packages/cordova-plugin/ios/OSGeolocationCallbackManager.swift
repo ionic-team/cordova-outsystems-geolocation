@@ -1,4 +1,4 @@
-import IONGeolocationLib
+//import IONGeolocationLib
 
 private enum OSGeolocationCallbackType {
     case location

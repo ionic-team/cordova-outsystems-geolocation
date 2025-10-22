@@ -45,6 +45,13 @@
         <source-file src="packages/cordova-plugin/ios/IONGLOCConfigurationModel+Accuracy.swift" />
         <source-file src="packages/cordova-plugin/ios/IONGLOCPositionModel+JSONTransformer.swift" />
 
+
+        <source-file src="packages/cordova-plugin/ios/IONGeolocationLib/IONGLOCAuthorisation.swift" />
+        <source-file src="packages/cordova-plugin/ios/IONGeolocationLib/IONGLOCAuthorisationRequestType.swift" />
+        <source-file src="packages/cordova-plugin/ios/IONGeolocationLib/IONGLOCPositionModel.swift" />
+        <source-file src="packages/cordova-plugin/ios/IONGeolocationLib/Publishers/IONGLOCManagerProtocols.swift" />
+        <source-file src="packages/cordova-plugin/ios/IONGeolocationLib/Publishers/IONGLOCManagerWrapper.swift" />
+        
         <podspec>
             <config>
                 <source url="https://cdn.cocoapods.org/"/>
