@@ -52,6 +52,7 @@
         <source-file src="packages/cordova-plugin/ios/IONGeolocationLib/Publishers/IONGLOCManagerProtocols.swift" />
         <source-file src="packages/cordova-plugin/ios/IONGeolocationLib/Publishers/IONGLOCManagerWrapper.swift" />
         
+        <!--
         <podspec>
             <config>
                 <source url="https://cdn.cocoapods.org/"/>
@@ -60,5 +61,6 @@
                 <pod name="IONGeolocationLib" spec="1.0.1" />
             </pods>
         </podspec>
+        -->
     </platform>
 </plugin>
