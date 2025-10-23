@@ -1,3 +1,10 @@
+## [1.2.1](https://github.com/OS-pedrogustavobilro/cordova-outsystems-geolocation/compare/1.2.0...1.2.1) (2025-10-23)
+
+
+### Bug Fixes
+
+* use npm ci ([ea349fd](https://github.com/OS-pedrogustavobilro/cordova-outsystems-geolocation/commit/ea349fdded40219532ea1fbe2f97bcf609de6e31))
+
 # [1.2.0](https://github.com/OS-pedrogustavobilro/cordova-outsystems-geolocation/compare/1.1.2...1.2.0) (2025-10-23)
 
 
