@@ -55,7 +55,7 @@ jobs:
         working-directory: ./packages/outsystems-wrapper
         run: npm run build
 
-      - name: 'Check README.md changes'
+      - name: 'Check generated JS file changes'
         working-directory: ./packages/outsystems-wrapper
         run: |
           if ! cmp --silent dist/outsystems.js dist/outsystems.js.original; then
