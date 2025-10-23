@@ -1,3 +1,10 @@
+# [1.2.0](https://github.com/OS-pedrogustavobilro/cordova-outsystems-geolocation/compare/1.1.2...1.2.0) (2025-10-23)
+
+
+### Features
+
+* Proper indentation on plugin.xml ([1e8bf4e](https://github.com/OS-pedrogustavobilro/cordova-outsystems-geolocation/commit/1e8bf4e7e9e596164f3f207211555d6d9f8442d7))
+
 ## [1.1.2](https://github.com/OS-pedrogustavobilro/cordova-outsystems-geolocation/compare/1.1.1...1.1.2) (2025-10-23)
 
 
