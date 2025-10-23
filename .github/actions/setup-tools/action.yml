@@ -8,6 +8,9 @@ runs:
       uses: actions/setup-node@v4
       with:
         node-version: 25
+    - name: Install dependencies root
+      shell: bash
+      run: npm i
     - name: Install dependencies plugin
       working-directory: ./packages/cordova-plugin
       shell: bash
