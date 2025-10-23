@@ -54,6 +54,11 @@ jobs:
       - name: 'Build OutSystems JS Wrapper'
         working-directory: ./packages/outsystems-wrapper
         run: npm run build
+      
+      - name: Debug file diff
+        run: |
+          file dist/outsystems.js dist/outsystems.js.original
+          diff -u dist/outsystems.js.original dist/outsystems.js | head -50
 
       - name: 'Check generated JS file changes'
         working-directory: ./packages/outsystems-wrapper
