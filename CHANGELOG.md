@@ -1,3 +1,17 @@
+## [1.1.1](https://github.com/OS-pedrogustavobilro/cordova-outsystems-geolocation/compare/1.1.0...1.1.1) (2025-10-23)
+
+
+### Bug Fixes
+
+* outsystems-wrapper build (again) ([32327d1](https://github.com/OS-pedrogustavobilro/cordova-outsystems-geolocation/commit/32327d1f9deee6940fc7ecc42c985fc65c344cb2))
+* update outsystems-wrapper ([d7e285e](https://github.com/OS-pedrogustavobilro/cordova-outsystems-geolocation/commit/d7e285e7f758875892742fd01fb1a567d9b2ebb7))
+* use cjs instead of js for release config ([82a1c4a](https://github.com/OS-pedrogustavobilro/cordova-outsystems-geolocation/commit/82a1c4a6cc6c526cc675eb0120aee4b39240abc4))
+
+
+### Reverts
+
+* debug, mac-os and npm ci ([80d9a3c](https://github.com/OS-pedrogustavobilro/cordova-outsystems-geolocation/commit/80d9a3c2a9b290b08bfa9e7fe89777e1d2dffff6))
+
 # Changelog
 All notable changes to this project will be documented in this file.
 
