@@ -19,11 +19,6 @@
 
 * debug, mac-os and npm ci ([80d9a3c](https://github.com/OS-pedrogustavobilro/cordova-outsystems-geolocation/commit/80d9a3c2a9b290b08bfa9e7fe89777e1d2dffff6))
 
-# Changelog
-All notable changes to this project will be documented in this file.
-
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [1.1.0]
 
