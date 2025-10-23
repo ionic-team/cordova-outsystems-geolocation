@@ -10,6 +10,7 @@
     "@semantic-release/npm": "^13.1.1",
     "@types/node": "^20.14.8",
     "semantic-release": "^25.0.1",
-    "typescript": "~5.4.5"
+    "typescript": "~5.4.5",
+    "xml2js": "^0.6.2"
   }
 }
