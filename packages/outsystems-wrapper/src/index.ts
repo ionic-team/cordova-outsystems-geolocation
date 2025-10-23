@@ -3,7 +3,6 @@ import { v4 as uuidv4 } from 'uuid'
 
 class OSGeolocation {
     #lastPosition: Position | null = null
-    #timers: { [key: string]: ReturnType<typeof setTimeout> | undefined } = {}
     #callbackIdsMap: { [watchId: string]: string } = {}
 
     getCurrentPosition(success: (position: Position) => void, error: (err: PluginError | GeolocationPositionError) => void, options: CurrentPositionOptions): void {
@@ -14,29 +13,16 @@ class OSGeolocation {
             return
         }
 
-        let id = uuidv4()
-        let timeoutID: ReturnType<typeof setTimeout> | undefined
         const successCallback = (position: Position | OSGLOCPosition) => {
-            if (typeof (this.#timers[id]) == 'undefined') {
-                // Timeout already happened, or native fired error callback for
-                // this geo request.
-                // Don't continue with success callback.
-                return
-            }
-
             if (this.#isLegacyPosition(position)) {
                 position = this.#convertFromLegacy(position)
             }
-            clearTimeout(timeoutID)
 
             this.#lastPosition = position
             success(position)
         }
 
         const errorCallback = (e: PluginError) => {
-            if (typeof (this.#timers[id]) !== 'undefined') {
-                clearTimeout(this.#timers[id])
-            }
             error(e)
         }
 
@@ -52,14 +38,6 @@ class OSGeolocation {
             })
             // Otherwise we have to call into native to retrieve a position.
         } else {
-            if (options.timeout !== Infinity) {
-                // If the timeout value was not set to Infinity (default), then
-                // set up a timeout function that will fire the error callback
-                // if no successful position was retrieved before timeout expired.
-                timeoutID = this.#createTimeout(errorCallback, options.timeout, false, id)
-                this.#timers[id] = timeoutID
-            }
-
             if (this.#isSynapseDefined()) {
                 // @ts-ignore
                 CapacitorUtils.Synapse.Geolocation.getCurrentPosition(options, successCallback, errorCallback)
@@ -83,40 +61,21 @@ class OSGeolocation {
         }
 
         let watchId = uuidv4()
-        let timeoutID: ReturnType<typeof setTimeout> | undefined
         const successCallback = (res: Position | OSGLOCPosition) => {
-            if (typeof (this.#timers[watchId]) == 'undefined') {
-                // Timeout already happened, or native fired error callback for
-                // this geo request.
-                // Don't continue with success callback.
-                return
-            }
-
             if (this.#isLegacyPosition(res)) {
                 res = this.#convertFromLegacy(res)
             }
-            clearTimeout(this.#timers[watchId])
 
             this.#lastPosition = res
             success(res)
         }
         const errorCallback = (e: PluginError) => {
-            if (typeof (timeoutID) !== 'undefined') {
-                clearTimeout(timeoutID)
-            }
             error(e)
         }
         const watchAddedCallback = (callbackId: string) => {
             this.#callbackIdsMap[watchId] = callbackId;
         }
 
-        if (options.timeout !== Infinity) {
-            // If the timeout value was not set to Infinity (default), then
-            // set up a timeout function that will fire the error callback
-            // if no successful position was retrieved before timeout expired.
-            timeoutID = this.#createTimeout(errorCallback, options.timeout, true, watchId)
-            this.#timers[watchId] = timeoutID
-        }
         options.id = watchId
 
         if (this.#isCapacitorPluginDefined()) {
@@ -153,9 +112,6 @@ class OSGeolocation {
             return
         }
 
-        clearTimeout(this.#timers[options.id])
-        delete this.#timers[options.id]
-
         let optionsWithCorrectId = options;
         if (this.#callbackIdsMap[options.id]) {
             // Capacitor uses a different a callback id instead of the watch id generated here in the wrapper
@@ -178,30 +134,7 @@ class OSGeolocation {
                 .catch(error);
         }
     }
-
-
-    /**
-     * Returns a timeout failure, closed over a specified timeout value and error callback.
-     * @param onError the error callback
-     * @param timeout timeout in ms
-     * @param isWatch returns `true` if the caller of this function was the from the watch flow
-     * @param id the watch ID
-     * @returns the timeout's ID
-     */
-    #createTimeout(onError: (error: PluginError) => void, timeout: number | undefined, isWatch: boolean, id: string): ReturnType<typeof setTimeout> {
-
-        let t = setTimeout(() => {
-            if (isWatch === true) {
-                this.clearWatch({ id })
-            }
-            onError({
-                code: "OS-PLUG-GLOC-0010",
-                message: "Could not obtain location in time. Try with a higher timeout."
-            })
-        }, timeout)
-        return t
-    }
-
+    
     /**
      * 
      * @param lPosition the position in its' legacy 
