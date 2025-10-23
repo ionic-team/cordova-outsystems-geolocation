@@ -1,3 +1,10 @@
+## [1.1.2](https://github.com/OS-pedrogustavobilro/cordova-outsystems-geolocation/compare/1.1.1...1.1.2) (2025-10-23)
+
+
+### Bug Fixes
+
+* detect identation in plugin.xml for release updates ([2656ad9](https://github.com/OS-pedrogustavobilro/cordova-outsystems-geolocation/commit/2656ad9f5c1ee285e6217b87bd61cab3cb8ed685))
+
 ## [1.1.1](https://github.com/OS-pedrogustavobilro/cordova-outsystems-geolocation/compare/1.1.0...1.1.1) (2025-10-23)
 
 
