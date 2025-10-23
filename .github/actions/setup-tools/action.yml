@@ -12,7 +12,7 @@ runs:
       working-directory: ./packages/cordova-plugin
       shell: bash
       run: npm i
-    - name: Install dependencies outsystems-wrapper
+    - name: Install same dependencies as locally for outsystems-wrapper
       working-directory: ./packages/outsystems-wrapper
       shell: bash
-      run: npm i
+      run: npm ci
