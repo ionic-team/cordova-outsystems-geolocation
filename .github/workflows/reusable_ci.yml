@@ -49,7 +49,7 @@ jobs:
       
       - name: 'Copy existing generated JS file'
         working-directory: ./packages/outsystems-wrapper
-        run: cp dist/outsystems.js dist/outsystems.js.original
+        run: cp dist/outsystems.js outsystems.js.original
 
       - name: 'Build OutSystems JS Wrapper'
         working-directory: ./packages/outsystems-wrapper
@@ -58,13 +58,13 @@ jobs:
       - name: Debug file diff
         working-directory: ./packages/outsystems-wrapper
         run: |
-          file dist/outsystems.js dist/outsystems.js.original
-          diff -u dist/outsystems.js.original dist/outsystems.js | head -50
+          file dist/outsystems.js outsystems.js.original
+          diff -u outsystems.js.original dist/outsystems.js | head -50
 
       - name: 'Check generated JS file changes'
         working-directory: ./packages/outsystems-wrapper
         run: |
-          if ! cmp --silent dist/outsystems.js dist/outsystems.js.original; then
+          if ! cmp --silent dist/outsystems.js outsystems.js.original; then
             echo "Detected dist/outsystems.js changes; Do 'npm run build' in 'packages/outsystems-wrapper' to update the generated JS files."
             exit 1
           fi
