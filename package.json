@@ -3,12 +3,6 @@
   "version": "1.1.0",
   "private": true,
   "dependencies": {},
-  "scripts": {
-    "update:tag": "node ./scripts/change-extensibility.js",
-    "update:version": "node ./scripts/tag-applications-o11.js",
-    "deploy": "node ./scripts/deploy.js",
-    "download": "node ./scripts/download.js"
-  },
   "devDependencies": {
     "@types/node": "^20.14.8",
     "typescript": "~5.4.5"
