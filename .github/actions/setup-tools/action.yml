@@ -1,0 +1,18 @@
+name: 'Setup Tools'
+description: 'Setup tools needed in repo'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Install Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: 25
+    - name: Install dependencies plugin
+      working-directory: ./packages/cordova-plugin
+      shell: bash
+      run: npm i
+    - name: Install dependencies outsystems-wrapper
+      working-directory: ./packages/outsystems-wrapper
+      shell: bash
+      run: npm i
