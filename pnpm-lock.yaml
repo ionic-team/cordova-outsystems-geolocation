@@ -43,8 +43,8 @@ importers:
         version: 1.0.2
     devDependencies:
       '@capacitor/docgen':
-        specifier: ^0.2.2
-        version: 0.2.2
+        specifier: ^0.3.0
+        version: 0.3.0
       '@rollup/plugin-typescript':
         specifier: ^11.1.6
         version: 11.1.6(rollup@4.30.1)(tslib@2.8.1)(typescript@5.4.5)
@@ -171,9 +171,9 @@ packages:
     resolution: {integrity: sha512-vN5p+1kl59GVKMvTHt55NzzmYVxprfJD+ql7U9NFIfKCBkYE55LYtS+WtPlaYOyzydrKI8Nezd+aZextrd+FMA==}
     engines: {node: '>=6.9.0'}
 
-  '@capacitor/docgen@0.2.2':
-    resolution: {integrity: sha512-617jB5DlKjUljxfoANORWeqffsHqHekckH48oslKWFGzfCHYIAEPfJfMa5M4mVSzn2ifSvWB5C3st4augwhl5w==}
-    engines: {node: '>=14.5.0'}
+  '@capacitor/docgen@0.3.0':
+    resolution: {integrity: sha512-WPggobo5Ql70F+2xOIUwNSApJXaL9F/9+Al6B+sNuSAmcg484OAksyUPKgiynF4BVlxeY5a0sDkgdVkmmA3ElQ==}
+    engines: {node: '>=18.0.0'}
     hasBin: true
 
   '@capacitor/synapse@1.0.2':
@@ -2656,7 +2656,7 @@ snapshots:
       '@babel/helper-string-parser': 7.25.9
       '@babel/helper-validator-identifier': 7.25.9
 
-  '@capacitor/docgen@0.2.2':
+  '@capacitor/docgen@0.3.0':
     dependencies:
       '@types/node': 14.18.63
       colorette: 2.0.20
