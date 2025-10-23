@@ -1,3 +1,15 @@
+# [2.0.0](https://github.com/OS-pedrogustavobilro/cordova-outsystems-geolocation/compare/1.2.1...2.0.0) (2025-10-23)
+
+
+### Features
+
+* Use different name for timestamp ([99730fa](https://github.com/OS-pedrogustavobilro/cordova-outsystems-geolocation/commit/99730fad5c85eb45955636b531ebb780ac9041fc))
+
+
+### BREAKING CHANGES
+
+* The timestamp property name was changed, changes required when updating to this version.
+
 ## [1.2.1](https://github.com/OS-pedrogustavobilro/cordova-outsystems-geolocation/compare/1.2.0...1.2.1) (2025-10-23)
 
 
