@@ -10,12 +10,12 @@ runs:
         node-version: 25
     - name: Install dependencies root
       shell: bash
-      run: npm i
+      run: npm ci
     - name: Install dependencies plugin
       working-directory: ./packages/cordova-plugin
       shell: bash
-      run: npm i
+      run: npm ci
     - name: Install dependencies for outsystems-wrapper
       working-directory: ./packages/outsystems-wrapper
       shell: bash
-      run: npm i
+      run: npm ci
