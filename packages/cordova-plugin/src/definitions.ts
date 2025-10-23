@@ -118,7 +118,7 @@ export type Position = {
    *
    * @since 1.0.0
    */
-  timestamp: number;
+  timestam: number;
 
   /**
    * The GPS coordinates along with the accuracy of the data
