@@ -36,7 +36,7 @@ jobs:
           fi
 
   build-outsystems-wrapper:
-    runs-on: 'macos-latest'
+    runs-on: 'ubuntu-latest'
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
@@ -54,12 +54,6 @@ jobs:
       - name: 'Build OutSystems JS Wrapper'
         working-directory: ./packages/outsystems-wrapper
         run: npm run build
-      
-      - name: Debug file diff
-        working-directory: ./packages/outsystems-wrapper
-        run: |
-          file dist/outsystems.js outsystems.js.original
-          diff -u outsystems.js.original dist/outsystems.js | head -50
 
       - name: 'Check generated JS file changes'
         working-directory: ./packages/outsystems-wrapper
