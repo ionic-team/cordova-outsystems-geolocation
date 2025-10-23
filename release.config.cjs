@@ -36,8 +36,12 @@ module.exports = {
 
         const xmlPath = 'plugin.xml';
         const xml = fs.readFileSync(xmlPath, 'utf8');
+
+        // Detect current indentation from first indented line
+        const match = xml.match(/^( +)\S/m);
+        const indent = match ? match[1].length : 2; // fallback to 2 spaces if not found
         const parser = new xml2js.Parser();
-        const builder = new xml2js.Builder();
+        const builder = new xml2js.Builder({ renderOpts: { pretty: true, indent: ' '.repeat(indent) } });
 
         const parsed = await parser.parseStringPromise(xml);
         parsed.plugin.$.version = version;
