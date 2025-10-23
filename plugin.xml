@@ -1,51 +1,57 @@
-<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<?xml version='1.0' encoding='utf-8'?>
 <plugin id="com.outsystems.plugins.geolocation" version="1.1.2" xmlns="http://apache.org/cordova/ns/plugins/1.0" xmlns:android="http://schemas.android.com/apk/res/android">
-  <name>OSGeolocationPlugin</name>
-  <description>OutSystems' cordova geolocation plugin</description>
-  <author>OutSystems Inc</author>
-  <js-module name="Geolocation" src="packages/cordova-plugin/dist/plugin.js">
-    <clobbers target="cordova.plugins.Geolocation"/>
-  </js-module>
-  <platform name="android">
-    <config-file parent="/*" target="res/xml/config.xml">
-      <feature name="OSGeolocation">
-        <param name="android-package" value="com.outsystems.plugins.geolocation.OSGeolocation"/>
-        <param name="onload" value="true"/>
-      </feature>
-      <preference name="GradlePluginKotlinEnabled" value="true"/>
-      <preference name="GradlePluginKotlinCodeStyle" value="official"/>
-      <preference name="AndroidXEnabled" value="true"/>
-    </config-file>
-    <config-file target="AndroidManifest.xml" parent="/*">
-      <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
-      <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
-    </config-file>
-    <source-file src="packages/cordova-plugin/android/OSGeolocation.kt" target-dir="app/src/main/kotlin/com/outsystems/plugins/geolocation"/>
-    <source-file src="packages/cordova-plugin/android/OSGeolocationPermissionEvents.kt" target-dir="app/src/main/kotlin/com/outsystems/plugins/geolocation"/>
-    <source-file src="packages/cordova-plugin/android/OSGeolocationErrors.kt" target-dir="app/src/main/kotlin/com/outsystems/plugins/geolocation"/>
-    <framework src="packages/cordova-plugin/android/build.gradle" custom="true" type="gradleReference"/>
-  </platform>
-  <platform name="ios">
-    <config-file parent="/*" target="config.xml">
-      <feature name="OSGeolocation">
-        <param name="ios-package" value="OSGeolocation"/>
-      </feature>
-      <preference name="SwiftVersion" value="5"/>
-    </config-file>
-    <source-file src="packages/cordova-plugin/ios/OSGeolocationCallbackManager.swift"/>
-    <source-file src="packages/cordova-plugin/ios/OSGeolocationConstants.swift"/>
-    <source-file src="packages/cordova-plugin/ios/OSGeolocationError.swift"/>
-    <source-file src="packages/cordova-plugin/ios/OSGeolocationModels.swift"/>
-    <source-file src="packages/cordova-plugin/ios/OSGeolocationPlugin.swift"/>
-    <source-file src="packages/cordova-plugin/ios/IONGLOCConfigurationModel+Accuracy.swift"/>
-    <source-file src="packages/cordova-plugin/ios/IONGLOCPositionModel+JSONTransformer.swift"/>
-    <podspec>
-      <config>
-        <source url="https://cdn.cocoapods.org/"/>
-      </config>
-      <pods use-frameworks="true">
-        <pod name="IONGeolocationLib" spec="1.0.1"/>
-      </pods>
-    </podspec>
-  </platform>
+    <name>OSGeolocationPlugin</name>
+    <description>OutSystems' cordova geolocation plugin</description>
+    <author>OutSystems Inc</author>
+
+    <js-module name="Geolocation" src="packages/cordova-plugin/dist/plugin.js">
+        <clobbers target="cordova.plugins.Geolocation" />
+    </js-module>
+    <platform name="android">
+        <config-file parent="/*" target="res/xml/config.xml">
+            <feature name="OSGeolocation">
+                <param name="android-package" value="com.outsystems.plugins.geolocation.OSGeolocation" />
+                <param name="onload" value="true" />
+            </feature>
+            <preference name="GradlePluginKotlinEnabled" value="true" />
+            <preference name="GradlePluginKotlinCodeStyle" value="official" />
+            <preference name="AndroidXEnabled" value="true"/>
+        </config-file>
+        
+        <config-file target="AndroidManifest.xml" parent="/*">
+            <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+            <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+        </config-file>
+
+        <source-file src="packages/cordova-plugin/android/OSGeolocation.kt" target-dir="app/src/main/kotlin/com/outsystems/plugins/geolocation" />
+        <source-file src="packages/cordova-plugin/android/OSGeolocationPermissionEvents.kt" target-dir="app/src/main/kotlin/com/outsystems/plugins/geolocation" />
+        <source-file src="packages/cordova-plugin/android/OSGeolocationErrors.kt" target-dir="app/src/main/kotlin/com/outsystems/plugins/geolocation" />
+        <framework src="packages/cordova-plugin/android/build.gradle" custom="true" type="gradleReference" />
+        
+    </platform>
+   <platform name="ios">
+        <config-file parent="/*" target="config.xml">
+            <feature name="OSGeolocation">
+                <param name="ios-package" value="OSGeolocation" />
+            </feature>
+            <preference name="SwiftVersion" value="5" />
+        </config-file>
+
+        <source-file src="packages/cordova-plugin/ios/OSGeolocationCallbackManager.swift" />
+        <source-file src="packages/cordova-plugin/ios/OSGeolocationConstants.swift" />
+        <source-file src="packages/cordova-plugin/ios/OSGeolocationError.swift" />
+        <source-file src="packages/cordova-plugin/ios/OSGeolocationModels.swift" />
+        <source-file src="packages/cordova-plugin/ios/OSGeolocationPlugin.swift" />
+        <source-file src="packages/cordova-plugin/ios/IONGLOCConfigurationModel+Accuracy.swift" />
+        <source-file src="packages/cordova-plugin/ios/IONGLOCPositionModel+JSONTransformer.swift" />
+
+        <podspec>
+            <config>
+                <source url="https://cdn.cocoapods.org/"/>
+            </config>
+            <pods use-frameworks="true">
+                <pod name="IONGeolocationLib" spec="1.0.1" />
+            </pods>
+        </podspec>
+    </platform>
 </plugin>
