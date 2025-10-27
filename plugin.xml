@@ -49,6 +49,7 @@
         <source-file src="packages/cordova-plugin/ios/IONGeolocationLib/IONGLOCAuthorisation.swift" />
         <source-file src="packages/cordova-plugin/ios/IONGeolocationLib/IONGLOCAuthorisationRequestType.swift" />
         <source-file src="packages/cordova-plugin/ios/IONGeolocationLib/IONGLOCPositionModel.swift" />
+        <source-file src="packages/cordova-plugin/ios/IONGeolocationLib/IONGLOCRequestOptionsModel.swift" />
         <source-file src="packages/cordova-plugin/ios/IONGeolocationLib/Publishers/IONGLOCManagerProtocols.swift" />
         <source-file src="packages/cordova-plugin/ios/IONGeolocationLib/Publishers/IONGLOCManagerWrapper.swift" />
         
