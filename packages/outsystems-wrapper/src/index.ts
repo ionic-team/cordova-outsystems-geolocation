@@ -70,6 +70,9 @@ class OSGeolocation {
             success(res)
         }
         const errorCallback = (e: PluginError) => {
+            if (e.code === "OS-PLUG-GLOC-0010") {
+                this.clearWatch({ id: watchId });
+            }
             error(e)
         }
         const watchAddedCallback = (callbackId: string) => {

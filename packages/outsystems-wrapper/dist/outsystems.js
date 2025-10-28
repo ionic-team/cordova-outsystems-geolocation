@@ -90,6 +90,9 @@ var __privateMethod = (obj, member, method) => (__accessCheck(obj, member, "acce
         success(res);
       };
       const errorCallback = (e) => {
+        if (e.code === "OS-PLUG-GLOC-0010") {
+          this.clearWatch({ id: watchId });
+        }
         error(e);
       };
       const watchAddedCallback = (callbackId) => {
