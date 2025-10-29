@@ -1,4 +1,4 @@
-//import IONGeolocationLib
+import IONGeolocationLib
 import Combine
 import UIKit
 

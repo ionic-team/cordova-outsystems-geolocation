@@ -1,4 +1,4 @@
-//import IONGeolocationLib
+import IONGeolocationLib
 
 extension IONGLOCConfigurationModel {
     static func createWithAccuracy(_ isHighAccuracyEnabled: Bool) -> IONGLOCConfigurationModel {
