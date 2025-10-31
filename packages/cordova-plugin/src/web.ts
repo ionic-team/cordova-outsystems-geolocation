@@ -51,8 +51,14 @@ function clearWatch(options: ClearWatchOptions, success: () => void, error: (err
   exec(success, error, "OSGeolocation", "clearWatch", [options]);
 }
 
+function getVersion(): string {
+  const pluginList = cordova.require('cordova/plugin_list').metadata;
+  return pluginList["com.outsystems.plugins.geolocation"] || "unknown";
+}
+
 module.exports = {
   getCurrentPosition,
   watchPosition,
-  clearWatch
+  clearWatch,
+  getVersion
 };
