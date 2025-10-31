@@ -15,7 +15,6 @@ cordova plugin add <path-to-repo-local-clone>
 * [`getCurrentPosition(...)`](#getcurrentposition)
 * [`watchPosition(...)`](#watchposition)
 * [`clearWatch(...)`](#clearwatch)
-* [Interfaces](#interfaces)
 * [Type Aliases](#type-aliases)
 
 </docgen-index>
@@ -79,17 +78,6 @@ Clear a given watch
 **Since:** 1.0.0
 
 --------------------
-
-
-### Interfaces
-
-
-#### Position
-
-| Prop         | Type                | Description |
-| ------------ | ------------------- | ----------- |
-| **`line`**   | <code>number</code> | &gt;= 1     |
-| **`column`** | <code>number</code> | &gt;= 0     |
 
 
 ### Type Aliases
