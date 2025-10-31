@@ -101,13 +101,9 @@ function clearWatch(options, success, error) {
   options = { ...ClearWatchOptionsDefault, ...options };
   exec(success, error, "OSGeolocation", "clearWatch", [options]);
 }
-function getVersion() {
-  return "x.x.x";
-}
 module.exports = {
   getCurrentPosition,
   watchPosition,
-  clearWatch,
-  getVersion
+  clearWatch
 };
 y(true);
