@@ -1,6 +1,6 @@
 (function(global, factory) {
-  typeof exports === "object" && typeof module !== "undefined" ? factory(require("cordova")) : typeof define === "function" && define.amd ? define(["cordova"], factory) : (global = typeof globalThis !== "undefined" ? globalThis : global || self, factory(global.cordova$1));
-})(this, function(cordova$1) {
+  typeof exports === "object" && typeof module !== "undefined" ? factory(require("cordova")) : typeof define === "function" && define.amd ? define(["cordova"], factory) : (global = typeof globalThis !== "undefined" ? globalThis : global || self, factory(global.cordova));
+})(this, function(cordova) {
   "use strict";
   function s(t) {
     t.CapacitorUtils.Synapse = new Proxy(
@@ -61,7 +61,7 @@
     ...CurrentPositionOptionsDefault,
     ...ClearWatchOptionsDefault
   };
-  var exec = cordova$1.require("cordova/exec");
+  var exec = cordova.require("cordova/exec");
   function getCurrentPosition(options, success, error) {
     options = { ...CurrentPositionOptionsDefault, ...options };
     let convertOnSuccess = (position) => {
@@ -105,8 +105,7 @@
     exec(success, error, "OSGeolocation", "clearWatch", [options]);
   }
   function getVersion() {
-    const pluginList = cordova.require("cordova/plugin_list").metadata;
-    return pluginList["com.outsystems.plugins.geolocation"] || "unknown";
+    return "x.x.x";
   }
   module.exports = {
     getCurrentPosition,

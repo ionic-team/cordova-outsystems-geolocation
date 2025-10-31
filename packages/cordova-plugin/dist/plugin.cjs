@@ -1,5 +1,5 @@
 "use strict";
-const cordova$1 = require("cordova");
+const cordova = require("cordova");
 function s(t) {
   t.CapacitorUtils.Synapse = new Proxy(
     {},
@@ -59,7 +59,7 @@ const WatchPositionOptionsDefault = {
   ...CurrentPositionOptionsDefault,
   ...ClearWatchOptionsDefault
 };
-var exec = cordova$1.require("cordova/exec");
+var exec = cordova.require("cordova/exec");
 function getCurrentPosition(options, success, error) {
   options = { ...CurrentPositionOptionsDefault, ...options };
   let convertOnSuccess = (position) => {
@@ -103,8 +103,7 @@ function clearWatch(options, success, error) {
   exec(success, error, "OSGeolocation", "clearWatch", [options]);
 }
 function getVersion() {
-  const pluginList = cordova.require("cordova/plugin_list").metadata;
-  return pluginList["com.outsystems.plugins.geolocation"] || "unknown";
+  return "x.x.x";
 }
 module.exports = {
   getCurrentPosition,
