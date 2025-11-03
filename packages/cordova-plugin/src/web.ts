@@ -51,8 +51,13 @@ function clearWatch(options: ClearWatchOptions, success: () => void, error: (err
   exec(success, error, "OSGeolocation", "clearWatch", [options]);
 }
 
+function getVersion(): string {
+  return "x.x.x"
+}
+
 module.exports = {
   getCurrentPosition,
   watchPosition,
-  clearWatch
+  clearWatch,
+  getVersion
 };

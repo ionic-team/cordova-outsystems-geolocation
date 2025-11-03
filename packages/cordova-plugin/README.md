@@ -15,6 +15,7 @@ cordova plugin add <path-to-repo-local-clone>
 * [`getCurrentPosition(...)`](#getcurrentposition)
 * [`watchPosition(...)`](#watchposition)
 * [`clearWatch(...)`](#clearwatch)
+* [`getVersion()`](#getversion)
 * [Type Aliases](#type-aliases)
 
 </docgen-index>
@@ -76,6 +77,21 @@ Clear a given watch
 | **`error`**   | <code>(error: <a href="#pluginerror">PluginError</a>) =&gt; void</code> |
 
 **Since:** 1.0.0
+
+--------------------
+
+
+### getVersion()
+
+```typescript
+getVersion() => string
+```
+
+Returns the current plugin version
+
+**Returns:** <code>string</code>
+
+**Since:** 1.1.0
 
 --------------------
 

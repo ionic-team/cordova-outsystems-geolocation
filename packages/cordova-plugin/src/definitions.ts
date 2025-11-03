@@ -22,6 +22,13 @@ export interface IGeolocationPlugin {
    */
   clearWatch(options: ClearWatchOptions, success: () => void, error: (error: PluginError) => void): void;
 
+  /**
+   * Returns the current plugin version
+   *
+   * @since 1.1.0
+   */
+  getVersion(): string;
+
 }
 
 export type PluginError = {
