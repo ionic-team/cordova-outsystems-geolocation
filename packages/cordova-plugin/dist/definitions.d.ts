@@ -19,11 +19,11 @@ export interface IGeolocationPlugin {
      */
     clearWatch(options: ClearWatchOptions, success: () => void, error: (error: PluginError) => void): void;
     /**
-     * Returns the current plugin version
+     * Returns true if the plugin version supports native timeout handling.
      *
-     * @since 1.1.0
+     * @since 1.2.0
      */
-    getVersion(): string;
+    hasNativeTimeoutHandling(success: (value: boolean) => void, error: (error: PluginError) => void): void;
 }
 export type PluginError = {
     code: string;

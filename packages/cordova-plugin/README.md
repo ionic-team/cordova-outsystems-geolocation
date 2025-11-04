@@ -15,7 +15,7 @@ cordova plugin add <path-to-repo-local-clone>
 * [`getCurrentPosition(...)`](#getcurrentposition)
 * [`watchPosition(...)`](#watchposition)
 * [`clearWatch(...)`](#clearwatch)
-* [`getVersion()`](#getversion)
+* [`hasNativeTimeoutHandling(...)`](#hasnativetimeouthandling)
 * [Type Aliases](#type-aliases)
 
 </docgen-index>
@@ -81,17 +81,20 @@ Clear a given watch
 --------------------
 
 
-### getVersion()
+### hasNativeTimeoutHandling(...)
 
 ```typescript
-getVersion() => string
+hasNativeTimeoutHandling(success: (value: boolean) => void, error: (error: PluginError) => void) => void
 ```
 
-Returns the current plugin version
+Returns true if the plugin version supports native timeout handling.
 
-**Returns:** <code>string</code>
+| Param         | Type                                                                    |
+| ------------- | ----------------------------------------------------------------------- |
+| **`success`** | <code>(value: boolean) =&gt; void</code>                                |
+| **`error`**   | <code>(error: <a href="#pluginerror">PluginError</a>) =&gt; void</code> |
 
-**Since:** 1.1.0
+**Since:** 1.2.0
 
 --------------------
 

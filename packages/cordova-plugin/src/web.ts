@@ -51,13 +51,13 @@ function clearWatch(options: ClearWatchOptions, success: () => void, error: (err
   exec(success, error, "OSGeolocation", "clearWatch", [options]);
 }
 
-function getVersion(): string {
-  return "x.x.x"
+function hasNativeTimeoutHandling(success: (value: boolean) => void, error: (error: PluginError) => void): void {
+  exec(success, error, "OSGeolocation", "hasNativeTimeoutHandling", []);
 }
 
 module.exports = {
   getCurrentPosition,
   watchPosition,
   clearWatch,
-  getVersion
+  hasNativeTimeoutHandling
 };

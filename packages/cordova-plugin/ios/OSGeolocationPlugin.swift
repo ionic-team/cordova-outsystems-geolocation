@@ -87,6 +87,12 @@ final class OSGeolocation: CDVPlugin {
 
         callbackManager?.sendSuccess(command.callbackId)
     }
+
+    @objc(hasNativeTimeoutHandling:)
+    func hasNativeTimeoutHandling(command: CDVInvokedUrlCommand) {
+        let result = CDVPluginResult(status: .ok, messageAs: true)
+        commandDelegate.send(result, callbackId: command.callbackId)
+    }
 }
 
 private extension OSGeolocation {
