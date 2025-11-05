@@ -30,7 +30,6 @@ class OSGeolocation {
                 position = this.#convertFromLegacy(position)
             }
             clearTimeout(timeoutID)
-            delete this.#timers[id]
 
             this.#lastPosition = position
             success(position)
@@ -39,7 +38,6 @@ class OSGeolocation {
         const errorCallback = (e: PluginError) => {
             if (typeof (this.#timers[id]) !== 'undefined') {
                 clearTimeout(this.#timers[id])
-                delete this.#timers[id]
             }
             error(e)
         }
@@ -105,7 +103,6 @@ class OSGeolocation {
                 res = this.#convertFromLegacy(res)
             }
             clearTimeout(this.#timers[watchId])
-            delete this.#timers[watchId]
            
             this.#lastPosition = res
             success(res)
@@ -113,7 +110,6 @@ class OSGeolocation {
         const errorCallback = (e: PluginError) => {
             if (typeof (timeoutID) !== 'undefined') {
                 clearTimeout(timeoutID)
-                delete this.#timers[watchId]
             }
             error(e)
         }

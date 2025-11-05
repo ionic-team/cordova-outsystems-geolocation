@@ -62,14 +62,12 @@ class OSGeolocation {
         position = __privateMethod(this, _OSGeolocation_instances, convertFromLegacy_fn).call(this, position);
       }
       clearTimeout(timeoutID);
-      delete __privateGet(this, _timers)[id];
       __privateSet(this, _lastPosition, position);
       success(position);
     };
     const errorCallback = (e) => {
       if (typeof __privateGet(this, _timers)[id] !== "undefined") {
         clearTimeout(__privateGet(this, _timers)[id]);
-        delete __privateGet(this, _timers)[id];
       }
       error(e);
     };
@@ -110,14 +108,12 @@ class OSGeolocation {
         res = __privateMethod(this, _OSGeolocation_instances, convertFromLegacy_fn).call(this, res);
       }
       clearTimeout(__privateGet(this, _timers)[watchId]);
-      delete __privateGet(this, _timers)[watchId];
       __privateSet(this, _lastPosition, res);
       success(res);
     };
     const errorCallback = (e) => {
       if (typeof timeoutID !== "undefined") {
         clearTimeout(timeoutID);
-        delete __privateGet(this, _timers)[watchId];
       }
       error(e);
     };
