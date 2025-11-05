@@ -257,6 +257,10 @@ var __privateMethod = (obj, member, method) => (__accessCheck(obj, member, "acce
    * @param success Callback receiving a boolean indicating if native timeout handling is available.
    */
   hasNativeTimeoutHandling_fn = function(success) {
+    if (__privateMethod(this, _OSGeolocation_instances, isCapacitorPluginDefined_fn).call(this)) {
+      success(true);
+      return;
+    }
     if (cordova?.plugins?.Geolocation?.hasNativeTimeoutHandling) {
       cordova.plugins.Geolocation.hasNativeTimeoutHandling(success, () => success(false));
     } else {
