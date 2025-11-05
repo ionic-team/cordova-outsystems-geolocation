@@ -291,11 +291,11 @@ class OSGeolocation {
         }
 
         // @ts-ignore
-        if (cordova?.plugins?.Geolocation?.hasNativeTimeoutHandling) {
+        if (typeof cordova !== "undefined" && cordova.plugins && cordova.plugins.Geolocation && typeof cordova.plugins.Geolocation.hasNativeTimeoutHandling === "function") {
             // @ts-ignore
-            cordova.plugins.Geolocation.hasNativeTimeoutHandling(success, () => success(false))
+            cordova.plugins.Geolocation.hasNativeTimeoutHandling(success, () => success(false));
         } else {
-            success(false)
+            success(false);
         }
     }
 }

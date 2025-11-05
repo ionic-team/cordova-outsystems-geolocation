@@ -261,7 +261,7 @@ var __privateMethod = (obj, member, method) => (__accessCheck(obj, member, "acce
       success(true);
       return;
     }
-    if (cordova?.plugins?.Geolocation?.hasNativeTimeoutHandling) {
+    if (typeof cordova !== "undefined" && cordova.plugins && cordova.plugins.Geolocation && typeof cordova.plugins.Geolocation.hasNativeTimeoutHandling === "function") {
       cordova.plugins.Geolocation.hasNativeTimeoutHandling(success, () => success(false));
     } else {
       success(false);
