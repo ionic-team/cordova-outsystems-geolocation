@@ -285,6 +285,11 @@ class OSGeolocation {
      * @param success Callback receiving a boolean indicating if native timeout handling is available.
      */
     #hasNativeTimeoutHandling(success: (value: boolean) => void) {
+        if (this.#isCapacitorPluginDefined()) {
+            success(true)
+            return
+        }
+
         // @ts-ignore
         if (cordova?.plugins?.Geolocation?.hasNativeTimeoutHandling) {
             // @ts-ignore
