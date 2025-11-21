@@ -1,7 +1,7 @@
 {
   "name": "com.outsystems.plugins.geolocation",
   "displayName": "Geolocation",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Geolocation plugin for Cordova",
   "scripts": {
     "lint": "npm run eslint && npm run prettier -- --check",
