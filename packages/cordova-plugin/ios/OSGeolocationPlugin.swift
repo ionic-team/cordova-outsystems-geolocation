@@ -7,6 +7,7 @@ final class OSGeolocation: CDVPlugin {
     private var locationService: (any IONGLOCService)?
     private var cancellables = Set<AnyCancellable>()
     private var locationCancellable: AnyCancellable?
+    private var timeoutCancellable: AnyCancellable?
     private var callbackManager: OSGeolocationCallbackManager?
     private var statusInitialized = false
     private var locationInitialized: Bool = false
@@ -30,6 +31,8 @@ final class OSGeolocation: CDVPlugin {
             print("App became active. Restarting location monitoring for watch callbacks.")
             locationCancellable?.cancel()
             locationCancellable = nil
+            timeoutCancellable?.cancel()
+            timeoutCancellable = nil
             locationInitialized = false
             
             locationService?.stopMonitoringLocation()
@@ -49,7 +52,8 @@ final class OSGeolocation: CDVPlugin {
             callbackManager?.sendError(.inputArgumentsIssue(target: .getCurrentPosition))
             return
         }
-        handleLocationRequest(config.enableHighAccuracy, command.callbackId)
+        
+        handleLocationRequest(config.enableHighAccuracy, timeout: config.timeout, command.callbackId)
     }
 
     @objc(watchPosition:)
@@ -59,7 +63,8 @@ final class OSGeolocation: CDVPlugin {
             callbackManager?.sendError(.inputArgumentsIssue(target: .watchPosition))
             return
         }
-        handleLocationRequest(config.enableHighAccuracy, watchUUID: config.id, command.callbackId)
+        
+        handleLocationRequest(config.enableHighAccuracy, watchUUID: config.id, timeout: config.timeout, command.callbackId)
     }
 
     @objc(clearWatch:)
@@ -75,10 +80,18 @@ final class OSGeolocation: CDVPlugin {
             locationService?.stopMonitoringLocation()
             locationCancellable?.cancel()
             locationCancellable = nil
+            timeoutCancellable?.cancel()
+            timeoutCancellable = nil
             locationInitialized = false
         }
 
         callbackManager?.sendSuccess(command.callbackId)
+    }
+
+    @objc(hasNativeTimeoutHandling:)
+    func hasNativeTimeoutHandling(command: CDVInvokedUrlCommand) {
+        let result = CDVPluginResult(status: .ok, messageAs: true)
+        commandDelegate.send(result, callbackId: command.callbackId)
     }
 }
 
@@ -109,7 +122,7 @@ private extension OSGeolocation {
             }
             .store(in: &cancellables)
     }
-
+    
     func bindLocationPublisher() {
         guard !locationInitialized else { return }
         locationInitialized = true
@@ -131,6 +144,15 @@ private extension OSGeolocation {
             .sink(receiveValue: { [weak self] position in
                 self?.callbackManager?.sendSuccess(with: position)
             })
+        
+        timeoutCancellable = locationService?.locationTimeoutPublisher
+            .sink(receiveValue: { [weak self] error in
+                if case .timeout = error {
+                    self?.callbackManager?.sendError(.timeout)
+                } else {
+                    self?.callbackManager?.sendError(.positionUnavailable)
+                }
+            })
     }
 
     func requestLocationAuthorisation(type requestType: IONGLOCAuthorisationRequestType) {
@@ -151,10 +173,10 @@ private extension OSGeolocation {
         let shouldRequestLocationMonitoring = callbackManager?.watchCallbacks.isEmpty == false
 
         if shouldRequestCurrentPosition {
-            locationService?.requestSingleLocation()
+            locationService?.requestSingleLocation(options: IONGLOCRequestOptionsModel(timeout: callbackManager?.timeout))
         }
         if shouldRequestLocationMonitoring {
-            locationService?.startMonitoringLocation()
+            locationService?.startMonitoringLocation(options: IONGLOCRequestOptionsModel(timeout: callbackManager?.timeout))
         }
     }
 
@@ -166,15 +188,15 @@ private extension OSGeolocation {
         return argumentsModel
     }
 
-    func handleLocationRequest(_ enableHighAccuracy: Bool, watchUUID: String? = nil, _ callbackId: String) {
+    func handleLocationRequest(_ enableHighAccuracy: Bool, watchUUID: String? = nil, timeout: Int? = nil, _ callbackId: String) {
         bindLocationPublisher()
         let configurationModel = IONGLOCConfigurationModel.createWithAccuracy(enableHighAccuracy)
         locationService?.updateConfiguration(configurationModel)
 
         if let watchUUID {
-            callbackManager?.addWatchCallback(watchUUID, callbackId)
+            callbackManager?.addWatchCallback(watchUUID, timeout: timeout, callbackId)
         } else {
-            callbackManager?.addLocationCallback(callbackId)
+            callbackManager?.addLocationCallback(timeout: timeout, callbackId)
         }
 
         switch locationService?.authorisationStatus {

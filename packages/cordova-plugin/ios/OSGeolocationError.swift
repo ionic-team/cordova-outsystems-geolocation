@@ -10,6 +10,7 @@ enum OSGeolocationError: Error {
     case permissionRestricted
     case positionUnavailable
     case inputArgumentsIssue(target: OSGeolocationMethod)
+    case timeout
 
     func toDictionary() -> [String: String] {
         [
@@ -32,6 +33,7 @@ private extension OSGeolocationError {
             case .watchPosition: 5
             case .clearWatch: 6
             }
+        case .timeout: 10
         }
     }
 
@@ -42,6 +44,7 @@ private extension OSGeolocationError {
         case .locationServicesDisabled: "Location services are not enabled."
         case .permissionRestricted: "Application's use of location services was restricted."
         case .inputArgumentsIssue(let target): "The '\(target.rawValue)' input parameters aren't valid."
+        case .timeout: "Could not obtain location in time. Try with a higher timeout."
         }
     }
 }

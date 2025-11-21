@@ -77,6 +77,9 @@ class OSGeolocation : CordovaPlugin() {
             "clearWatch" -> {
                 clearWatch(args, callbackContext)
             }
+            "hasNativeTimeoutHandling" -> {
+                hasNativeTimeoutHandling(callbackContext)
+            }
         }
         return true
     }
@@ -225,6 +228,16 @@ class OSGeolocation : CordovaPlugin() {
         } else {
             callbackContext.sendError(OSGeolocationErrors.WATCH_ID_NOT_FOUND)
         }
+    }
+
+    /**
+     * Indicates whether the native geolocation implementation provides its own timeout handling.
+     * Returns true if the plugin version supports native timeout handling.
+     * @param callbackContext CallbackContext the method should return to
+     */
+    private fun hasNativeTimeoutHandling(callbackContext: CallbackContext) {
+        val pluginResult = PluginResult(PluginResult.Status.OK, true)
+        callbackContext.sendPluginResult(pluginResult)
     }
 
     /**

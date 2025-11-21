@@ -21,6 +21,7 @@ private struct OSGeolocationCallbackGroup {
 final class OSGeolocationCallbackManager {
     private(set) var locationCallbacks: [String]
     private(set) var watchCallbacks: [String: String]
+    private(set) var timeout: Int?
     private let commandDelegate: CDVCommandDelegate
 
     private var allCallbackGroups: [OSGeolocationCallbackGroup] {
@@ -36,15 +37,17 @@ final class OSGeolocationCallbackManager {
         self.watchCallbacks = [:]
 
     }
-
-    func addLocationCallback(_ callbackId: String) {
+    
+    func addLocationCallback(timeout: Int? = nil, _ callbackId: String) {
         locationCallbacks.append(callbackId)
+        self.timeout = timeout
     }
-
-    func addWatchCallback(_ watchId: String, _ callbackId: String) {
+    
+    func addWatchCallback(_ watchId: String, timeout: Int? = nil, _ callbackId: String) {
         watchCallbacks[watchId] = callbackId
+        self.timeout = timeout
     }
-
+    
     func clearWatchCallbackIfExists(_ watchId: String) {
         if watchCallbacks.keys.contains(watchId) {
             watchCallbacks.removeValue(forKey: watchId)
@@ -62,6 +65,10 @@ final class OSGeolocationCallbackManager {
 
     func sendError(_ error: OSGeolocationError) {
         createPluginResult(status: .error, message: error.toDictionary())
+        
+        if case .timeout = error {
+            watchCallbacks.keys.forEach { clearWatchCallbackIfExists($0) }
+        }
     }
 }
 
