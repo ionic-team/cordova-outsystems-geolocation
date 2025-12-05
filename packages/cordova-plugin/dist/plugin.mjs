@@ -101,9 +101,13 @@ function clearWatch(options, success, error) {
   options = { ...ClearWatchOptionsDefault, ...options };
   exec(success, error, "OSGeolocation", "clearWatch", [options]);
 }
+function hasNativeTimeoutHandling(success, error) {
+  exec(success, error, "OSGeolocation", "hasNativeTimeoutHandling", []);
+}
 module.exports = {
   getCurrentPosition,
   watchPosition,
-  clearWatch
+  clearWatch,
+  hasNativeTimeoutHandling
 };
 f(true);

@@ -16,8 +16,10 @@ class OSGeolocation {
 
         let id = uuidv4()
         let timeoutID: ReturnType<typeof setTimeout> | undefined
+        let hasNative = false
         const successCallback = (position: Position | OSGLOCPosition) => {
-            if (typeof (this.#timers[id]) == 'undefined') {
+
+            if (!hasNative && typeof (this.#timers[id]) == 'undefined') {
                 // Timeout already happened, or native fired error callback for
                 // this geo request.
                 // Don't continue with success callback.
@@ -52,26 +54,30 @@ class OSGeolocation {
             })
             // Otherwise we have to call into native to retrieve a position.
         } else {
-            if (options.timeout !== Infinity) {
-                // If the timeout value was not set to Infinity (default), then
-                // set up a timeout function that will fire the error callback
-                // if no successful position was retrieved before timeout expired.
-                timeoutID = this.#createTimeout(errorCallback, options.timeout, false, id)
-                this.#timers[id] = timeoutID
-            }
 
-            if (this.#isSynapseDefined()) {
-                // @ts-ignore
-                CapacitorUtils.Synapse.Geolocation.getCurrentPosition(options, successCallback, errorCallback)
-            } else {
-                // currently Synapse doesn't work in MABS 12 builds with Capacitor npm package
-                //  But it works with cordova via Github repository
-                //  So we need to call the Capacitor plugin directly
-                // @ts-ignore
-                Capacitor.Plugins.Geolocation.getCurrentPosition(options)
-                    .then(successCallback)
-                    .catch(errorCallback);
-            }
+            this.#hasNativeTimeoutHandling((nativeTimeout) => {
+                hasNative = nativeTimeout;
+                if (!hasNative && options.timeout !== Infinity) {
+                    // If the timeout value was not set to Infinity (default), then
+                    // set up a timeout function that will fire the error callback
+                    // if no successful position was retrieved before timeout expired.
+                    timeoutID = this.#createTimeout(errorCallback, options.timeout, false, id)
+                    this.#timers[id] = timeoutID
+                }
+
+                if (this.#isSynapseDefined()) {
+                    // @ts-ignore
+                    CapacitorUtils.Synapse.Geolocation.getCurrentPosition(options, successCallback, errorCallback)
+                } else {
+                    // currently Synapse doesn't work in MABS 12 builds with Capacitor npm package
+                    //  But it works with cordova via Github repository
+                    //  So we need to call the Capacitor plugin directly
+                    // @ts-ignore
+                    Capacitor.Plugins.Geolocation.getCurrentPosition(options)
+                        .then(successCallback)
+                        .catch(errorCallback);
+                }
+            })
         }
     }
 
@@ -84,19 +90,20 @@ class OSGeolocation {
 
         let watchId = uuidv4()
         let timeoutID: ReturnType<typeof setTimeout> | undefined
+        let hasNative = false
         const successCallback = (res: Position | OSGLOCPosition) => {
-            if (typeof (this.#timers[watchId]) == 'undefined') {
+            if (!hasNative && typeof (this.#timers[watchId]) == 'undefined') {
                 // Timeout already happened, or native fired error callback for
                 // this geo request.
                 // Don't continue with success callback.
                 return
             }
-
+           
             if (this.#isLegacyPosition(res)) {
                 res = this.#convertFromLegacy(res)
             }
             clearTimeout(this.#timers[watchId])
-
+           
             this.#lastPosition = res
             success(res)
         }
@@ -110,34 +117,36 @@ class OSGeolocation {
             this.#callbackIdsMap[watchId] = callbackId;
         }
 
-        if (options.timeout !== Infinity) {
-            // If the timeout value was not set to Infinity (default), then
-            // set up a timeout function that will fire the error callback
-            // if no successful position was retrieved before timeout expired.
-            timeoutID = this.#createTimeout(errorCallback, options.timeout, true, watchId)
-            this.#timers[watchId] = timeoutID
-        }
-        options.id = watchId
+        this.#hasNativeTimeoutHandling((nativeTimeout) => {
+            hasNative = nativeTimeout;
+            if (!hasNative && options.timeout !== Infinity) {
+                // If the timeout value was not set to Infinity (default), then
+                // set up a timeout function that will fire the error callback
+                // if no successful position was retrieved before timeout expired.
+                timeoutID = this.#createTimeout(errorCallback, options.timeout, true, watchId)
+                this.#timers[watchId] = timeoutID
+            }
 
-        if (this.#isCapacitorPluginDefined()) {
-            // For the case of watch location, capacitor returns a callback id that should be stored on the wrapper to make sure watches are cleared properly
-            //  So in other words, Synapse can't be used in watchPosition for Capacitor.
-            // @ts-ignore
-            Capacitor.Plugins.Geolocation.watchPosition(
-                options, 
-                (position: Position | OSGLOCPosition, err?: any) => {
+            options.id = watchId
+
+            if (this.#isCapacitorPluginDefined()) {
+                // For the case of watch location, capacitor returns a callback id that should be stored on the wrapper to make sure watches are cleared properly
+                //  So in other words, Synapse can't be used in watchPosition for Capacitor.
+                // @ts-ignore
+                Capacitor.Plugins.Geolocation.watchPosition(options, (position: Position | OSGLOCPosition, err?: any) => {
                     if (err) {
                         errorCallback(err);
                     }
                     else if (position) {
                         successCallback(position)
                     }
-                }
-            ).then(watchAddedCallback);
-        } else {
-            // @ts-ignore
-            cordova.plugins.Geolocation.watchPosition(options, successCallback, errorCallback)
-        }
+                }).then(watchAddedCallback);
+            } else {
+                // @ts-ignore
+                cordova.plugins.Geolocation.watchPosition(options, successCallback, errorCallback)
+            }
+        })
+   
         return watchId;
     }
 
@@ -267,6 +276,27 @@ class OSGeolocation {
     #isSynapseDefined(): boolean {
         // @ts-ignore
         return typeof (CapacitorUtils) !== "undefined" && typeof (CapacitorUtils.Synapse) !== "undefined" && typeof (CapacitorUtils.Synapse.Geolocation) !== "undefined"
+    }
+
+    /**
+     * Checks whether the native Geolocation plugin supports built-in timeout handling.
+     * Calls the success callback with `true` if supported, otherwise `false`.
+     * 
+     * @param success Callback receiving a boolean indicating if native timeout handling is available.
+     */
+    #hasNativeTimeoutHandling(success: (value: boolean) => void) {
+        if (this.#isCapacitorPluginDefined()) {
+            success(true)
+            return
+        }
+
+        // @ts-ignore
+        if (typeof cordova !== "undefined" && cordova.plugins && cordova.plugins.Geolocation && typeof cordova.plugins.Geolocation.hasNativeTimeoutHandling === "function") {
+            // @ts-ignore
+            cordova.plugins.Geolocation.hasNativeTimeoutHandling(success, () => success(false));
+        } else {
+            success(false);
+        }
     }
 }
 

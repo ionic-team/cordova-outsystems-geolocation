@@ -1,3 +1,14 @@
+## [1.1.1]
+
+## 2025-11-21
+
+- fix(android): Native timeout in `watchPosition`
+
+## 2025-10-20
+
+- Chore(iOS): update native library IONGeolocationLib to version 2.0.0
+- Fix(iOS): This version introduces native timeout handling for location requests, replacing the previous `outsystems-wrapper` timeout.
+
 ## [1.1.0]
 
 ## 2025-10-03
