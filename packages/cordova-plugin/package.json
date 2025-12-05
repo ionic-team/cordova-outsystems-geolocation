@@ -33,14 +33,14 @@
   "prettier": "@ionic/prettier-config",
   "docs": "typedoc",
   "devDependencies": {
-    "@capacitor/docgen": "^0.2.2",
+    "@capacitor/docgen": "^0.3.0",
     "@rollup/plugin-typescript": "^11.1.6",
     "@types/cordova": "^11.0.3",
     "@types/node": "^20.14.8",
     "cordova-common": "^5.0.0",
     "eslint": "^7.11.0",
     "prettier": "~2.3.0",
-    "rimraf": "^3.0.2",
+    "rimraf": "^6.0.1",
     "typescript": "~5.4.5",
     "vite": "^5.2.11",
     "vite-plugin-dts": "^3.9.1"
