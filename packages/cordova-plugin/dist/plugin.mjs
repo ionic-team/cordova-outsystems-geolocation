@@ -106,4 +106,4 @@ module.exports = {
   watchPosition,
   clearWatch
 };
-f(false);
+f(true);

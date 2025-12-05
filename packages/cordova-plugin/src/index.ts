@@ -1,7 +1,7 @@
 import { exposeSynapse } from '@capacitor/synapse';
 
-// false -> breaking change
-exposeSynapse(false);
+// true -> to make sure Synapse uses this cordova plugin for capacitor builds.
+exposeSynapse(true);
 
 export * from './web';
 export * from './definitions';
