@@ -10,7 +10,7 @@ var __privateAdd = (obj, member, value) => member.has(obj) ? __typeError("Cannot
 var __privateSet = (obj, member, value, setter) => (__accessCheck(obj, member, "write to private field"), setter ? setter.call(obj, value) : member.set(obj, value), value);
 var __privateMethod = (obj, member, method) => (__accessCheck(obj, member, "access private method"), method);
 
-  var _lastPosition, _timers, _callbackIdsMap, _OSGeolocation_instances, createTimeout_fn, convertFromLegacy_fn, isLegacyPosition_fn, shouldUseWebApi_fn, isCapacitorPluginDefined_fn, isSynapseDefined_fn, hasNativeTimeoutHandling_fn;
+  var _lastPosition, _timers, _callbackIdsMap, _OSGeolocation_instances, createTimeout_fn, convertFromLegacy_fn, isLegacyPosition_fn, shouldUseWebApi_fn, isCapacitorPluginDefined_fn, isCordovaPluginDefined_fn, hasNativeTimeoutHandling_fn;
   const byteToHex = [];
   for (let i = 0; i < 256; ++i) {
     byteToHex.push((i + 256).toString(16).slice(1));
@@ -67,7 +67,7 @@ var __privateMethod = (obj, member, method) => (__accessCheck(obj, member, "acce
         __privateSet(this, _lastPosition, position);
         success(position);
       };
-      const errorCallback = (e) => {
+      const errorCallback2 = (e) => {
         if (typeof __privateGet(this, _timers)[id] !== "undefined") {
           clearTimeout(__privateGet(this, _timers)[id]);
         }
@@ -84,13 +84,13 @@ var __privateMethod = (obj, member, method) => (__accessCheck(obj, member, "acce
         __privateMethod(this, _OSGeolocation_instances, hasNativeTimeoutHandling_fn).call(this, (nativeTimeout) => {
           hasNative = nativeTimeout;
           if (!hasNative && options.timeout !== Infinity) {
-            timeoutID = __privateMethod(this, _OSGeolocation_instances, createTimeout_fn).call(this, errorCallback, options.timeout, false, id);
+            timeoutID = __privateMethod(this, _OSGeolocation_instances, createTimeout_fn).call(this, errorCallback2, options.timeout, false, id);
             __privateGet(this, _timers)[id] = timeoutID;
           }
-          if (__privateMethod(this, _OSGeolocation_instances, isSynapseDefined_fn).call(this)) {
-            CapacitorUtils.Synapse.Geolocation.getCurrentPosition(options, successCallback, errorCallback);
+          if (__privateMethod(this, _OSGeolocation_instances, isCapacitorPluginDefined_fn).call(this)) {
+            Capacitor.Plugins.Geolocation.getCurrentPosition(options).then(successCallback).catch(errorCallback2);
           } else {
-            Capacitor.Plugins.Geolocation.getCurrentPosition(options).then(successCallback).catch(errorCallback);
+            cordova.plugins.Geolocation.getCurrentPosition(options, successCallback, errorCallback2);
           }
         });
       }
@@ -113,7 +113,7 @@ var __privateMethod = (obj, member, method) => (__accessCheck(obj, member, "acce
         __privateSet(this, _lastPosition, res);
         success(res);
       };
-      const errorCallback = (e) => {
+      const errorCallback2 = (e) => {
         if (typeof timeoutID !== "undefined") {
           clearTimeout(timeoutID);
         }
@@ -125,20 +125,20 @@ var __privateMethod = (obj, member, method) => (__accessCheck(obj, member, "acce
       __privateMethod(this, _OSGeolocation_instances, hasNativeTimeoutHandling_fn).call(this, (nativeTimeout) => {
         hasNative = nativeTimeout;
         if (!hasNative && options.timeout !== Infinity) {
-          timeoutID = __privateMethod(this, _OSGeolocation_instances, createTimeout_fn).call(this, errorCallback, options.timeout, true, watchId);
+          timeoutID = __privateMethod(this, _OSGeolocation_instances, createTimeout_fn).call(this, errorCallback2, options.timeout, true, watchId);
           __privateGet(this, _timers)[watchId] = timeoutID;
         }
         options.id = watchId;
         if (__privateMethod(this, _OSGeolocation_instances, isCapacitorPluginDefined_fn).call(this)) {
           Capacitor.Plugins.Geolocation.watchPosition(options, (position, err) => {
             if (err) {
-              errorCallback(err);
+              errorCallback2(err);
             } else if (position) {
               successCallback(position);
             }
           }).then(watchAddedCallback);
         } else {
-          cordova.plugins.Geolocation.watchPosition(options, successCallback, errorCallback);
+          cordova.plugins.Geolocation.watchPosition(options, successCallback, errorCallback2);
         }
       });
       return watchId;
@@ -164,10 +164,10 @@ var __privateMethod = (obj, member, method) => (__accessCheck(obj, member, "acce
         delete __privateGet(this, _callbackIdsMap)[options.id];
         success();
       };
-      if (__privateMethod(this, _OSGeolocation_instances, isSynapseDefined_fn).call(this)) {
-        CapacitorUtils.Synapse.Geolocation.clearWatch(optionsWithCorrectId, successCallback, error);
-      } else {
+      if (__privateMethod(this, _OSGeolocation_instances, isCapacitorPluginDefined_fn).call(this)) {
         Capacitor.Plugins.Geolocation.clearWatch(optionsWithCorrectId).then(successCallback).catch(error);
+      } else {
+        cordova.plugins.Geolocation.clearWatch(optionsWithCorrectId, successCallback, errorCallback);
       }
     }
   }
@@ -227,14 +227,7 @@ var __privateMethod = (obj, member, method) => (__accessCheck(obj, member, "acce
    * @returns true if should use web API, false otherwise
    */
   shouldUseWebApi_fn = function() {
-    if (__privateMethod(this, _OSGeolocation_instances, isSynapseDefined_fn).call(this)) {
-      return false;
-    }
-    if (__privateMethod(this, _OSGeolocation_instances, isCapacitorPluginDefined_fn).call(this)) {
-      const platform = Capacitor.getPlatform();
-      return platform === "web";
-    }
-    return true;
+    return !(__privateMethod(this, _OSGeolocation_instances, isCapacitorPluginDefined_fn).call(this) || __privateMethod(this, _OSGeolocation_instances, isCordovaPluginDefined_fn).call(this));
   };
   /**
    * Checks if @capacitor/geolocation plugin is defined
@@ -245,10 +238,12 @@ var __privateMethod = (obj, member, method) => (__accessCheck(obj, member, "acce
     return typeof Capacitor !== "undefined" && typeof Capacitor.Plugins !== "undefined" && typeof Capacitor.Plugins.Geolocation !== "undefined";
   };
   /**
-   * @returns true if synapse is defined, false otherwise
+   * Checks if Cordova Geolocation plugin is defined
+   * 
+   * @returns true if geolocation cordova plugin is available; false otherwise
    */
-  isSynapseDefined_fn = function() {
-    return typeof CapacitorUtils !== "undefined" && typeof CapacitorUtils.Synapse !== "undefined" && typeof CapacitorUtils.Synapse.Geolocation !== "undefined";
+  isCordovaPluginDefined_fn = function() {
+    return typeof cordova !== "undefined" && typeof cordova.plugins !== "undefined" && typeof cordova.plugins.Geolocation !== "undefined";
   };
   /**
    * Checks whether the native Geolocation plugin supports built-in timeout handling.
