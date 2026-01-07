@@ -2,6 +2,51 @@
   typeof exports === "object" && typeof module !== "undefined" ? factory(require("cordova")) : typeof define === "function" && define.amd ? define(["cordova"], factory) : (global = typeof globalThis !== "undefined" ? globalThis : global || self, factory(global.cordova));
 })(this, function(cordova) {
   "use strict";
+  function s(t) {
+    t.CapacitorUtils.Synapse = new Proxy(
+      {},
+      {
+        get(e, n) {
+          return new Proxy({}, {
+            get(w, o) {
+              return (c, p, r) => {
+                const i = t.Capacitor.Plugins[n];
+                if (i === void 0) {
+                  r(new Error(`Capacitor plugin ${n} not found`));
+                  return;
+                }
+                if (typeof i[o] != "function") {
+                  r(new Error(`Method ${o} not found in Capacitor plugin ${n}`));
+                  return;
+                }
+                (async () => {
+                  try {
+                    const a = await i[o](c);
+                    p(a);
+                  } catch (a) {
+                    r(a);
+                  }
+                })();
+              };
+            }
+          });
+        }
+      }
+    );
+  }
+  function u(t) {
+    t.CapacitorUtils.Synapse = new Proxy(
+      {},
+      {
+        get(e, n) {
+          return t.cordova.plugins[n];
+        }
+      }
+    );
+  }
+  function f(t = false) {
+    typeof window > "u" || (window.CapacitorUtils = window.CapacitorUtils || {}, window.Capacitor !== void 0 && !t ? s(window) : window.cordova !== void 0 && u(window));
+  }
   const CurrentPositionOptionsDefault = {
     enableHighAccuracy: false,
     timeout: 1e3,
@@ -68,4 +113,5 @@
     clearWatch,
     hasNativeTimeoutHandling
   };
+  f(true);
 });

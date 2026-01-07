@@ -19,6 +19,10 @@ importers:
         version: 5.4.5
 
   packages/cordova-plugin:
+    dependencies:
+      '@capacitor/synapse':
+        specifier: ^1.0.2
+        version: 1.0.4
     devDependencies:
       '@capacitor/docgen':
         specifier: ^0.2.2
@@ -137,6 +141,9 @@ packages:
     resolution: {integrity: sha512-617jB5DlKjUljxfoANORWeqffsHqHekckH48oslKWFGzfCHYIAEPfJfMa5M4mVSzn2ifSvWB5C3st4augwhl5w==}
     engines: {node: '>=14.5.0'}
     hasBin: true
+
+  '@capacitor/synapse@1.0.4':
+    resolution: {integrity: sha512-/C1FUo8/OkKuAT4nCIu/34ny9siNHr9qtFezu4kxm6GY1wNFxrCFWjfYx5C1tUhVGz3fxBABegupkpjXvjCHrw==}
 
   '@emnapi/core@1.7.0':
     resolution: {integrity: sha512-pJdKGq/1iquWYtv1RRSljZklxHCOCAJFJrImO5ZLKPJVJlVUcs8yFwNQlqS0Lo8xT1VAXXTCZocF9n26FWEKsw==}
@@ -3399,6 +3406,8 @@ snapshots:
       github-slugger: 1.5.0
       minimist: 1.2.8
       typescript: 4.2.4
+
+  '@capacitor/synapse@1.0.4': {}
 
   '@emnapi/core@1.7.0':
     dependencies:

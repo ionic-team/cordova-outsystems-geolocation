@@ -24,6 +24,9 @@
   },
   "author": "OutSystems",
   "license": "MIT",
+  "dependencies": {
+    "@capacitor/synapse": "^1.0.2"
+  },
   "eslintConfig": {
     "extends": "@ionic/eslint-config/recommended"
   },
