@@ -177,7 +177,7 @@ class OSGeolocation {
                 .catch(error);
         } else {
             // @ts-ignore
-            cordova.plugins.Geolocation.clearWatch(optionsWithCorrectId, successCallback, errorCallback);
+            cordova.plugins.Geolocation.clearWatch(optionsWithCorrectId, successCallback, error);
         }
     }
 

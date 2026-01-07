@@ -28,11 +28,14 @@ function rng() {
 const randomUUID = typeof crypto !== "undefined" && crypto.randomUUID && crypto.randomUUID.bind(crypto);
 const native = { randomUUID };
 function v4(options, buf, offset) {
-  if (native.randomUUID && !buf && !options) {
+  if (native.randomUUID && true && !options) {
     return native.randomUUID();
   }
   options = options || {};
-  const rnds = options.random || (options.rng || rng)();
+  const rnds = options.random ?? options.rng?.() ?? rng();
+  if (rnds.length < 16) {
+    throw new Error("Random bytes length must be >= 16");
+  }
   rnds[6] = rnds[6] & 15 | 64;
   rnds[8] = rnds[8] & 63 | 128;
   return unsafeStringify(rnds);
@@ -63,7 +66,7 @@ class OSGeolocation {
       __privateSet(this, _lastPosition, position);
       success(position);
     };
-    const errorCallback2 = (e) => {
+    const errorCallback = (e) => {
       if (typeof __privateGet(this, _timers)[id] !== "undefined") {
         clearTimeout(__privateGet(this, _timers)[id]);
       }
@@ -80,13 +83,13 @@ class OSGeolocation {
       __privateMethod(this, _OSGeolocation_instances, hasNativeTimeoutHandling_fn).call(this, (nativeTimeout) => {
         hasNative = nativeTimeout;
         if (!hasNative && options.timeout !== Infinity) {
-          timeoutID = __privateMethod(this, _OSGeolocation_instances, createTimeout_fn).call(this, errorCallback2, options.timeout, false, id);
+          timeoutID = __privateMethod(this, _OSGeolocation_instances, createTimeout_fn).call(this, errorCallback, options.timeout, false, id);
           __privateGet(this, _timers)[id] = timeoutID;
         }
         if (__privateMethod(this, _OSGeolocation_instances, isCapacitorPluginDefined_fn).call(this)) {
-          Capacitor.Plugins.Geolocation.getCurrentPosition(options).then(successCallback).catch(errorCallback2);
+          Capacitor.Plugins.Geolocation.getCurrentPosition(options).then(successCallback).catch(errorCallback);
         } else {
-          cordova.plugins.Geolocation.getCurrentPosition(options, successCallback, errorCallback2);
+          cordova.plugins.Geolocation.getCurrentPosition(options, successCallback, errorCallback);
         }
       });
     }
@@ -109,7 +112,7 @@ class OSGeolocation {
       __privateSet(this, _lastPosition, res);
       success(res);
     };
-    const errorCallback2 = (e) => {
+    const errorCallback = (e) => {
       if (typeof timeoutID !== "undefined") {
         clearTimeout(timeoutID);
       }
@@ -121,20 +124,20 @@ class OSGeolocation {
     __privateMethod(this, _OSGeolocation_instances, hasNativeTimeoutHandling_fn).call(this, (nativeTimeout) => {
       hasNative = nativeTimeout;
       if (!hasNative && options.timeout !== Infinity) {
-        timeoutID = __privateMethod(this, _OSGeolocation_instances, createTimeout_fn).call(this, errorCallback2, options.timeout, true, watchId);
+        timeoutID = __privateMethod(this, _OSGeolocation_instances, createTimeout_fn).call(this, errorCallback, options.timeout, true, watchId);
         __privateGet(this, _timers)[watchId] = timeoutID;
       }
       options.id = watchId;
       if (__privateMethod(this, _OSGeolocation_instances, isCapacitorPluginDefined_fn).call(this)) {
         Capacitor.Plugins.Geolocation.watchPosition(options, (position, err) => {
           if (err) {
-            errorCallback2(err);
+            errorCallback(err);
           } else if (position) {
             successCallback(position);
           }
         }).then(watchAddedCallback);
       } else {
-        cordova.plugins.Geolocation.watchPosition(options, successCallback, errorCallback2);
+        cordova.plugins.Geolocation.watchPosition(options, successCallback, errorCallback);
       }
     });
     return watchId;
@@ -163,7 +166,7 @@ class OSGeolocation {
     if (__privateMethod(this, _OSGeolocation_instances, isCapacitorPluginDefined_fn).call(this)) {
       Capacitor.Plugins.Geolocation.clearWatch(optionsWithCorrectId).then(successCallback).catch(error);
     } else {
-      cordova.plugins.Geolocation.clearWatch(optionsWithCorrectId, successCallback, errorCallback);
+      cordova.plugins.Geolocation.clearWatch(optionsWithCorrectId, successCallback, error);
     }
   }
 }
