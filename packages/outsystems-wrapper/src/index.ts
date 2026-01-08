@@ -67,7 +67,7 @@ class OSGeolocation {
 
                 if (this.#isCapacitorPluginDefined()) {
                     // @ts-ignore
-                    Capacitor.Plugins.Geolocation.getCurrentPosition(options)
+                    window.CapacitorPlugins.Geolocation.getCurrentPosition(options)
                         .then(successCallback)
                         .catch(errorCallback);
                 } else {
@@ -129,7 +129,7 @@ class OSGeolocation {
             if (this.#isCapacitorPluginDefined()) {
                 // For the case of watch location, capacitor returns a callback id that should be stored on the wrapper to make sure watches are cleared properly
                 // @ts-ignore
-                Capacitor.Plugins.Geolocation.watchPosition(options, (position: Position | OSGLOCPosition, err?: any) => {
+                window.CapacitorPlugins.Geolocation.watchPosition(options, (position: Position | OSGLOCPosition, err?: any) => {
                     if (err) {
                         errorCallback(err);
                     }
@@ -172,7 +172,7 @@ class OSGeolocation {
         }
         if (this.#isCapacitorPluginDefined()) {
             // @ts-ignore
-            Capacitor.Plugins.Geolocation.clearWatch(optionsWithCorrectId)
+            window.CapacitorPlugins.Geolocation.clearWatch(optionsWithCorrectId)
                 .then(successCallback)
                 .catch(error);
         } else {
@@ -248,7 +248,7 @@ class OSGeolocation {
      */
     #isCapacitorPluginDefined(): boolean {
         // @ts-ignore
-        return (typeof(Capacitor) !== "undefined" && typeof(Capacitor.Plugins) !== "undefined" && typeof(Capacitor.Plugins.Geolocation) !== "undefined")
+        return (typeof(window) !== "undefined" && typeof(window.CapacitorPlugins) !== "undefined" && typeof(window.CapacitorPlugins.Geolocation) !== "undefined")
     }
 
     /**

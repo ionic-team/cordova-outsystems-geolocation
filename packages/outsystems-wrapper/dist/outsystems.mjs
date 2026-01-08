@@ -84,7 +84,7 @@ class OSGeolocation {
           __privateGet(this, _timers)[id] = timeoutID;
         }
         if (__privateMethod(this, _OSGeolocation_instances, isCapacitorPluginDefined_fn).call(this)) {
-          Capacitor.Plugins.Geolocation.getCurrentPosition(options).then(successCallback).catch(errorCallback);
+          window.CapacitorPlugins.Geolocation.getCurrentPosition(options).then(successCallback).catch(errorCallback);
         } else {
           cordova.plugins.Geolocation.getCurrentPosition(options, successCallback, errorCallback);
         }
@@ -126,7 +126,7 @@ class OSGeolocation {
       }
       options.id = watchId;
       if (__privateMethod(this, _OSGeolocation_instances, isCapacitorPluginDefined_fn).call(this)) {
-        Capacitor.Plugins.Geolocation.watchPosition(options, (position, err) => {
+        window.CapacitorPlugins.Geolocation.watchPosition(options, (position, err) => {
           if (err) {
             errorCallback(err);
           } else if (position) {
@@ -161,7 +161,7 @@ class OSGeolocation {
       success();
     };
     if (__privateMethod(this, _OSGeolocation_instances, isCapacitorPluginDefined_fn).call(this)) {
-      Capacitor.Plugins.Geolocation.clearWatch(optionsWithCorrectId).then(successCallback).catch(error);
+      window.CapacitorPlugins.Geolocation.clearWatch(optionsWithCorrectId).then(successCallback).catch(error);
     } else {
       cordova.plugins.Geolocation.clearWatch(optionsWithCorrectId, successCallback, error);
     }
@@ -231,7 +231,7 @@ shouldUseWebApi_fn = function() {
  * @returns true if geolocation capacitor plugin is available; false otherwise
  */
 isCapacitorPluginDefined_fn = function() {
-  return typeof Capacitor !== "undefined" && typeof Capacitor.Plugins !== "undefined" && typeof Capacitor.Plugins.Geolocation !== "undefined";
+  return typeof window !== "undefined" && typeof window.CapacitorPlugins !== "undefined" && typeof window.CapacitorPlugins.Geolocation !== "undefined";
 };
 /**
  * Checks if Cordova Geolocation plugin is defined
