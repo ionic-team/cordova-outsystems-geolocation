@@ -1,3 +1,9 @@
+## [1.1.2]
+
+## 2026-01-13
+
+- chore(android): remove unused dependencies to `oscore` and `oscordova` libs.
+
 ## [1.1.1]
 
 ## 2025-11-21

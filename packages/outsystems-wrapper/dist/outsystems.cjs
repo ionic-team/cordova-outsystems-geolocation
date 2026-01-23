@@ -7,7 +7,7 @@ var __privateGet = (obj, member, getter) => (__accessCheck(obj, member, "read fr
 var __privateAdd = (obj, member, value) => member.has(obj) ? __typeError("Cannot add the same private member more than once") : member instanceof WeakSet ? member.add(obj) : member.set(obj, value);
 var __privateSet = (obj, member, value, setter) => (__accessCheck(obj, member, "write to private field"), setter ? setter.call(obj, value) : member.set(obj, value), value);
 var __privateMethod = (obj, member, method) => (__accessCheck(obj, member, "access private method"), method);
-var _lastPosition, _timers, _callbackIdsMap, _OSGeolocation_instances, createTimeout_fn, convertFromLegacy_fn, isLegacyPosition_fn, shouldUseWebApi_fn, isCapacitorPluginDefined_fn, isSynapseDefined_fn, hasNativeTimeoutHandling_fn;
+var _lastPosition, _timers, _callbackIdsMap, _OSGeolocation_instances, createTimeout_fn, convertFromLegacy_fn, isLegacyPosition_fn, shouldUseWebApi_fn, isCapacitorPluginDefined_fn, isCordovaPluginDefined_fn, hasNativeTimeoutHandling_fn;
 Object.defineProperty(exports, Symbol.toStringTag, { value: "Module" });
 const byteToHex = [];
 for (let i = 0; i < 256; ++i) {
@@ -88,10 +88,10 @@ class OSGeolocation {
           timeoutID = __privateMethod(this, _OSGeolocation_instances, createTimeout_fn).call(this, errorCallback, options.timeout, false, id);
           __privateGet(this, _timers)[id] = timeoutID;
         }
-        if (__privateMethod(this, _OSGeolocation_instances, isSynapseDefined_fn).call(this)) {
-          CapacitorUtils.Synapse.Geolocation.getCurrentPosition(options, successCallback, errorCallback);
+        if (__privateMethod(this, _OSGeolocation_instances, isCapacitorPluginDefined_fn).call(this)) {
+          window.CapacitorPlugins.Geolocation.getCurrentPosition(options).then(successCallback).catch(errorCallback);
         } else {
-          Capacitor.Plugins.Geolocation.getCurrentPosition(options).then(successCallback).catch(errorCallback);
+          cordova.plugins.Geolocation.getCurrentPosition(options, successCallback, errorCallback);
         }
       });
     }
@@ -131,7 +131,7 @@ class OSGeolocation {
       }
       options.id = watchId;
       if (__privateMethod(this, _OSGeolocation_instances, isCapacitorPluginDefined_fn).call(this)) {
-        Capacitor.Plugins.Geolocation.watchPosition(options, (position, err) => {
+        window.CapacitorPlugins.Geolocation.watchPosition(options, (position, err) => {
           if (err) {
             errorCallback(err);
           } else if (position) {
@@ -165,10 +165,10 @@ class OSGeolocation {
       delete __privateGet(this, _callbackIdsMap)[options.id];
       success();
     };
-    if (__privateMethod(this, _OSGeolocation_instances, isSynapseDefined_fn).call(this)) {
-      CapacitorUtils.Synapse.Geolocation.clearWatch(optionsWithCorrectId, successCallback, error);
+    if (__privateMethod(this, _OSGeolocation_instances, isCapacitorPluginDefined_fn).call(this)) {
+      window.CapacitorPlugins.Geolocation.clearWatch(optionsWithCorrectId).then(successCallback).catch(error);
     } else {
-      Capacitor.Plugins.Geolocation.clearWatch(optionsWithCorrectId).then(successCallback).catch(error);
+      cordova.plugins.Geolocation.clearWatch(optionsWithCorrectId, successCallback, error);
     }
   }
 }
@@ -228,14 +228,7 @@ isLegacyPosition_fn = function(position) {
  * @returns true if should use web API, false otherwise
  */
 shouldUseWebApi_fn = function() {
-  if (__privateMethod(this, _OSGeolocation_instances, isSynapseDefined_fn).call(this)) {
-    return false;
-  }
-  if (__privateMethod(this, _OSGeolocation_instances, isCapacitorPluginDefined_fn).call(this)) {
-    const platform = Capacitor.getPlatform();
-    return platform === "web";
-  }
-  return true;
+  return !(__privateMethod(this, _OSGeolocation_instances, isCapacitorPluginDefined_fn).call(this) || __privateMethod(this, _OSGeolocation_instances, isCordovaPluginDefined_fn).call(this));
 };
 /**
  * Checks if @capacitor/geolocation plugin is defined
@@ -243,13 +236,15 @@ shouldUseWebApi_fn = function() {
  * @returns true if geolocation capacitor plugin is available; false otherwise
  */
 isCapacitorPluginDefined_fn = function() {
-  return typeof Capacitor !== "undefined" && typeof Capacitor.Plugins !== "undefined" && typeof Capacitor.Plugins.Geolocation !== "undefined";
+  return typeof window !== "undefined" && typeof window.CapacitorPlugins !== "undefined" && typeof window.CapacitorPlugins.Geolocation !== "undefined";
 };
 /**
- * @returns true if synapse is defined, false otherwise
+ * Checks if Cordova Geolocation plugin is defined
+ * 
+ * @returns true if geolocation cordova plugin is available; false otherwise
  */
-isSynapseDefined_fn = function() {
-  return typeof CapacitorUtils !== "undefined" && typeof CapacitorUtils.Synapse !== "undefined" && typeof CapacitorUtils.Synapse.Geolocation !== "undefined";
+isCordovaPluginDefined_fn = function() {
+  return typeof cordova !== "undefined" && typeof cordova.plugins !== "undefined" && typeof cordova.plugins.Geolocation !== "undefined";
 };
 /**
  * Checks whether the native Geolocation plugin supports built-in timeout handling.
