@@ -2,16 +2,15 @@
   "name": "com.outsystems.plugins.geolocation",
   "version": "1.1.2",
   "private": true,
-  "dependencies": {},
-  "scripts": {
-    "update:tag": "node ./scripts/change-extensibility.js",
-    "update:version": "node ./scripts/tag-applications-o11.js",
-    "deploy": "node ./scripts/deploy.js",
-    "download": "node ./scripts/download.js"
-  },
   "devDependencies": {
+    "@semantic-release/changelog": "^6.0.3",
+    "@semantic-release/commit-analyzer": "^13.0.1",
+    "@semantic-release/git": "^10.0.1",
+    "@semantic-release/github": "^12.0.0",
+    "@semantic-release/npm": "^13.1.1",
     "@types/node": "^20.14.8",
-    "lerna": "^8.1.8",
-    "typescript": "~5.4.5"
+    "semantic-release": "^25.0.1",
+    "typescript": "~5.4.5",
+    "xml2js": "^0.6.2"
   }
 }
