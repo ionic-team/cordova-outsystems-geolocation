@@ -95,12 +95,12 @@ class OSGeolocation {
                 // Don't continue with success callback.
                 return
             }
-           
+
             if (this.#isLegacyPosition(res)) {
                 res = this.#convertFromLegacy(res)
             }
             clearTimeout(this.#timers[watchId])
-           
+
             this.#lastPosition = res
             success(res)
         }
@@ -142,7 +142,7 @@ class OSGeolocation {
                 cordova.plugins.Geolocation.watchPosition(options, successCallback, errorCallback)
             }
         })
-   
+
         return watchId;
     }
 
@@ -218,7 +218,11 @@ class OSGeolocation {
                 accuracy: lPosition.accuracy,
                 heading: lPosition.heading,
                 speed: lPosition.velocity,
-                altitudeAccuracy: lPosition.altitudeAccuracy
+                altitudeAccuracy: lPosition.altitudeAccuracy,
+                magneticHeading: lPosition.magneticHeading,
+                trueHeading: lPosition.trueHeading,
+                headingAccuracy: lPosition.headingAccuracy,
+                course: lPosition.course
             },
             timestamp: lPosition.timestamp,
         }
@@ -248,7 +252,7 @@ class OSGeolocation {
      */
     #isCapacitorPluginDefined(): boolean {
         // @ts-ignore
-        return (typeof(window) !== "undefined" && typeof(window.CapacitorPlugins) !== "undefined" && typeof(window.CapacitorPlugins.Geolocation) !== "undefined")
+        return (typeof (window) !== "undefined" && typeof (window.CapacitorPlugins) !== "undefined" && typeof (window.CapacitorPlugins.Geolocation) !== "undefined")
     }
 
     /**
@@ -258,7 +262,7 @@ class OSGeolocation {
      */
     #isCordovaPluginDefined(): boolean {
         // @ts-ignore
-        return (typeof(cordova) !== "undefined" && typeof(cordova.plugins) !== "undefined" && typeof(cordova.plugins.Geolocation) !== "undefined")
+        return (typeof (cordova) !== "undefined" && typeof (cordova.plugins) !== "undefined" && typeof (cordova.plugins.Geolocation) !== "undefined")
     }
 
     /**
