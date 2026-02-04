@@ -188,12 +188,16 @@ export type Position = {
      * It now prioritizes the compass heading (true or magnetic) if available, falling back
      * to the direction of travel (course).
      *
+     * Only available when using `watchPosition`.
+     *
      * @since 1.0.0
      */
     heading: number | null;
 
     /**
      * The heading (measured in degrees) relative to magnetic north.
+     *
+     * Only available when using `watchPosition`.
      *
      * @since 2.1.0
      */
@@ -202,6 +206,8 @@ export type Position = {
     /**
      * The heading (measured in degrees) relative to true north.
      *
+     * Only available when using `watchPosition`.
+     *
      * @since 2.1.0
      */
     trueHeading?: number | null;
@@ -209,12 +215,16 @@ export type Position = {
     /**
      * The maximum deviation (measured in degrees) between the reported heading and the true geomagnetic heading.
      *
+     * Only available when using `watchPosition`.
+     *
      * @since 2.1.0
      */
     headingAccuracy?: number | null;
 
     /**
      * The direction in which the device is travelling, measured in degrees and relative to due north.
+     *
+     * Only available when using `watchPosition`.
      *
      * @since 2.1.0
      */

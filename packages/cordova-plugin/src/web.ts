@@ -16,11 +16,7 @@ function getCurrentPosition(options: CurrentPositionOptions, success: (output: P
         accuracy: position.accuracy,
         heading: position.heading,
         speed: position.speed,
-        altitudeAccuracy: position.altitudeAccuracy,
-        magneticHeading: position.magneticHeading,
-        trueHeading: position.trueHeading,
-        headingAccuracy: position.headingAccuracy,
-        course: position.course
+        altitudeAccuracy: position.altitudeAccuracy
       },
       timestamp: position.timestamp,
     }
@@ -41,7 +37,11 @@ function watchPosition(options: WatchPositionOptions, success: (output: Position
         accuracy: position.accuracy,
         heading: position.heading,
         speed: position.speed,
-        altitudeAccuracy: position.altitudeAccuracy
+        altitudeAccuracy: position.altitudeAccuracy,
+        magneticHeading: position.magneticHeading,
+        trueHeading: position.trueHeading,
+        headingAccuracy: position.headingAccuracy,
+        course: position.course
       },
       timestamp: position.timestamp,
     }
