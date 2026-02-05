@@ -26,6 +26,7 @@
         <source-file src="packages/cordova-plugin/android/OSGeolocation.kt" target-dir="app/src/main/kotlin/com/outsystems/plugins/geolocation" />
         <source-file src="packages/cordova-plugin/android/OSGeolocationPermissionEvents.kt" target-dir="app/src/main/kotlin/com/outsystems/plugins/geolocation" />
         <source-file src="packages/cordova-plugin/android/OSGeolocationErrors.kt" target-dir="app/src/main/kotlin/com/outsystems/plugins/geolocation" />
+        <resource-file src="packages/cordova-plugin/android/IONGeolocationLib-debug.aar" target="app/libs/IONGeolocationLib-debug.aar" />
         <framework src="packages/cordova-plugin/android/build.gradle" custom="true" type="gradleReference" />
         
     </platform>
@@ -49,7 +50,8 @@
                 <source url="https://cdn.cocoapods.org/"/>
             </config>
             <pods use-frameworks="true">
-                <pod name="IONGeolocationLib" spec="2.1.0" />
+                <!-- <pod name="IONGeolocationLib" spec="2.1.0" /> -->
+                 <framework src="packages/cordova-plugin/ios/IONGeolocationLib.xcframework" custom="true" embed="true" />
             </pods>
         </podspec>
     </platform>
