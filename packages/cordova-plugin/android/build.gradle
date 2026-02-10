@@ -17,7 +17,7 @@ allprojects {
 }
 
 dependencies {
-    implementation(fileTree(dir: 'libs', include: ['*.aar']))
+    implementation(files('libs/IONGeolocationLib-debug.aar'))
     // implementation("io.ionic.libs:iongeolocation-android:2.2.0")
     implementation("androidx.browser:browser:1.8.0")
     implementation("com.google.android.gms:play-services-auth:21.2.0")
