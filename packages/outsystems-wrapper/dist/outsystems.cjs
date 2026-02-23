@@ -207,7 +207,11 @@ convertFromLegacy_fn = function(lPosition) {
       accuracy: lPosition.accuracy,
       heading: lPosition.heading,
       speed: lPosition.velocity,
-      altitudeAccuracy: lPosition.altitudeAccuracy
+      altitudeAccuracy: lPosition.altitudeAccuracy,
+      magneticHeading: lPosition.magneticHeading,
+      trueHeading: lPosition.trueHeading,
+      headingAccuracy: lPosition.headingAccuracy,
+      course: lPosition.course
     },
     timestamp: lPosition.timestamp
   };
