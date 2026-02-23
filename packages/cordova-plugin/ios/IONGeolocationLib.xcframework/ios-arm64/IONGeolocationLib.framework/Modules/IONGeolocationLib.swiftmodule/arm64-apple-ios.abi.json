@@ -774,6 +774,189 @@
             ]
           },
           {
+            "kind": "Var",
+            "name": "magneticHeading",
+            "printedName": "magneticHeading",
+            "children": [
+              {
+                "kind": "TypeNominal",
+                "name": "Optional",
+                "printedName": "Swift.Double?",
+                "children": [
+                  {
+                    "kind": "TypeNominal",
+                    "name": "Double",
+                    "printedName": "Swift.Double",
+                    "usr": "s:Sd"
+                  }
+                ],
+                "usr": "s:Sq"
+              }
+            ],
+            "declKind": "Var",
+            "usr": "s:17IONGeolocationLib20IONGLOCPositionModelV15magneticHeadingSdSgvp",
+            "mangledName": "$s17IONGeolocationLib20IONGLOCPositionModelV15magneticHeadingSdSgvp",
+            "moduleName": "IONGeolocationLib",
+            "declAttributes": [
+              "HasInitialValue",
+              "HasStorage",
+              "AccessControl",
+              "SetterAccess"
+            ],
+            "hasStorage": true,
+            "accessors": [
+              {
+                "kind": "Accessor",
+                "name": "Get",
+                "printedName": "Get()",
+                "children": [
+                  {
+                    "kind": "TypeNominal",
+                    "name": "Optional",
+                    "printedName": "Swift.Double?",
+                    "children": [
+                      {
+                        "kind": "TypeNominal",
+                        "name": "Double",
+                        "printedName": "Swift.Double",
+                        "usr": "s:Sd"
+                      }
+                    ],
+                    "usr": "s:Sq"
+                  }
+                ],
+                "declKind": "Accessor",
+                "usr": "s:17IONGeolocationLib20IONGLOCPositionModelV15magneticHeadingSdSgvg",
+                "mangledName": "$s17IONGeolocationLib20IONGLOCPositionModelV15magneticHeadingSdSgvg",
+                "moduleName": "IONGeolocationLib",
+                "implicit": true,
+                "accessorKind": "get"
+              }
+            ]
+          },
+          {
+            "kind": "Var",
+            "name": "trueHeading",
+            "printedName": "trueHeading",
+            "children": [
+              {
+                "kind": "TypeNominal",
+                "name": "Optional",
+                "printedName": "Swift.Double?",
+                "children": [
+                  {
+                    "kind": "TypeNominal",
+                    "name": "Double",
+                    "printedName": "Swift.Double",
+                    "usr": "s:Sd"
+                  }
+                ],
+                "usr": "s:Sq"
+              }
+            ],
+            "declKind": "Var",
+            "usr": "s:17IONGeolocationLib20IONGLOCPositionModelV11trueHeadingSdSgvp",
+            "mangledName": "$s17IONGeolocationLib20IONGLOCPositionModelV11trueHeadingSdSgvp",
+            "moduleName": "IONGeolocationLib",
+            "declAttributes": [
+              "HasInitialValue",
+              "HasStorage",
+              "AccessControl",
+              "SetterAccess"
+            ],
+            "hasStorage": true,
+            "accessors": [
+              {
+                "kind": "Accessor",
+                "name": "Get",
+                "printedName": "Get()",
+                "children": [
+                  {
+                    "kind": "TypeNominal",
+                    "name": "Optional",
+                    "printedName": "Swift.Double?",
+                    "children": [
+                      {
+                        "kind": "TypeNominal",
+                        "name": "Double",
+                        "printedName": "Swift.Double",
+                        "usr": "s:Sd"
+                      }
+                    ],
+                    "usr": "s:Sq"
+                  }
+                ],
+                "declKind": "Accessor",
+                "usr": "s:17IONGeolocationLib20IONGLOCPositionModelV11trueHeadingSdSgvg",
+                "mangledName": "$s17IONGeolocationLib20IONGLOCPositionModelV11trueHeadingSdSgvg",
+                "moduleName": "IONGeolocationLib",
+                "implicit": true,
+                "accessorKind": "get"
+              }
+            ]
+          },
+          {
+            "kind": "Var",
+            "name": "headingAccuracy",
+            "printedName": "headingAccuracy",
+            "children": [
+              {
+                "kind": "TypeNominal",
+                "name": "Optional",
+                "printedName": "Swift.Double?",
+                "children": [
+                  {
+                    "kind": "TypeNominal",
+                    "name": "Double",
+                    "printedName": "Swift.Double",
+                    "usr": "s:Sd"
+                  }
+                ],
+                "usr": "s:Sq"
+              }
+            ],
+            "declKind": "Var",
+            "usr": "s:17IONGeolocationLib20IONGLOCPositionModelV15headingAccuracySdSgvp",
+            "mangledName": "$s17IONGeolocationLib20IONGLOCPositionModelV15headingAccuracySdSgvp",
+            "moduleName": "IONGeolocationLib",
+            "declAttributes": [
+              "HasInitialValue",
+              "HasStorage",
+              "AccessControl",
+              "SetterAccess"
+            ],
+            "hasStorage": true,
+            "accessors": [
+              {
+                "kind": "Accessor",
+                "name": "Get",
+                "printedName": "Get()",
+                "children": [
+                  {
+                    "kind": "TypeNominal",
+                    "name": "Optional",
+                    "printedName": "Swift.Double?",
+                    "children": [
+                      {
+                        "kind": "TypeNominal",
+                        "name": "Double",
+                        "printedName": "Swift.Double",
+                        "usr": "s:Sd"
+                      }
+                    ],
+                    "usr": "s:Sq"
+                  }
+                ],
+                "declKind": "Accessor",
+                "usr": "s:17IONGeolocationLib20IONGLOCPositionModelV15headingAccuracySdSgvg",
+                "mangledName": "$s17IONGeolocationLib20IONGLOCPositionModelV15headingAccuracySdSgvg",
+                "moduleName": "IONGeolocationLib",
+                "implicit": true,
+                "accessorKind": "get"
+              }
+            ]
+          },
+          {
             "kind": "Function",
             "name": "==",
             "printedName": "==(_:_:)",
@@ -808,7 +991,7 @@
           {
             "kind": "Function",
             "name": "create",
-            "printedName": "create(from:)",
+            "printedName": "create(from:heading:)",
             "children": [
               {
                 "kind": "TypeNominal",
@@ -821,11 +1004,26 @@
                 "name": "CLLocation",
                 "printedName": "_LocationEssentials.CLLocation",
                 "usr": "c:objc(cs)CLLocation"
+              },
+              {
+                "kind": "TypeNominal",
+                "name": "Optional",
+                "printedName": "CoreLocation.CLHeading?",
+                "children": [
+                  {
+                    "kind": "TypeNominal",
+                    "name": "CLHeading",
+                    "printedName": "CoreLocation.CLHeading",
+                    "usr": "c:objc(cs)CLHeading"
+                  }
+                ],
+                "hasDefaultArg": true,
+                "usr": "s:Sq"
               }
             ],
             "declKind": "Func",
-            "usr": "s:17IONGeolocationLib20IONGLOCPositionModelV6create4fromACSo10CLLocationC_tFZ",
-            "mangledName": "$s17IONGeolocationLib20IONGLOCPositionModelV6create4fromACSo10CLLocationC_tFZ",
+            "usr": "s:17IONGeolocationLib20IONGLOCPositionModelV6create4from7headingACSo10CLLocationC_So9CLHeadingCSgtFZ",
+            "mangledName": "$s17IONGeolocationLib20IONGLOCPositionModelV6create4from7headingACSo10CLLocationC_So9CLHeadingCSgtFZ",
             "moduleName": "IONGeolocationLib",
             "static": true,
             "isFromExtension": true,
@@ -2129,6 +2327,42 @@
             ],
             "isFromExtension": true,
             "funcSelfKind": "NonMutating"
+          },
+          {
+            "kind": "Function",
+            "name": "locationManager",
+            "printedName": "locationManager(_:didUpdateHeading:)",
+            "children": [
+              {
+                "kind": "TypeNominal",
+                "name": "Void",
+                "printedName": "()"
+              },
+              {
+                "kind": "TypeNominal",
+                "name": "CLLocationManager",
+                "printedName": "CoreLocation.CLLocationManager",
+                "usr": "c:objc(cs)CLLocationManager"
+              },
+              {
+                "kind": "TypeNominal",
+                "name": "CLHeading",
+                "printedName": "CoreLocation.CLHeading",
+                "usr": "c:objc(cs)CLHeading"
+              }
+            ],
+            "declKind": "Func",
+            "usr": "c:@CM@IONGeolocationLib@objc(cs)IONGLOCManagerWrapper(im)locationManager:didUpdateHeading:",
+            "mangledName": "$s17IONGeolocationLib21IONGLOCManagerWrapperC15locationManager_16didUpdateHeadingySo010CLLocationF0C_So9CLHeadingCtF",
+            "moduleName": "IONGeolocationLib",
+            "objc_name": "locationManager:didUpdateHeading:",
+            "declAttributes": [
+              "Dynamic",
+              "ObjC",
+              "AccessControl"
+            ],
+            "isFromExtension": true,
+            "funcSelfKind": "NonMutating"
           }
         ],
         "declKind": "Class",
@@ -3134,7 +3368,7 @@
     {
       "filePath": "\/Users\/pedrobilro\/Desktop\/client_projects\/outsystems\/source_codes\/community_ionic_repos\/ion-ios-geolocation-fork-heading\/IONGeolocationLib\/Publishers\/IONGLOCManagerWrapper.swift",
       "kind": "BooleanLiteral",
-      "offset": 2115,
+      "offset": 2197,
       "length": 5,
       "value": "false"
     }

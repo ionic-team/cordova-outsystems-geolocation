@@ -51,10 +51,21 @@ public struct IONGLOCPositionModel : Swift.Equatable {
   public var verticalAccuracy: Swift.Double {
     get
   }
+  public var magneticHeading: Swift.Double? {
+    get
+  }
+  public var trueHeading: Swift.Double? {
+    get
+  }
+  public var headingAccuracy: Swift.Double? {
+    get
+  }
   public static func == (a: IONGeolocationLib.IONGLOCPositionModel, b: IONGeolocationLib.IONGLOCPositionModel) -> Swift.Bool
 }
 extension IONGeolocationLib.IONGLOCPositionModel {
-  public static func create(from location: _LocationEssentials.CLLocation) -> IONGeolocationLib.IONGLOCPositionModel
+  #if compiler(>=5.3) && $NonescapableTypes
+  public static func create(from location: _LocationEssentials.CLLocation, heading: CoreLocation.CLHeading? = nil) -> IONGeolocationLib.IONGLOCPositionModel
+  #endif
 }
 public enum IONGLOCAuthorisationRequestType {
   case whenInUse
@@ -122,6 +133,7 @@ extension IONGeolocationLib.IONGLOCManagerWrapper : CoreLocation.CLLocationManag
   @objc dynamic public func locationManagerDidChangeAuthorization(_ manager: CoreLocation.CLLocationManager)
   @objc dynamic public func locationManager(_ manager: CoreLocation.CLLocationManager, didUpdateLocations locations: [_LocationEssentials.CLLocation])
   @objc dynamic public func locationManager(_ manager: CoreLocation.CLLocationManager, didFailWithError error: any Swift.Error)
+  @objc dynamic public func locationManager(_ manager: CoreLocation.CLLocationManager, didUpdateHeading newHeading: CoreLocation.CLHeading)
 }
 public protocol IONGLOCServicesChecker {
   func areLocationServicesEnabled() -> Swift.Bool

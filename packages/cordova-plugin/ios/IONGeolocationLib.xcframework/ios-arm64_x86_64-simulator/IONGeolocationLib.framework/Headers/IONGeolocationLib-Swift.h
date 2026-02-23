@@ -314,10 +314,12 @@ SWIFT_CLASS("_TtC17IONGeolocationLib21IONGLOCManagerWrapper")
 
 @class CLLocationManager;
 @class CLLocation;
+@class CLHeading;
 @interface IONGLOCManagerWrapper (SWIFT_EXTENSION(IONGeolocationLib)) <CLLocationManagerDelegate>
 - (void)locationManagerDidChangeAuthorization:(CLLocationManager * _Nonnull)manager;
 - (void)locationManager:(CLLocationManager * _Nonnull)manager didUpdateLocations:(NSArray<CLLocation *> * _Nonnull)locations;
 - (void)locationManager:(CLLocationManager * _Nonnull)manager didFailWithError:(NSError * _Nonnull)error;
+- (void)locationManager:(CLLocationManager * _Nonnull)manager didUpdateHeading:(CLHeading * _Nonnull)newHeading;
 @end
 
 #endif
@@ -644,10 +646,12 @@ SWIFT_CLASS("_TtC17IONGeolocationLib21IONGLOCManagerWrapper")
 
 @class CLLocationManager;
 @class CLLocation;
+@class CLHeading;
 @interface IONGLOCManagerWrapper (SWIFT_EXTENSION(IONGeolocationLib)) <CLLocationManagerDelegate>
 - (void)locationManagerDidChangeAuthorization:(CLLocationManager * _Nonnull)manager;
 - (void)locationManager:(CLLocationManager * _Nonnull)manager didUpdateLocations:(NSArray<CLLocation *> * _Nonnull)locations;
 - (void)locationManager:(CLLocationManager * _Nonnull)manager didFailWithError:(NSError * _Nonnull)error;
+- (void)locationManager:(CLLocationManager * _Nonnull)manager didUpdateHeading:(CLHeading * _Nonnull)newHeading;
 @end
 
 #endif

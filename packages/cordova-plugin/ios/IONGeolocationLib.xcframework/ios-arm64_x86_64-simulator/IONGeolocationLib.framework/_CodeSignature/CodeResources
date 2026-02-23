@@ -6,7 +6,7 @@
 	<dict>
 		<key>Headers/IONGeolocationLib-Swift.h</key>
 		<data>
-		JWe6/NRDriu8o8CZocLZ06EzMFE=
+		y7ttxEKGopKrjfLz63anYpWd0M8=
 		</data>
 		<key>Info.plist</key>
 		<data>
@@ -14,11 +14,11 @@
 		</data>
 		<key>Modules/IONGeolocationLib.swiftmodule/arm64-apple-ios-simulator.abi.json</key>
 		<data>
-		aSywRCe5HP4DUryDxCBc9/jogyY=
+		vvS4jN9053/GTv9zX4EQ9guF4Ks=
 		</data>
 		<key>Modules/IONGeolocationLib.swiftmodule/arm64-apple-ios-simulator.private.swiftinterface</key>
 		<data>
-		KkBGn3tcf7hOVToT7qvh5H8C4JA=
+		7YHy96WV11khEW2zpBMrJ1Gbcpo=
 		</data>
 		<key>Modules/IONGeolocationLib.swiftmodule/arm64-apple-ios-simulator.swiftdoc</key>
 		<data>
@@ -26,19 +26,19 @@
 		</data>
 		<key>Modules/IONGeolocationLib.swiftmodule/arm64-apple-ios-simulator.swiftinterface</key>
 		<data>
-		KkBGn3tcf7hOVToT7qvh5H8C4JA=
+		7YHy96WV11khEW2zpBMrJ1Gbcpo=
 		</data>
 		<key>Modules/IONGeolocationLib.swiftmodule/arm64-apple-ios-simulator.swiftmodule</key>
 		<data>
-		PzfsnKxtaGpiv0EVz2X8lxIqv9M=
+		5+LTeIixdUjmzwz7fSn+MItDd6k=
 		</data>
 		<key>Modules/IONGeolocationLib.swiftmodule/x86_64-apple-ios-simulator.abi.json</key>
 		<data>
-		aSywRCe5HP4DUryDxCBc9/jogyY=
+		vvS4jN9053/GTv9zX4EQ9guF4Ks=
 		</data>
 		<key>Modules/IONGeolocationLib.swiftmodule/x86_64-apple-ios-simulator.private.swiftinterface</key>
 		<data>
-		w+KzgdogIUXnaqh+6+uxqPxvVrc=
+		7rhK2K4I0lAM7Ak97Fm4a2lUU3c=
 		</data>
 		<key>Modules/IONGeolocationLib.swiftmodule/x86_64-apple-ios-simulator.swiftdoc</key>
 		<data>
@@ -46,11 +46,11 @@
 		</data>
 		<key>Modules/IONGeolocationLib.swiftmodule/x86_64-apple-ios-simulator.swiftinterface</key>
 		<data>
-		w+KzgdogIUXnaqh+6+uxqPxvVrc=
+		7rhK2K4I0lAM7Ak97Fm4a2lUU3c=
 		</data>
 		<key>Modules/IONGeolocationLib.swiftmodule/x86_64-apple-ios-simulator.swiftmodule</key>
 		<data>
-		UIHSvfS7sRddU9U1aTXNXn04mEk=
+		1H4GsJM8rTVNH6mXkkCVfQJpxcc=
 		</data>
 		<key>Modules/module.modulemap</key>
 		<data>
@@ -63,21 +63,21 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			OGEsrxX3RTGJsqeQoVnpaCV0WGpTMTY7dVIIi8xz9uk=
+			bbiGRYTLhWtIjXSA2s0XJxOevuybZ73yrs3OtubMYlw=
 			</data>
 		</dict>
 		<key>Modules/IONGeolocationLib.swiftmodule/arm64-apple-ios-simulator.abi.json</key>
 		<dict>
 			<key>hash2</key>
 			<data>
-			m4lVJhy1mf9Mdmm0qK2VKn55/hSQTlAwlVCTC4QduNk=
+			B/GCml0UQRe+3MlXASqU8DSkkxY6svDuooupncmkAAE=
 			</data>
 		</dict>
 		<key>Modules/IONGeolocationLib.swiftmodule/arm64-apple-ios-simulator.private.swiftinterface</key>
 		<dict>
 			<key>hash2</key>
 			<data>
-			GWELFyGkaswRcKCx+x02R6cZFQQz20VbabrVgLzYr5Q=
+			rzuScIjSWbCKb8Oo71h39P8zelg2GR3iYMOpoPnm2bQ=
 			</data>
 		</dict>
 		<key>Modules/IONGeolocationLib.swiftmodule/arm64-apple-ios-simulator.swiftdoc</key>
@@ -91,28 +91,28 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			GWELFyGkaswRcKCx+x02R6cZFQQz20VbabrVgLzYr5Q=
+			rzuScIjSWbCKb8Oo71h39P8zelg2GR3iYMOpoPnm2bQ=
 			</data>
 		</dict>
 		<key>Modules/IONGeolocationLib.swiftmodule/arm64-apple-ios-simulator.swiftmodule</key>
 		<dict>
 			<key>hash2</key>
 			<data>
-			O4+m0SAhLO0rlEaRvbjPTHkB/bsl4bhh7S9SXLCjGjM=
+			pmH5nTrqcpbHQhr3Xv3z3F/YPz0TCNzUGuQtmq2k8AI=
 			</data>
 		</dict>
 		<key>Modules/IONGeolocationLib.swiftmodule/x86_64-apple-ios-simulator.abi.json</key>
 		<dict>
 			<key>hash2</key>
 			<data>
-			m4lVJhy1mf9Mdmm0qK2VKn55/hSQTlAwlVCTC4QduNk=
+			B/GCml0UQRe+3MlXASqU8DSkkxY6svDuooupncmkAAE=
 			</data>
 		</dict>
 		<key>Modules/IONGeolocationLib.swiftmodule/x86_64-apple-ios-simulator.private.swiftinterface</key>
 		<dict>
 			<key>hash2</key>
 			<data>
-			Xy90TRzgvIF2vSFZjdjQlJ9kyIAzouCNTD61YqzjxxI=
+			QfmuYa4HyZJfsIQxMn+n6yyUsFVOcMaizuHIsKd4Mmg=
 			</data>
 		</dict>
 		<key>Modules/IONGeolocationLib.swiftmodule/x86_64-apple-ios-simulator.swiftdoc</key>
@@ -126,14 +126,14 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			Xy90TRzgvIF2vSFZjdjQlJ9kyIAzouCNTD61YqzjxxI=
+			QfmuYa4HyZJfsIQxMn+n6yyUsFVOcMaizuHIsKd4Mmg=
 			</data>
 		</dict>
 		<key>Modules/IONGeolocationLib.swiftmodule/x86_64-apple-ios-simulator.swiftmodule</key>
 		<dict>
 			<key>hash2</key>
 			<data>
-			6P0kxKoLNBgSfUDb1VK5Ly/ozwMSEj1Pu+2aJaWBl6o=
+			iwu+lVMw19m0qRiooiroCsUIPRfAQ1dVS6QHmoELvIM=
 			</data>
 		</dict>
 		<key>Modules/module.modulemap</key>
