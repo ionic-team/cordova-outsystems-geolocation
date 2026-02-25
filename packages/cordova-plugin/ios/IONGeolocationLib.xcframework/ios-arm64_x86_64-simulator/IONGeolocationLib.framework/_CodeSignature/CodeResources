@@ -6,11 +6,11 @@
 	<dict>
 		<key>Headers/IONGeolocationLib-Swift.h</key>
 		<data>
-		y7ttxEKGopKrjfLz63anYpWd0M8=
+		xn0eTgq0l/o4+Ow11RbZNeV9Kn8=
 		</data>
 		<key>Info.plist</key>
 		<data>
-		CKali0Tk9NKbaW/BCd27H2qZ/fY=
+		GIqe2Gv29p6t15nm4Hh1NVtLRbw=
 		</data>
 		<key>Modules/IONGeolocationLib.swiftmodule/arm64-apple-ios-simulator.abi.json</key>
 		<data>
@@ -18,19 +18,19 @@
 		</data>
 		<key>Modules/IONGeolocationLib.swiftmodule/arm64-apple-ios-simulator.private.swiftinterface</key>
 		<data>
-		7YHy96WV11khEW2zpBMrJ1Gbcpo=
+		VxYDaP9WFFrxWKpCRgfGV3IouvY=
 		</data>
 		<key>Modules/IONGeolocationLib.swiftmodule/arm64-apple-ios-simulator.swiftdoc</key>
 		<data>
-		o9JqKAGwlpjA8KPO8mibYxQvsfE=
+		huW4tA+LZcNqVaD9LJcuVDQ5oj0=
 		</data>
 		<key>Modules/IONGeolocationLib.swiftmodule/arm64-apple-ios-simulator.swiftinterface</key>
 		<data>
-		7YHy96WV11khEW2zpBMrJ1Gbcpo=
+		VxYDaP9WFFrxWKpCRgfGV3IouvY=
 		</data>
 		<key>Modules/IONGeolocationLib.swiftmodule/arm64-apple-ios-simulator.swiftmodule</key>
 		<data>
-		5+LTeIixdUjmzwz7fSn+MItDd6k=
+		QgJDJgPXHIccNSZpc/qj7zfy8C4=
 		</data>
 		<key>Modules/IONGeolocationLib.swiftmodule/x86_64-apple-ios-simulator.abi.json</key>
 		<data>
@@ -38,19 +38,19 @@
 		</data>
 		<key>Modules/IONGeolocationLib.swiftmodule/x86_64-apple-ios-simulator.private.swiftinterface</key>
 		<data>
-		7rhK2K4I0lAM7Ak97Fm4a2lUU3c=
+		uL3L4egbYbIFLH4y7EuhfMm6IGI=
 		</data>
 		<key>Modules/IONGeolocationLib.swiftmodule/x86_64-apple-ios-simulator.swiftdoc</key>
 		<data>
-		cSVSVRxq9lg8Af2eT1hcv6HYkKc=
+		TWhxt2Wi8jhaUCFbDjWQ1+03x6o=
 		</data>
 		<key>Modules/IONGeolocationLib.swiftmodule/x86_64-apple-ios-simulator.swiftinterface</key>
 		<data>
-		7rhK2K4I0lAM7Ak97Fm4a2lUU3c=
+		uL3L4egbYbIFLH4y7EuhfMm6IGI=
 		</data>
 		<key>Modules/IONGeolocationLib.swiftmodule/x86_64-apple-ios-simulator.swiftmodule</key>
 		<data>
-		1H4GsJM8rTVNH6mXkkCVfQJpxcc=
+		W5j67Mfwtae4/GTKKHY++6a9+Y8=
 		</data>
 		<key>Modules/module.modulemap</key>
 		<data>
@@ -63,7 +63,7 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			bbiGRYTLhWtIjXSA2s0XJxOevuybZ73yrs3OtubMYlw=
+			f+NSum5boak0w3k0a65ajSn9B29LK5TKIyH3oHa3xFI=
 			</data>
 		</dict>
 		<key>Modules/IONGeolocationLib.swiftmodule/arm64-apple-ios-simulator.abi.json</key>
@@ -77,28 +77,28 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			rzuScIjSWbCKb8Oo71h39P8zelg2GR3iYMOpoPnm2bQ=
+			OCmmHetzFZsT5rmZKvdzq7x7x86NTvmYPCEIaeOwW6E=
 			</data>
 		</dict>
 		<key>Modules/IONGeolocationLib.swiftmodule/arm64-apple-ios-simulator.swiftdoc</key>
 		<dict>
 			<key>hash2</key>
 			<data>
-			I4D3IMwrmHdZq980LPEONn9p8qvl4bCczXeMw//y8ds=
+			AVNp4jGGvIxjpyN3TAKAb2Sj0q8ygmsPKlaxh19SbM8=
 			</data>
 		</dict>
 		<key>Modules/IONGeolocationLib.swiftmodule/arm64-apple-ios-simulator.swiftinterface</key>
 		<dict>
 			<key>hash2</key>
 			<data>
-			rzuScIjSWbCKb8Oo71h39P8zelg2GR3iYMOpoPnm2bQ=
+			OCmmHetzFZsT5rmZKvdzq7x7x86NTvmYPCEIaeOwW6E=
 			</data>
 		</dict>
 		<key>Modules/IONGeolocationLib.swiftmodule/arm64-apple-ios-simulator.swiftmodule</key>
 		<dict>
 			<key>hash2</key>
 			<data>
-			pmH5nTrqcpbHQhr3Xv3z3F/YPz0TCNzUGuQtmq2k8AI=
+			mWa9BduE95nEWEXmljfb6TmafIR3PqZyRJg45hKt0Vs=
 			</data>
 		</dict>
 		<key>Modules/IONGeolocationLib.swiftmodule/x86_64-apple-ios-simulator.abi.json</key>
@@ -112,28 +112,28 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			QfmuYa4HyZJfsIQxMn+n6yyUsFVOcMaizuHIsKd4Mmg=
+			nFPi+y0GYs1VNeSF+wHw0aOkBJae+I6YhB2cPMbKi+0=
 			</data>
 		</dict>
 		<key>Modules/IONGeolocationLib.swiftmodule/x86_64-apple-ios-simulator.swiftdoc</key>
 		<dict>
 			<key>hash2</key>
 			<data>
-			GY5pmYaeQz84MMQHqQB9W+XQEu+T+Zhibz3+2SaVIgU=
+			VghwAh38MW9/fEKKeE4pQFtdXsAdLOg1sLsNdvkZVNU=
 			</data>
 		</dict>
 		<key>Modules/IONGeolocationLib.swiftmodule/x86_64-apple-ios-simulator.swiftinterface</key>
 		<dict>
 			<key>hash2</key>
 			<data>
-			QfmuYa4HyZJfsIQxMn+n6yyUsFVOcMaizuHIsKd4Mmg=
+			nFPi+y0GYs1VNeSF+wHw0aOkBJae+I6YhB2cPMbKi+0=
 			</data>
 		</dict>
 		<key>Modules/IONGeolocationLib.swiftmodule/x86_64-apple-ios-simulator.swiftmodule</key>
 		<dict>
 			<key>hash2</key>
 			<data>
-			iwu+lVMw19m0qRiooiroCsUIPRfAQ1dVS6QHmoELvIM=
+			03IYXJaq5U3wsDDZTyS2imxRs1spc21q2mfJaSSawCc=
 			</data>
 		</dict>
 		<key>Modules/module.modulemap</key>
