@@ -199,7 +199,7 @@ export type Position = {
      *
      * Only available when using `watchPosition`.
      *
-     * @since 2.1.0
+     * @since 1.2.0
      */
     magneticHeading?: number | null;
 
@@ -208,7 +208,7 @@ export type Position = {
      *
      * Only available when using `watchPosition`.
      *
-     * @since 2.1.0
+     * @since 1.2.0
      */
     trueHeading?: number | null;
 
@@ -217,7 +217,7 @@ export type Position = {
      *
      * Only available when using `watchPosition`.
      *
-     * @since 2.1.0
+     * @since 1.2.0
      */
     headingAccuracy?: number | null;
 
@@ -226,7 +226,7 @@ export type Position = {
      *
      * Only available when using `watchPosition`.
      *
-     * @since 2.1.0
+     * @since 1.2.0
      */
     course?: number | null;
 

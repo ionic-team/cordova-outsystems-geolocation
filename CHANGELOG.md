@@ -6,12 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.2.0]
 
-## 2026-02-02
+## 2026-03-10
 
 - feature: Added support for accurate heading information across iOS and Android (available for `watchPosition` only).
 - feature: The `heading` property now prioritizes actual compass bearing (true/magnetic heading) when available during active watches, falling back to direction of travel (course).
 - feature: Added `magneticHeading`, `trueHeading`, `headingAccuracy`, and `course` to the coordinates object.
-- chore(ios): Update native library IONGeolocationLib to version 2.1.0.
+- chore(ios): Update native library IONGeolocationLib to version 2.1.1.
 - chore(android): Update native library ion-android-geolocation to version 2.2.0.
 
 ## [1.1.2]
