@@ -6,7 +6,7 @@ var __privateGet = (obj, member, getter) => (__accessCheck(obj, member, "read fr
 var __privateAdd = (obj, member, value) => member.has(obj) ? __typeError("Cannot add the same private member more than once") : member instanceof WeakSet ? member.add(obj) : member.set(obj, value);
 var __privateSet = (obj, member, value, setter) => (__accessCheck(obj, member, "write to private field"), setter ? setter.call(obj, value) : member.set(obj, value), value);
 var __privateMethod = (obj, member, method) => (__accessCheck(obj, member, "access private method"), method);
-var _lastPosition, _timers, _callbackIdsMap, _OSGeolocation_instances, createTimeout_fn, convertFromLegacy_fn, isLegacyPosition_fn, shouldUseWebApi_fn, isCapacitorPluginDefined_fn, isCordovaPluginDefined_fn, hasNativeTimeoutHandling_fn;
+var _lastPosition, _timers, _callbackIdsMap, _latestOrientation, _OSGeolocation_instances, updateOrientation_fn, augmentPosition_fn, createTimeout_fn, convertFromLegacy_fn, isLegacyPosition_fn, shouldUseWebApi_fn, isCapacitorPluginDefined_fn, isCordovaPluginDefined_fn, hasNativeTimeoutHandling_fn;
 const byteToHex = [];
 for (let i = 0; i < 256; ++i) {
   byteToHex.push((i + 256).toString(16).slice(1));
@@ -28,11 +28,14 @@ function rng() {
 const randomUUID = typeof crypto !== "undefined" && crypto.randomUUID && crypto.randomUUID.bind(crypto);
 const native = { randomUUID };
 function v4(options, buf, offset) {
-  if (native.randomUUID && !buf && !options) {
+  if (native.randomUUID && true && !options) {
     return native.randomUUID();
   }
   options = options || {};
-  const rnds = options.random || (options.rng || rng)();
+  const rnds = options.random ?? options.rng?.() ?? rng();
+  if (rnds.length < 16) {
+    throw new Error("Random bytes length must be >= 16");
+  }
   rnds[6] = rnds[6] & 15 | 64;
   rnds[8] = rnds[8] & 63 | 128;
   return unsafeStringify(rnds);
@@ -43,10 +46,23 @@ class OSGeolocation {
     __privateAdd(this, _lastPosition, null);
     __privateAdd(this, _timers, {});
     __privateAdd(this, _callbackIdsMap, {});
+    __privateAdd(this, _latestOrientation, null);
+    if (typeof window !== "undefined") {
+      const win = window;
+      if ("ondeviceorientationabsolute" in win) {
+        win.addEventListener("deviceorientationabsolute", (event) => __privateMethod(this, _OSGeolocation_instances, updateOrientation_fn).call(this, event, true), true);
+      } else if ("ondeviceorientation" in win) {
+        win.addEventListener("deviceorientation", (event) => __privateMethod(this, _OSGeolocation_instances, updateOrientation_fn).call(this, event, false), true);
+      }
+    }
   }
   getCurrentPosition(success, error, options) {
     if (__privateMethod(this, _OSGeolocation_instances, shouldUseWebApi_fn).call(this)) {
-      navigator.geolocation.getCurrentPosition(success, error, options);
+      navigator.geolocation.getCurrentPosition(
+        (pos) => success(__privateMethod(this, _OSGeolocation_instances, augmentPosition_fn).call(this, pos, false)),
+        error,
+        options
+      );
       return;
     }
     let id = v4();
@@ -93,7 +109,11 @@ class OSGeolocation {
   }
   watchPosition(success, error, options) {
     if (__privateMethod(this, _OSGeolocation_instances, shouldUseWebApi_fn).call(this)) {
-      return navigator.geolocation.watchPosition(success, error, options);
+      return navigator.geolocation.watchPosition(
+        (pos) => success(__privateMethod(this, _OSGeolocation_instances, augmentPosition_fn).call(this, pos, true)),
+        error,
+        options
+      );
     }
     let watchId = v4();
     let timeoutID;
@@ -170,7 +190,51 @@ class OSGeolocation {
 _lastPosition = new WeakMap();
 _timers = new WeakMap();
 _callbackIdsMap = new WeakMap();
+_latestOrientation = new WeakMap();
 _OSGeolocation_instances = new WeakSet();
+updateOrientation_fn = function(event, isAbsolute) {
+  let trueHeading = null;
+  let magneticHeading = null;
+  let headingAccuracy = null;
+  if (isAbsolute && event.alpha !== null) {
+    trueHeading = (360 - event.alpha) % 360;
+  } else if (event.webkitCompassHeading !== void 0 && event.webkitCompassHeading !== null) {
+    magneticHeading = event.webkitCompassHeading;
+    headingAccuracy = event.webkitCompassAccuracy;
+  } else if (event.alpha !== null && event.absolute === true) {
+    trueHeading = (360 - event.alpha) % 360;
+  } else if (event.alpha !== null) {
+    magneticHeading = (360 - event.alpha) % 360;
+  }
+  if (trueHeading !== null || magneticHeading !== null) {
+    __privateSet(this, _latestOrientation, {
+      trueHeading,
+      magneticHeading,
+      headingAccuracy
+    });
+  }
+};
+augmentPosition_fn = function(pos, isWatch = false) {
+  const coords = pos.coords;
+  const orientation = isWatch ? __privateGet(this, _latestOrientation) : null;
+  const heading = orientation?.trueHeading ?? orientation?.magneticHeading ?? (isWatch ? coords.heading : null) ?? null;
+  return {
+    timestamp: pos.timestamp,
+    coords: {
+      latitude: coords.latitude,
+      longitude: coords.longitude,
+      accuracy: coords.accuracy,
+      altitude: coords.altitude,
+      altitudeAccuracy: coords.altitudeAccuracy,
+      speed: coords.speed,
+      heading,
+      magneticHeading: orientation?.magneticHeading ?? null,
+      trueHeading: orientation?.trueHeading ?? null,
+      headingAccuracy: orientation?.headingAccuracy ?? null,
+      course: (isWatch ? coords.heading : null) ?? null
+    }
+  };
+};
 /**
  * Returns a timeout failure, closed over a specified timeout value and error callback.
  * @param onError the error callback

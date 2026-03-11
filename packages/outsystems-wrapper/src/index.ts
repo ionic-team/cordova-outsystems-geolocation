@@ -5,12 +5,82 @@ class OSGeolocation {
     #lastPosition: Position | null = null
     #timers: { [key: string]: ReturnType<typeof setTimeout> | undefined } = {}
     #callbackIdsMap: { [watchId: string]: string } = {}
+    #latestOrientation: {
+        magneticHeading: number | null;
+        trueHeading: number | null;
+        headingAccuracy: number | null;
+    } | null = null;
+
+    constructor() {
+        if (typeof window !== 'undefined') {
+            const win = window as any;
+            if ('ondeviceorientationabsolute' in win) {
+                win.addEventListener('deviceorientationabsolute', (event: any) => this.#updateOrientation(event, true), true);
+            } else if ('ondeviceorientation' in win) {
+                win.addEventListener('deviceorientation', (event: any) => this.#updateOrientation(event, false), true);
+            }
+        }
+    }
+
+    #updateOrientation(event: any, isAbsolute: boolean) {
+        let trueHeading: number | null = null;
+        let magneticHeading: number | null = null;
+        let headingAccuracy: number | null = null;
+
+        if (isAbsolute && event.alpha !== null) {
+            trueHeading = (360 - event.alpha) % 360;
+        } else if (event.webkitCompassHeading !== undefined && event.webkitCompassHeading !== null) {
+            magneticHeading = event.webkitCompassHeading;
+            headingAccuracy = event.webkitCompassAccuracy;
+        } else if (event.alpha !== null && event.absolute === true) {
+            trueHeading = (360 - event.alpha) % 360;
+        } else if (event.alpha !== null) {
+            magneticHeading = (360 - event.alpha) % 360;
+        }
+
+        if (trueHeading !== null || magneticHeading !== null) {
+            this.#latestOrientation = {
+                trueHeading,
+                magneticHeading,
+                headingAccuracy,
+            };
+        }
+    }
+
+    #augmentPosition(pos: GeolocationPosition, isWatch = false): Position {
+        const coords = pos.coords;
+        const orientation = isWatch ? this.#latestOrientation : null;
+
+        const heading =
+            orientation?.trueHeading ?? orientation?.magneticHeading ?? (isWatch ? coords.heading : null) ?? null;
+
+        return {
+            timestamp: pos.timestamp,
+            coords: {
+                latitude: coords.latitude,
+                longitude: coords.longitude,
+                accuracy: coords.accuracy,
+                altitude: coords.altitude,
+                altitudeAccuracy: (coords as any).altitudeAccuracy,
+                speed: coords.speed,
+                heading: heading,
+                magneticHeading: orientation?.magneticHeading ?? null,
+                trueHeading: orientation?.trueHeading ?? null,
+                headingAccuracy: orientation?.headingAccuracy ?? null,
+                course: (isWatch ? coords.heading : null) ?? null,
+            },
+        };
+    }
 
     getCurrentPosition(success: (position: Position) => void, error: (err: PluginError | GeolocationPositionError) => void, options: CurrentPositionOptions): void {
         if (this.#shouldUseWebApi()) {
             // if we're not in a native mobile app, we call the good old bridge or web api 
             // (it's the same clobber)
-            navigator.geolocation.getCurrentPosition(success, error, options)
+            navigator.geolocation.getCurrentPosition(
+                (pos) => success(this.#augmentPosition(pos, false)),
+                error,
+                options
+            )
             return
         }
 
@@ -82,7 +152,11 @@ class OSGeolocation {
         if (this.#shouldUseWebApi()) {
             // if we're not in a native mobile app, we call the good old bridge or web api 
             // (it's the same clobber)
-            return navigator.geolocation.watchPosition(success, error, options)
+            return navigator.geolocation.watchPosition(
+                (pos) => success(this.#augmentPosition(pos, true)),
+                error,
+                options
+            )
         }
 
         let watchId = uuidv4()
