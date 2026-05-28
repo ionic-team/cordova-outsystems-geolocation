@@ -41,6 +41,10 @@ export type OSGLOCPosition = {
     altitude: number | null;
     heading: number | null;
     altitudeAccuracy: number | null;
+    magneticHeading?: number | null;
+    trueHeading?: number | null;
+    headingAccuracy?: number | null;
+    course?: number | null;
 } & {
     [Prop in keyof typeof SpeedProp]: number | null;
 };
@@ -154,11 +158,49 @@ export type Position = {
          */
         speed: number | null;
         /**
-         * The heading the user is facing (if available)
+         * The heading the user is facing (if available).
+         *
+         * Historically, this field returned the direction of travel (course) on iOS and Android.
+         * It now prioritizes the compass heading (true or magnetic) if available, falling back
+         * to the direction of travel (course).
+         *
+         * Only available when using `watchPosition`.
          *
          * @since 1.0.0
          */
         heading: number | null;
+        /**
+         * The heading (measured in degrees) relative to magnetic north.
+         *
+         * Only available when using `watchPosition`.
+         *
+         * @since 1.2.0
+         */
+        magneticHeading?: number | null;
+        /**
+         * The heading (measured in degrees) relative to true north.
+         *
+         * Only available when using `watchPosition`.
+         *
+         * @since 1.2.0
+         */
+        trueHeading?: number | null;
+        /**
+         * The maximum deviation (measured in degrees) between the reported heading and the true geomagnetic heading.
+         *
+         * Only available when using `watchPosition`.
+         *
+         * @since 1.2.0
+         */
+        headingAccuracy?: number | null;
+        /**
+         * The direction in which the device is travelling, measured in degrees and relative to due north.
+         *
+         * Only available when using `watchPosition`.
+         *
+         * @since 1.2.0
+         */
+        course?: number | null;
     };
 };
 export {};
