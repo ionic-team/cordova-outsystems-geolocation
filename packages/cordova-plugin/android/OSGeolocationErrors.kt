@@ -38,7 +38,7 @@ object OSGeolocationErrors {
         code = formatErrorCode(6),
         message = "The 'ClearWatch' input parameters aren't valid."
     )
-    
+
     val LOCATION_ENABLE_REQUEST_DENIED = ErrorInfo(
         code = formatErrorCode(9),
         message = "Request to enable location was denied."

@@ -73,12 +73,15 @@ class OSGeolocation : CordovaPlugin() {
             "getCurrentPosition" -> {
                 getCurrentPosition(args, callbackContext)
             }
+
             "watchPosition" -> {
                 watchPosition(args, callbackContext)
             }
+
             "clearWatch" -> {
                 clearWatch(args, callbackContext)
             }
+
             "hasNativeTimeoutHandling" -> {
                 hasNativeTimeoutHandling(callbackContext)
             }
@@ -109,7 +112,8 @@ class OSGeolocation : CordovaPlugin() {
                     enableLocationManagerFallback = options.optBoolean(ENABLE_FALLBACK, true)
                 )
 
-                val locationResult = controller.getCurrentPosition(cordova.activity, locationOptions)
+                val locationResult =
+                    controller.getCurrentPosition(cordova.activity, locationOptions)
 
                 if (locationResult.isSuccess) {
                     callbackContext.sendSuccess(JSONObject(gson.toJson(locationResult.getOrNull())))
@@ -247,7 +251,10 @@ class OSGeolocation : CordovaPlugin() {
      * @param result JSONObject with the JSON content to return, or null if there's no json data
      * @param keepCallback whether the callback should be kept or not. By default, false
      */
-    private fun CallbackContext.sendSuccess(result: JSONObject? = null, keepCallback: Boolean = false) {
+    private fun CallbackContext.sendSuccess(
+        result: JSONObject? = null,
+        keepCallback: Boolean = false
+    ) {
         val pluginResult = if (result != null) {
             PluginResult(PluginResult.Status.OK, result)
         } else {
@@ -277,7 +284,10 @@ class OSGeolocation : CordovaPlugin() {
      * @param callbackContext CallbackContext to use in case an error should be returned
      * @param onLocationGranted callback to use in case permissions are granted
      */
-    private suspend fun handleLocationPermission(callbackContext: CallbackContext, onLocationGranted: suspend () -> Unit) {
+    private suspend fun handleLocationPermission(
+        callbackContext: CallbackContext,
+        onLocationGranted: suspend () -> Unit
+    ) {
         permissionsFlow = MutableSharedFlow(replay = 1)
 
         // first, we request permissions if necessary
