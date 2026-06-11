@@ -96,7 +96,7 @@ class OSGeolocation : CordovaPlugin() {
         val options: JSONObject
         try {
             options = args.getJSONObject(0)
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             callbackContext.sendError(OSGeolocationErrors.INVALID_INPUT_GET_POSITION)
             return
         }
@@ -131,7 +131,7 @@ class OSGeolocation : CordovaPlugin() {
         val options: JSONObject
         try {
             options = args.getJSONObject(0)
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             callbackContext.sendError(OSGeolocationErrors.INVALID_INPUT_WATCH_POSITION)
             return
         }
@@ -217,7 +217,7 @@ class OSGeolocation : CordovaPlugin() {
         val options: JSONObject
         try {
             options = args.getJSONObject(0)
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             callbackContext.sendError(OSGeolocationErrors.INVALID_INPUT_CLEAR_WATCH)
             return
         }
@@ -246,7 +246,7 @@ class OSGeolocation : CordovaPlugin() {
 
     /**
      * Extension function to return a successful plugin result
-     * @param result JSONObject with the JSON content to return, or null if there's no json data
+     * @param result JSONObject with the JSON content to return, or null if there's no JSON data
      * @param keepCallback whether the callback should be kept or not. By default, false
      */
     private fun CallbackContext.sendSuccess(
@@ -263,7 +263,7 @@ class OSGeolocation : CordovaPlugin() {
     }
 
     /**
-     * Extension function to return a unsuccessful plugin result
+     * Extension function to return an unsuccessful plugin result
      * @param error error class representing the error to return, containing a code and message
      */
     private fun CallbackContext.sendError(error: OSGeolocationErrors.ErrorInfo) {
@@ -372,8 +372,9 @@ class OSGeolocation : CordovaPlugin() {
      * Because cordova-android had a bug where onRequestPermissionsResult was not called
      * Fixed in https://github.com/apache/cordova-android/pull/1855
      * But existing MABS versions do not have that PR yet in the cordova-android fork
-     * https://github.com/OutSystems/cordova-android;
-     * so we'll have to wait for that until we can change to onRequestPermissionsResult here.
+     * https://github.com/OutSystems/cordova-android
+     * (particularly outsystems/14.0.x and outsystems/13.0.x branches)
+     * so we'll have to wait until we can change to onRequestPermissionsResult here.
      */
     override fun onRequestPermissionResult(
         requestCode: Int,
