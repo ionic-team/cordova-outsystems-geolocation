@@ -14,9 +14,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.launch
 import org.apache.cordova.CallbackContext
-import org.apache.cordova.CordovaInterface
 import org.apache.cordova.CordovaPlugin
-import org.apache.cordova.CordovaWebView
 import org.apache.cordova.PermissionHelper
 import org.apache.cordova.PluginResult
 import org.json.JSONArray
@@ -44,8 +42,8 @@ class OSGeolocation : CordovaPlugin() {
         private const val LOG_TAG = "OSGeolocation"
     }
 
-    override fun initialize(cordova: CordovaInterface, webView: CordovaWebView) {
-        super.initialize(cordova, webView)
+    override fun pluginInitialize() {
+        super.pluginInitialize()
 
         coroutineScope = CoroutineScope(Dispatchers.Main)
         val activityLauncher = cordova.activity.registerForActivityResult(
@@ -351,7 +349,7 @@ class OSGeolocation : CordovaPlugin() {
             for (permission in permissionsInPackage) {
                 if (permission == Manifest.permission.ACCESS_FINE_LOCATION) {
                     // adding both permissions in the event that only FINE is declared in manifest
-                    //  since ACCESS_FINE_LOCATION would include ACCESS_COARSE_LOCATION, 
+                    //  since ACCESS_FINE_LOCATION would include ACCESS_COARSE_LOCATION,
                     //  technically only the former can be declared.
                     permissionList.addAll(
                         listOf(
@@ -369,6 +367,14 @@ class OSGeolocation : CordovaPlugin() {
         return permissionList.toSet().toTypedArray()
     }
 
+    /**
+     * Still calling deprecated onRequestPermissionResult instead of onRequestPermissionsResult
+     * Because cordova-android had a bug where onRequestPermissionsResult was not called
+     * Fixed in https://github.com/apache/cordova-android/pull/1855
+     * But existing MABS versions do not have that PR yet in the cordova-android fork
+     * https://github.com/OutSystems/cordova-android;
+     * so we'll have to wait for that until we can change to onRequestPermissionsResult here.
+     */
     override fun onRequestPermissionResult(
         requestCode: Int,
         permissions: Array<out String>,
