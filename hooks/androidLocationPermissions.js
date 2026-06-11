@@ -14,7 +14,7 @@ module.exports = function(context) {
     const configXML = path.join(projectRoot, 'config.xml');
     const configParser = new ConfigParser(configXML);
 
-    let locationPermissionType = configParser.getPlatformPreference('LOCATION_PERMISSION_TYPE', 'android').toUpperCase();
+    let locationPermissionType = configParser.getPlatformPreference('LOCATION_PERMISSION_TYPE', 'android');
 
     if (locationPermissionType !== PRECISE && locationPermissionType !== APPROXIMATE && locationPermissionType !== NONE) {
         locationPermissionType = PRECISE;
