@@ -2,6 +2,7 @@ package com.outsystems.plugins.geolocation
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.util.Log
 import androidx.activity.result.contract.ActivityResultContracts
 import com.google.gson.Gson
 import io.ionic.libs.iongeolocationlib.controller.IONGLOCController
@@ -40,6 +41,7 @@ class OSGeolocation : CordovaPlugin() {
         private const val MAXIMUM_AGE = "maximumAge"
         private const val ENABLE_HIGH_ACCURACY = "enableHighAccuracy"
         private const val ENABLE_FALLBACK = "enableLocationFallback"
+        private const val LOG_TAG = "OSGeolocation"
     }
 
     override fun initialize(cordova: CordovaInterface, webView: CordovaWebView) {
@@ -279,10 +281,15 @@ class OSGeolocation : CordovaPlugin() {
         permissionsFlow = MutableSharedFlow(replay = 1)
 
         // first, we request permissions if necessary
-        if (hasLocationPermissions()) {
+        val permissions = getDeclaredPermissions()
+        if (permissions.isEmpty()) {
+            callbackContext.sendError(OSGeolocationErrors.LOCATION_MANIFEST_PERMISSIONS_MISSING)
+            return
+        }
+        if (hasLocationPermissions(permissions)) {
             permissionsFlow.emit(OSGeolocationPermissionEvents.Granted)
         } else { // request necessary permissions
-            requestLocationPermissions()
+            requestLocationPermissions(permissions)
         }
 
         // collect the flow to handle permission request result
@@ -299,8 +306,8 @@ class OSGeolocation : CordovaPlugin() {
      * Helper function to determine Location permission state
      * @return Boolean indicating if permissions are granted or not
      */
-    private fun hasLocationPermissions(): Boolean {
-        for (permission in listOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)) {
+    private fun hasLocationPermissions(permissions: Array<String>): Boolean {
+        for (permission in permissions) {
             if (!PermissionHelper.hasPermission(this, permission)) {
                 return false
             }
@@ -311,14 +318,45 @@ class OSGeolocation : CordovaPlugin() {
     /**
      * Helper function to request location permissions
      */
-    private fun requestLocationPermissions() {
+    private fun requestLocationPermissions(permissions: Array<String>) {
         PermissionHelper.requestPermissions(
             this,
             LOCATION_PERMISSIONS_REQUEST_CODE,
-            listOf(
-                Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION
-            ).toTypedArray()
+            permissions
         )
+    }
+
+    /**
+     * Get the location permissions to request based on the ones declared in app's manifest.
+     *
+     * @return the array of declared location permissions, expected size 0-2
+     */
+    private fun getDeclaredPermissions(): Array<String> {
+        val permissionList = mutableListOf<String>()
+        try {
+            val packageManager = cordova.activity.packageManager
+            val permissionsInPackage = packageManager.getPackageInfo(
+                cordova.activity.packageName, PackageManager.GET_PERMISSIONS
+            ).requestedPermissions ?: arrayOf()
+            for (permission in permissionsInPackage) {
+                if (permission == Manifest.permission.ACCESS_FINE_LOCATION) {
+                    // adding both permissions in the event that only FINE is declared in manifest
+                    //  since ACCESS_FINE_LOCATION would include ACCESS_COARSE_LOCATION, 
+                    //  technically only the former can be declared.
+                    permissionList.addAll(
+                        listOf(
+                            Manifest.permission.ACCESS_FINE_LOCATION,
+                            Manifest.permission.ACCESS_COARSE_LOCATION
+                        )
+                    )
+                } else if (permission == Manifest.permission.ACCESS_COARSE_LOCATION) {
+                    permissionList.add(permission)
+                }
+            }
+        } catch (e: Exception) {
+            Log.d(LOG_TAG, e.message.toString())
+        }
+        return permissionList.toSet().toTypedArray()
     }
 
     override fun onRequestPermissionResult(
