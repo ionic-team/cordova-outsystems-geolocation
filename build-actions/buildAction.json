@@ -1,0 +1,39 @@
+{
+    "variables": {
+        "LOCATION_PERMISSION_TYPE": {
+            "type": "string",
+            "default": "PRECISE"
+        }
+    },
+    "platforms": {
+        "android": {
+            "manifest": [
+                {
+                    "file": "AndroidManifest.xml",
+                    "target": "manifest",
+                    "merge": "<manifest>\n  <uses-permission android:name=\"android.permission.ACCESS_FINE_LOCATION\" />\n</manifest>"
+                },
+                {
+                    "file": "AndroidManifest.xml",
+                    "target": "manifest",
+                    "merge": "<manifest>\n  <uses-permission android:name=\"android.permission.ACCESS_COARSE_LOCATION\" />\n</manifest>"
+                },
+                {
+                    "file": "AndroidManifest.xml",
+                    "condition": "eq($LOCATION_PERMISSION_TYPE, APPROXIMATE)",
+                    "delete": "//uses-permission[@android:name='android.permission.ACCESS_FINE_LOCATION']"
+                },
+                {
+                    "file": "AndroidManifest.xml",
+                    "condition": "eq($LOCATION_PERMISSION_TYPE, NONE)",
+                    "delete": "//uses-permission[@android:name='android.permission.ACCESS_FINE_LOCATION']"
+                },
+                {
+                    "file": "AndroidManifest.xml",
+                    "condition": "eq($LOCATION_PERMISSION_TYPE, NONE)",
+                    "delete": "//uses-permission[@android:name='android.permission.ACCESS_COARSE_LOCATION']"
+                }
+            ]
+        }
+    }
+}
