@@ -343,23 +343,17 @@ class OSGeolocation : CordovaPlugin() {
      * @return the array of declared location permissions, expected size 0-2
      */
     private fun getDeclaredPermissions(enableHighAccuracy: Boolean): Array<String> {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
-            // Below Android 12 there is no FINE/COARSE distinction, so always request both.
-            return arrayOf(
-                Manifest.permission.ACCESS_FINE_LOCATION,
-                Manifest.permission.ACCESS_COARSE_LOCATION
-            )
-        }
-
-        // On Android >= 12, only request what is declared in the manifest and needed for the accuracy level.
         val manifestPermissions = getManifestPermissions()
         // ACCESS_FINE_LOCATION implicitly grants coarse access, so a FINE-only manifest still covers COARSE.
         val hasFine = Manifest.permission.ACCESS_FINE_LOCATION in manifestPermissions
         val hasCoarse = hasFine || Manifest.permission.ACCESS_COARSE_LOCATION in manifestPermissions
 
         val permissions = mutableSetOf<String>()
-        if (hasFine && enableHighAccuracy) permissions.add(Manifest.permission.ACCESS_FINE_LOCATION)
         if (hasCoarse) permissions.add(Manifest.permission.ACCESS_COARSE_LOCATION)
+        // On Android >= 12, FINE is only requested for high-accuracy calls.
+        // Below Android 12 there is no granular permission, so always request FINE if declared.
+        val shouldRequestFine = hasFine && (Build.VERSION.SDK_INT < Build.VERSION_CODES.S || enableHighAccuracy)
+        if (shouldRequestFine) permissions.add(Manifest.permission.ACCESS_FINE_LOCATION)
         return permissions.toTypedArray()
     }
 
