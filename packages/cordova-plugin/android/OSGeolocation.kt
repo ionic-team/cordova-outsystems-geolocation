@@ -2,6 +2,7 @@ package com.outsystems.plugins.geolocation
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.os.Build
 import android.util.Log
 import androidx.activity.result.contract.ActivityResultContracts
 import com.google.gson.Gson
@@ -102,14 +103,13 @@ class OSGeolocation : CordovaPlugin() {
         }
 
         coroutineScope.launch {
-            handleLocationPermission(callbackContext) {
-                val locationOptions = IONGLOCLocationOptions(
-                    options.getLong(TIMEOUT),
-                    options.getLong(MAXIMUM_AGE),
-                    options.getBoolean(ENABLE_HIGH_ACCURACY),
-                    enableLocationManagerFallback = options.optBoolean(ENABLE_FALLBACK, true)
-                )
-
+            val locationOptions = IONGLOCLocationOptions(
+                options.getLong(TIMEOUT),
+                options.getLong(MAXIMUM_AGE),
+                options.getBoolean(ENABLE_HIGH_ACCURACY),
+                enableLocationManagerFallback = options.optBoolean(ENABLE_FALLBACK, true)
+            )
+            handleLocationPermission(callbackContext, locationOptions.enableHighAccuracy) {
                 val locationResult =
                     controller.getCurrentPosition(cordova.activity, locationOptions)
 
@@ -138,14 +138,13 @@ class OSGeolocation : CordovaPlugin() {
         val watchId = options.getString(ID)
 
         coroutineScope.launch {
-            handleLocationPermission(callbackContext) {
-                val locationOptions = IONGLOCLocationOptions(
-                    timeout = options.getLong(TIMEOUT),
-                    maximumAge = options.getLong(MAXIMUM_AGE),
-                    enableHighAccuracy = options.getBoolean(ENABLE_HIGH_ACCURACY),
-                    enableLocationManagerFallback = options.optBoolean(ENABLE_FALLBACK, true)
-                )
-
+            val locationOptions = IONGLOCLocationOptions(
+                timeout = options.getLong(TIMEOUT),
+                maximumAge = options.getLong(MAXIMUM_AGE),
+                enableHighAccuracy = options.getBoolean(ENABLE_HIGH_ACCURACY),
+                enableLocationManagerFallback = options.optBoolean(ENABLE_FALLBACK, true)
+            )
+            handleLocationPermission(callbackContext, locationOptions.enableHighAccuracy) {
                 controller.addWatch(cordova.activity, locationOptions, watchId).collect { result ->
                     result.onSuccess { locationList ->
                         locationList.forEach { locationResult ->
@@ -280,16 +279,18 @@ class OSGeolocation : CordovaPlugin() {
     /**
      * Helper function to handle the location permission request using a Flow
      * @param callbackContext CallbackContext to use in case an error should be returned
+     * @param enableHighAccuracy true if meant to do a high accuracy location request, false otherwise
      * @param onLocationGranted callback to use in case permissions are granted
      */
     private suspend fun handleLocationPermission(
         callbackContext: CallbackContext,
+        enableHighAccuracy: Boolean,
         onLocationGranted: suspend () -> Unit
     ) {
         permissionsFlow = MutableSharedFlow(replay = 1)
 
         // first, we request permissions if necessary
-        val permissions = getDeclaredPermissions()
+        val permissions = getDeclaredPermissions(enableHighAccuracy)
         if (permissions.isEmpty()) {
             callbackContext.sendError(OSGeolocationErrors.LOCATION_MANIFEST_PERMISSIONS_MISSING)
             return
@@ -337,9 +338,11 @@ class OSGeolocation : CordovaPlugin() {
     /**
      * Get the location permissions to request based on the ones declared in app's manifest.
      *
+     * @param enableHighAccuracy true if meant to do a high accuracy location request, false otherwise
+     *
      * @return the array of declared location permissions, expected size 0-2
      */
-    private fun getDeclaredPermissions(): Array<String> {
+    private fun getDeclaredPermissions(enableHighAccuracy: Boolean): Array<String> {
         val permissionList = mutableListOf<String>()
         try {
             val packageManager = cordova.activity.packageManager
@@ -364,7 +367,16 @@ class OSGeolocation : CordovaPlugin() {
         } catch (e: Exception) {
             Log.d(LOG_TAG, e.message.toString())
         }
-        return permissionList.toSet().toTypedArray()
+        val permissionSet = permissionList.toMutableSet()
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+            // below Android 12 there is no distinction between FINE and COARSE
+            permissionSet.add(Manifest.permission.ACCESS_FINE_LOCATION)
+        } else if (!enableHighAccuracy) {
+            // on Android >= 12, ACCESS_FINE_LOCATION should only be required for PRIORTY_HIGH_ACCURACY
+            //  if the caller does not request high accuracy, then ACCESS_FINE_LOCATION isn't required
+            permissionSet.remove(Manifest.permission.ACCESS_FINE_LOCATION)
+        }
+        return permissionSet.toTypedArray()
     }
 
     /**
