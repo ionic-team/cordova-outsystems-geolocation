@@ -343,40 +343,39 @@ class OSGeolocation : CordovaPlugin() {
      * @return the array of declared location permissions, expected size 0-2
      */
     private fun getDeclaredPermissions(enableHighAccuracy: Boolean): Array<String> {
-        val permissionList = mutableListOf<String>()
-        try {
-            val packageManager = cordova.activity.packageManager
-            val permissionsInPackage = packageManager.getPackageInfo(
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+            // Below Android 12 there is no FINE/COARSE distinction, so always request both.
+            return arrayOf(
+                Manifest.permission.ACCESS_FINE_LOCATION,
+                Manifest.permission.ACCESS_COARSE_LOCATION
+            )
+        }
+
+        // On Android >= 12, only request what is declared in the manifest and needed for the accuracy level.
+        val manifestPermissions = getManifestPermissions()
+        // ACCESS_FINE_LOCATION implicitly grants coarse access, so a FINE-only manifest still covers COARSE.
+        val hasFine = Manifest.permission.ACCESS_FINE_LOCATION in manifestPermissions
+        val hasCoarse = hasFine || Manifest.permission.ACCESS_COARSE_LOCATION in manifestPermissions
+
+        val permissions = mutableSetOf<String>()
+        if (hasFine && enableHighAccuracy) permissions.add(Manifest.permission.ACCESS_FINE_LOCATION)
+        if (hasCoarse) permissions.add(Manifest.permission.ACCESS_COARSE_LOCATION)
+        return permissions.toTypedArray()
+    }
+
+    /**
+     * Returns the set of permissions declared in the app's manifest.
+     */
+    private fun getManifestPermissions(): Set<String> {
+        return try {
+            val packageInfo = cordova.activity.packageManager.getPackageInfo(
                 cordova.activity.packageName, PackageManager.GET_PERMISSIONS
-            ).requestedPermissions ?: arrayOf()
-            for (permission in permissionsInPackage) {
-                if (permission == Manifest.permission.ACCESS_FINE_LOCATION) {
-                    // adding both permissions in the event that only FINE is declared in manifest
-                    //  since ACCESS_FINE_LOCATION would include ACCESS_COARSE_LOCATION,
-                    //  technically only the former can be declared.
-                    permissionList.addAll(
-                        listOf(
-                            Manifest.permission.ACCESS_FINE_LOCATION,
-                            Manifest.permission.ACCESS_COARSE_LOCATION
-                        )
-                    )
-                } else if (permission == Manifest.permission.ACCESS_COARSE_LOCATION) {
-                    permissionList.add(permission)
-                }
-            }
+            )
+            (packageInfo.requestedPermissions ?: emptyArray()).toHashSet()
         } catch (e: Exception) {
             Log.d(LOG_TAG, e.message.toString())
+            emptySet()
         }
-        val permissionSet = permissionList.toMutableSet()
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
-            // below Android 12 there is no distinction between FINE and COARSE
-            permissionSet.add(Manifest.permission.ACCESS_FINE_LOCATION)
-        } else if (!enableHighAccuracy) {
-            // on Android >= 12, ACCESS_FINE_LOCATION should only be required for PRIORTY_HIGH_ACCURACY
-            //  if the caller does not request high accuracy, then ACCESS_FINE_LOCATION isn't required
-            permissionSet.remove(Manifest.permission.ACCESS_FINE_LOCATION)
-        }
-        return permissionSet.toTypedArray()
     }
 
     /**

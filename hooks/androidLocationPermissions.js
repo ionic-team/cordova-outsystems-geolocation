@@ -21,6 +21,8 @@ module.exports = function(context) {
     }
 
     if (locationPermissionType === NONE) {
+        // Returning without writing to the manifest is sufficient — this plugin no longer declares
+        // permissions statically, so nothing needs to be removed.
         return;
     }
 
