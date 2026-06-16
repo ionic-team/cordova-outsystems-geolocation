@@ -17,11 +17,10 @@
             <preference name="GradlePluginKotlinCodeStyle" value="official" />
             <preference name="AndroidXEnabled" value="true"/>
         </config-file>
-        
-        <config-file target="AndroidManifest.xml" parent="/*">
-            <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
-            <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
-        </config-file>
+
+        <!-- LOCATION_PERMISSION_TYPE: PRECISE (default), APPROXIMATE, or NONE -->
+        <preference name="LOCATION_PERMISSION_TYPE" default="PRECISE" />
+        <hook type="after_prepare" src="hooks/androidLocationPermissions.js" />
 
         <source-file src="packages/cordova-plugin/android/OSGeolocation.kt" target-dir="app/src/main/kotlin/com/outsystems/plugins/geolocation" />
         <source-file src="packages/cordova-plugin/android/OSGeolocationPermissionEvents.kt" target-dir="app/src/main/kotlin/com/outsystems/plugins/geolocation" />
