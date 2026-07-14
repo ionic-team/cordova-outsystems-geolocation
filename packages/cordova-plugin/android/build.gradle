@@ -9,13 +9,6 @@ buildscript {
     }
 }
 
-apply plugin: 'kotlin-kapt'
-allprojects {
-    repositories {
-        maven { url 'https://pkgs.dev.azure.com/OutSystemsRD/9e79bc5b-69b2-4476-9ca5-d67594972a52/_packaging/PublicArtifactRepository/maven/v1' }
-    }
-}
-
 dependencies {
     implementation("io.ionic.libs:iongeolocation-android:2.2.1")
     implementation("androidx.browser:browser:1.8.0")
