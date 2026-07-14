@@ -1,46 +1,15 @@
-# [2.0.0](https://github.com/ionic-team/cordova-outsystems-geolocation/compare/1.2.0...2.0.0) (2026-07-14)
+## [1.3.0](https://github.com/ionic-team/cordova-outsystems-geolocation/compare/1.2.0...1.3.0) (2026-07-14)
 
 
 ### Bug Fixes
 
 * **android:** Return error when user rejects request to turn on location with `enableLocationManagerFallback=true` ([#24](https://github.com/ionic-team/cordova-outsystems-geolocation/issues/24)) ([9544119](https://github.com/ionic-team/cordova-outsystems-geolocation/commit/95441198ec507b6783bc4077d894bc13a28c0ae2))
-
-
-### Continuous Integration
-
-* Release and Changelog automation ([#19](https://github.com/ionic-team/cordova-outsystems-geolocation/issues/19)) ([039ef64](https://github.com/ionic-team/cordova-outsystems-geolocation/commit/039ef648a62045ad1e35c6ca046d0de377bfc16d)), closes [#1](https://github.com/ionic-team/cordova-outsystems-geolocation/issues/1)
+* **android:** Remove kapt and custom maven repo ([#25](https://github.com/ionic-team/cordova-outsystems-geolocation/issues/25)) ([87c6d64](https://github.com/ionic-team/cordova-outsystems-geolocation/commit/61da66f5c127c53614c0a2949df7dc17e11b77b6))
 
 
 ### Features
 
 * **android:** Allow removal of location permissions from manifest ([#23](https://github.com/ionic-team/cordova-outsystems-geolocation/issues/23)) ([435758c](https://github.com/ionic-team/cordova-outsystems-geolocation/commit/435758cee6edc8064a6a997b4e718bf14583ecf2))
-
-
-### BREAKING CHANGES
-
-* The timestamp property name was changed, changes required when updating to this version.
-
-* chore: update other package-lock.json files
-
-* chore: mock revert for breaking change
-
-Just relevant to trigger semantic release at this point
-
-* chore: update outsystems-wrapper
-
-* chore(release): 2.0.0 [skip ci]
-
-# [2.0.0](https://github.com/OS-pedrogustavobilro/cordova-outsystems-geolocation/compare/1.2.1...2.0.0) (2025-10-23)
-
-### Features
-
-* Use different name for timestamp ([99730fa](https://github.com/OS-pedrogustavobilro/cordova-outsystems-geolocation/commit/99730fad5c85eb45955636b531ebb780ac9041fc))
-
-### BREAKING CHANGES
-
-* The timestamp property name was changed, changes required when updating to this version.
-
-* ci: Validate PR titles for conventional commit format
 
 ## [1.2.0]
 
