@@ -11,3 +11,9 @@ npm run build
 2. Copy the resulting `./dist/outsystems.js` file to the plugin's scripts folder
 3. Call the `RequireScript` client action, with the script's url
 4. Call `OSGeolocationWrapper.OSGeolocationInstance.<method>`
+
+## Location Button
+
+Use `mountLocationButton` to mount the component, `updateLocationButton` when block
+inputs change, and `destroyLocationButton` when the block is destroyed. The wrapper
+forwards grant, position, and error events to the supplied callbacks.

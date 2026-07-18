@@ -329,4 +329,105 @@ hasNativeTimeoutHandling_fn = function(success) {
   }
 };
 const OSGeolocationInstance = new OSGeolocation();
+const locationButtonMounts = /* @__PURE__ */ new Map();
+const locationButtonMountByContainerId = /* @__PURE__ */ new Map();
+const locationButtonAttributes = [
+  ["textType", "text-type"],
+  ["backgroundColor", "background-color"],
+  ["textColor", "text-color"],
+  ["iconTint", "icon-tint"],
+  ["strokeColor", "stroke-color"],
+  ["cornerRadius", "corner-radius"],
+  ["pressedCornerRadius", "pressed-corner-radius"],
+  ["strokeWidth", "stroke-width"],
+  ["clickablePadding", "clickable-padding"]
+];
+function applyLocationButtonProperties(element, properties) {
+  for (const [property, attribute] of locationButtonAttributes) {
+    if (!Object.prototype.hasOwnProperty.call(properties, property)) continue;
+    const value = properties[property];
+    if (value === void 0 || value === null || value === "") {
+      element.removeAttribute(attribute);
+    } else {
+      element.setAttribute(attribute, String(value));
+    }
+  }
+}
+function mountLocationButton(containerId, properties, onGrant, onPosition, onError) {
+  if (typeof document === "undefined" || typeof customElements === "undefined") {
+    throw new Error("Location Button requires a browser document");
+  }
+  if (!customElements.get("os-location-button")) {
+    throw new Error(
+      "Location Button is not registered; load the Geolocation element resource before mounting"
+    );
+  }
+  const container = document.getElementById(containerId);
+  if (!container) {
+    throw new Error(`Location Button container not found: ${containerId}`);
+  }
+  const existingHandle = locationButtonMountByContainerId.get(containerId);
+  if (existingHandle) destroyLocationButton(existingHandle);
+  const element = document.createElement("os-location-button");
+  applyLocationButtonProperties(element, properties);
+  const grantListener = (event) => {
+    const detail = event.detail;
+    if (typeof detail?.granted === "boolean") onGrant?.(detail.granted);
+  };
+  const positionListener = (event) => {
+    const detail = event.detail;
+    if (detail && Number.isFinite(detail.latitude) && Number.isFinite(detail.longitude) && Number.isFinite(detail.accuracy) && Number.isFinite(detail.timestamp)) {
+      onPosition?.(detail);
+    }
+  };
+  const errorListener = (event) => {
+    const detail = event.detail;
+    onError?.(
+      typeof detail?.reason === "string" ? detail.reason : "Location Button failed"
+    );
+  };
+  element.addEventListener("location-grant", grantListener);
+  element.addEventListener("location-position", positionListener);
+  element.addEventListener("location-error", errorListener);
+  container.replaceChildren(element);
+  const handle = v4();
+  locationButtonMountByContainerId.set(containerId, handle);
+  locationButtonMounts.set(handle, {
+    containerId,
+    container,
+    element,
+    dispose: () => {
+      element.removeEventListener("location-grant", grantListener);
+      element.removeEventListener("location-position", positionListener);
+      element.removeEventListener("location-error", errorListener);
+      element.remove();
+    }
+  });
+  return handle;
+}
+function updateLocationButton(handle, properties) {
+  const mount = locationButtonMounts.get(handle);
+  if (!mount) throw new Error("Location Button handle is not mounted");
+  const currentContainer = document.getElementById(mount.containerId);
+  if (!currentContainer) {
+    throw new Error(`Location Button container not found: ${mount.containerId}`);
+  }
+  if (currentContainer !== mount.container) {
+    currentContainer.replaceChildren(mount.element);
+    mount.container = currentContainer;
+  }
+  applyLocationButtonProperties(mount.element, properties);
+}
+function destroyLocationButton(handle) {
+  const mount = locationButtonMounts.get(handle);
+  if (!mount) return;
+  locationButtonMounts.delete(handle);
+  if (locationButtonMountByContainerId.get(mount.containerId) === handle) {
+    locationButtonMountByContainerId.delete(mount.containerId);
+  }
+  mount.dispose();
+}
 exports.OSGeolocationInstance = OSGeolocationInstance;
+exports.destroyLocationButton = destroyLocationButton;
+exports.mountLocationButton = mountLocationButton;
+exports.updateLocationButton = updateLocationButton;

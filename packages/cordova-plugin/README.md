@@ -8,6 +8,18 @@
 cordova plugin add <path-to-repo-local-clone>
 ```
 
+## Location Button
+
+The plugin registers `<os-location-button>` automatically and includes its Native
+Islands runtime.
+
+```html
+<os-location-button text-type="use-precise-location"></os-location-button>
+```
+
+The Android component emits `location-grant`, `location-position`, and
+`location-error` DOM events.
+
 ## API
 
 <docgen-index>

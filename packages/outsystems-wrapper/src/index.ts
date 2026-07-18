@@ -362,3 +362,169 @@ class OSGeolocation {
 }
 
 export const OSGeolocationInstance = new OSGeolocation()
+
+export type LocationButtonTextType =
+    | "precise-location"
+    | "use-precise-location"
+    | "share-precise-location"
+    | "near-my-precise-location"
+    | "near-your-precise-location"
+    | "none"
+
+export interface LocationButtonProperties {
+    textType?: LocationButtonTextType
+    backgroundColor?: string
+    textColor?: string
+    iconTint?: string
+    strokeColor?: string
+    cornerRadius?: number
+    pressedCornerRadius?: number
+    strokeWidth?: number
+    clickablePadding?: number
+}
+
+export interface LocationButtonPosition {
+    latitude: number
+    longitude: number
+    accuracy: number
+    timestamp: number
+}
+
+interface LocationButtonMount {
+    containerId: string
+    container: HTMLElement
+    element: HTMLElement
+    dispose: () => void
+}
+
+const locationButtonMounts = new Map<string, LocationButtonMount>()
+const locationButtonMountByContainerId = new Map<string, string>()
+
+const locationButtonAttributes: ReadonlyArray<[
+    keyof LocationButtonProperties,
+    string,
+]> = [
+    ["textType", "text-type"],
+    ["backgroundColor", "background-color"],
+    ["textColor", "text-color"],
+    ["iconTint", "icon-tint"],
+    ["strokeColor", "stroke-color"],
+    ["cornerRadius", "corner-radius"],
+    ["pressedCornerRadius", "pressed-corner-radius"],
+    ["strokeWidth", "stroke-width"],
+    ["clickablePadding", "clickable-padding"],
+]
+
+function applyLocationButtonProperties(
+    element: HTMLElement,
+    properties: LocationButtonProperties,
+): void {
+    for (const [property, attribute] of locationButtonAttributes) {
+        if (!Object.prototype.hasOwnProperty.call(properties, property)) continue
+        const value = properties[property]
+        if (value === undefined || value === null || value === "") {
+            element.removeAttribute(attribute)
+        } else {
+            element.setAttribute(attribute, String(value))
+        }
+    }
+}
+
+export function mountLocationButton(
+    containerId: string,
+    properties: LocationButtonProperties,
+    onGrant?: (granted: boolean) => void,
+    onPosition?: (position: LocationButtonPosition) => void,
+    onError?: (reason: string) => void,
+): string {
+    if (typeof document === "undefined" || typeof customElements === "undefined") {
+        throw new Error("Location Button requires a browser document")
+    }
+    if (!customElements.get("os-location-button")) {
+        throw new Error(
+            "Location Button is not registered; load the Geolocation element resource before mounting",
+        )
+    }
+    const container = document.getElementById(containerId)
+    if (!container) {
+        throw new Error(`Location Button container not found: ${containerId}`)
+    }
+
+    const existingHandle = locationButtonMountByContainerId.get(containerId)
+    if (existingHandle) destroyLocationButton(existingHandle)
+
+    const element = document.createElement("os-location-button")
+    applyLocationButtonProperties(element, properties)
+
+    const grantListener = (event: Event) => {
+        const detail = (event as CustomEvent<{ granted?: unknown }>).detail
+        if (typeof detail?.granted === "boolean") onGrant?.(detail.granted)
+    }
+    const positionListener = (event: Event) => {
+        const detail = (event as CustomEvent<LocationButtonPosition>).detail
+        if (
+            detail &&
+            Number.isFinite(detail.latitude) &&
+            Number.isFinite(detail.longitude) &&
+            Number.isFinite(detail.accuracy) &&
+            Number.isFinite(detail.timestamp)
+        ) {
+            onPosition?.(detail)
+        }
+    }
+    const errorListener = (event: Event) => {
+        const detail = (event as CustomEvent<{ reason?: unknown }>).detail
+        onError?.(
+            typeof detail?.reason === "string"
+                ? detail.reason
+                : "Location Button failed",
+        )
+    }
+
+    element.addEventListener("location-grant", grantListener)
+    element.addEventListener("location-position", positionListener)
+    element.addEventListener("location-error", errorListener)
+    container.replaceChildren(element)
+
+    const handle = uuidv4()
+    locationButtonMountByContainerId.set(containerId, handle)
+    locationButtonMounts.set(handle, {
+        containerId,
+        container,
+        element,
+        dispose: () => {
+            element.removeEventListener("location-grant", grantListener)
+            element.removeEventListener("location-position", positionListener)
+            element.removeEventListener("location-error", errorListener)
+            element.remove()
+        },
+    })
+    return handle
+}
+
+export function updateLocationButton(
+    handle: string,
+    properties: LocationButtonProperties,
+): void {
+    const mount = locationButtonMounts.get(handle)
+    if (!mount) throw new Error("Location Button handle is not mounted")
+    const currentContainer = document.getElementById(mount.containerId)
+    if (!currentContainer) {
+        throw new Error(`Location Button container not found: ${mount.containerId}`)
+    }
+    if (currentContainer !== mount.container) {
+        currentContainer.replaceChildren(mount.element)
+        mount.container = currentContainer
+    }
+    applyLocationButtonProperties(mount.element, properties)
+}
+
+export function destroyLocationButton(handle: string): void {
+    const mount = locationButtonMounts.get(handle)
+    if (!mount) return
+    locationButtonMounts.delete(handle)
+    if (locationButtonMountByContainerId.get(mount.containerId) === handle) {
+        locationButtonMountByContainerId.delete(mount.containerId)
+    }
+    mount.dispose()
+}

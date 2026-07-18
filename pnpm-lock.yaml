@@ -27,6 +27,9 @@ importers:
       '@capacitor/docgen':
         specifier: ^0.2.2
         version: 0.2.2
+      '@capacitor/native-islands':
+        specifier: file:vendor/capacitor-native-islands-1.0.0.tgz
+        version: file:packages/cordova-plugin/vendor/capacitor-native-islands-1.0.0.tgz(@capacitor/core@8.4.2)
       '@rollup/plugin-typescript':
         specifier: ^11.1.6
         version: 11.1.6(rollup@4.52.5)(tslib@2.8.1)(typescript@5.4.5)
@@ -137,10 +140,19 @@ packages:
     resolution: {integrity: sha512-qQ5m48eI/MFLQ5PxQj4PFaprjyCTLI37ElWMmNs0K8Lk3dVeOdNpB3ks8jc7yM5CDmVC73eMVk/trk3fgmrUpA==}
     engines: {node: '>=6.9.0'}
 
+  '@capacitor/core@8.4.2':
+    resolution: {integrity: sha512-fQPRb3JXRaU2pnufDUvqOjhsrYxDQeFRZyaj/sHydIUxD2NxOGHKMpmKUdI+U4OOmKuGZyvRpi7TSJU+7Bjbmg==}
+
   '@capacitor/docgen@0.2.2':
     resolution: {integrity: sha512-617jB5DlKjUljxfoANORWeqffsHqHekckH48oslKWFGzfCHYIAEPfJfMa5M4mVSzn2ifSvWB5C3st4augwhl5w==}
     engines: {node: '>=14.5.0'}
     hasBin: true
+
+  '@capacitor/native-islands@file:packages/cordova-plugin/vendor/capacitor-native-islands-1.0.0.tgz':
+    resolution: {integrity: sha512-uWvFdX7APg2a28lHCK8J2LTT8nG6rfCa5ui44g3esj5NrF31JaLy3eA04jKKj5uPXrb3xvhRdleXO0TQyi8orw==, tarball: file:packages/cordova-plugin/vendor/capacitor-native-islands-1.0.0.tgz}
+    version: 1.0.0
+    peerDependencies:
+      '@capacitor/core': '>=8.4.1 <9'
 
   '@capacitor/synapse@1.0.4':
     resolution: {integrity: sha512-/C1FUo8/OkKuAT4nCIu/34ny9siNHr9qtFezu4kxm6GY1wNFxrCFWjfYx5C1tUhVGz3fxBABegupkpjXvjCHrw==}
@@ -3399,6 +3411,10 @@ snapshots:
       '@babel/helper-string-parser': 7.27.1
       '@babel/helper-validator-identifier': 7.28.5
 
+  '@capacitor/core@8.4.2':
+    dependencies:
+      tslib: 2.8.1
+
   '@capacitor/docgen@0.2.2':
     dependencies:
       '@types/node': 14.18.63
@@ -3406,6 +3422,10 @@ snapshots:
       github-slugger: 1.5.0
       minimist: 1.2.8
       typescript: 4.2.4
+
+  '@capacitor/native-islands@file:packages/cordova-plugin/vendor/capacitor-native-islands-1.0.0.tgz(@capacitor/core@8.4.2)':
+    dependencies:
+      '@capacitor/core': 8.4.2
 
   '@capacitor/synapse@1.0.4': {}
 

@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+- Add `<os-location-button>` with an Android native implementation and browser
+  fallback without changing the existing Geolocation actions.
+- Include Native Islands within Geolocation so applications do not install it
+  separately.
+- Add Location Button lifecycle helpers to the OutSystems wrapper.
+
 ## [1.2.0]
 
 ## 2026-03-10

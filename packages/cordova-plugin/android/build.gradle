@@ -17,7 +17,8 @@ allprojects {
 }
 
 dependencies {
-    implementation("io.ionic.libs:iongeolocation-android:2.2.0")
+    implementation files('libs/IONGeolocationLib-release.aar')
+    implementation files('libs/ionnativeislands-android-release.aar')
     implementation("androidx.browser:browser:1.8.0")
     implementation("com.google.android.gms:play-services-auth:21.2.0")
     implementation("com.google.android.gms:play-services-location:21.3.0")

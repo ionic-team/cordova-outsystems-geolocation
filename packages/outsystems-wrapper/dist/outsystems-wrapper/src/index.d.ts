@@ -10,4 +10,25 @@ declare class OSGeolocation {
     clearWatch(options: ClearWatchOptions, success?: () => void, error?: (error: PluginError | GeolocationPositionError) => void): void;
 }
 export declare const OSGeolocationInstance: OSGeolocation;
+export type LocationButtonTextType = "precise-location" | "use-precise-location" | "share-precise-location" | "near-my-precise-location" | "near-your-precise-location" | "none";
+export interface LocationButtonProperties {
+    textType?: LocationButtonTextType;
+    backgroundColor?: string;
+    textColor?: string;
+    iconTint?: string;
+    strokeColor?: string;
+    cornerRadius?: number;
+    pressedCornerRadius?: number;
+    strokeWidth?: number;
+    clickablePadding?: number;
+}
+export interface LocationButtonPosition {
+    latitude: number;
+    longitude: number;
+    accuracy: number;
+    timestamp: number;
+}
+export declare function mountLocationButton(containerId: string, properties: LocationButtonProperties, onGrant?: (granted: boolean) => void, onPosition?: (position: LocationButtonPosition) => void, onError?: (reason: string) => void): string;
+export declare function updateLocationButton(handle: string, properties: LocationButtonProperties): void;
+export declare function destroyLocationButton(handle: string): void;
 export {};
