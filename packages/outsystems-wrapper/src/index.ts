@@ -375,12 +375,10 @@ export interface LocationButtonProperties {
     textType?: LocationButtonTextType
     backgroundColor?: string
     textColor?: string
-    iconTint?: string
-    strokeColor?: string
+    iconColor?: string
+    borderColor?: string
     cornerRadius?: number
-    pressedCornerRadius?: number
-    strokeWidth?: number
-    clickablePadding?: number
+    borderWidth?: number
 }
 
 export interface LocationButtonPosition {
@@ -400,32 +398,39 @@ interface LocationButtonMount {
 const locationButtonMounts = new Map<string, LocationButtonMount>()
 const locationButtonMountByContainerId = new Map<string, string>()
 
-const locationButtonAttributes: ReadonlyArray<[
+const locationButtonStyles: ReadonlyArray<[
     keyof LocationButtonProperties,
     string,
+    string,
 ]> = [
-    ["textType", "text-type"],
-    ["backgroundColor", "background-color"],
-    ["textColor", "text-color"],
-    ["iconTint", "icon-tint"],
-    ["strokeColor", "stroke-color"],
-    ["cornerRadius", "corner-radius"],
-    ["pressedCornerRadius", "pressed-corner-radius"],
-    ["strokeWidth", "stroke-width"],
-    ["clickablePadding", "clickable-padding"],
+    ["backgroundColor", "--os-location-button-background-color", ""],
+    ["textColor", "--os-location-button-text-color", ""],
+    ["iconColor", "--os-location-button-icon-color", ""],
+    ["borderColor", "--os-location-button-border-color", ""],
+    ["cornerRadius", "border-radius", "px"],
+    ["borderWidth", "--os-location-button-border-width", "px"],
 ]
 
 function applyLocationButtonProperties(
     element: HTMLElement,
     properties: LocationButtonProperties,
 ): void {
-    for (const [property, attribute] of locationButtonAttributes) {
+    if (Object.prototype.hasOwnProperty.call(properties, "textType")) {
+        const value = properties.textType
+        if (!value) {
+            element.removeAttribute("text-type")
+        } else {
+            element.setAttribute("text-type", value)
+        }
+    }
+
+    for (const [property, cssProperty, unit] of locationButtonStyles) {
         if (!Object.prototype.hasOwnProperty.call(properties, property)) continue
         const value = properties[property]
         if (value === undefined || value === null || value === "") {
-            element.removeAttribute(attribute)
+            element.style.removeProperty(cssProperty)
         } else {
-            element.setAttribute(attribute, String(value))
+            element.style.setProperty(cssProperty, `${String(value)}${unit}`)
         }
     }
 }
@@ -512,7 +517,7 @@ export function updateLocationButton(
     if (!currentContainer) {
         throw new Error(`Location Button container not found: ${mount.containerId}`)
     }
-    if (currentContainer !== mount.container) {
+    if (currentContainer !== mount.container || mount.element.parentElement !== currentContainer) {
         currentContainer.replaceChildren(mount.element)
         mount.container = currentContainer
     }

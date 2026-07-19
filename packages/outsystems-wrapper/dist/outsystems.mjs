@@ -28,14 +28,11 @@ function rng() {
 const randomUUID = typeof crypto !== "undefined" && crypto.randomUUID && crypto.randomUUID.bind(crypto);
 const native = { randomUUID };
 function v4(options, buf, offset) {
-  if (native.randomUUID && true && !options) {
+  if (native.randomUUID && !buf && !options) {
     return native.randomUUID();
   }
   options = options || {};
-  const rnds = options.random ?? options.rng?.() ?? rng();
-  if (rnds.length < 16) {
-    throw new Error("Random bytes length must be >= 16");
-  }
+  const rnds = options.random || (options.rng || rng)();
   rnds[6] = rnds[6] & 15 | 64;
   rnds[8] = rnds[8] & 63 | 128;
   return unsafeStringify(rnds);
@@ -329,25 +326,30 @@ hasNativeTimeoutHandling_fn = function(success) {
 const OSGeolocationInstance = new OSGeolocation();
 const locationButtonMounts = /* @__PURE__ */ new Map();
 const locationButtonMountByContainerId = /* @__PURE__ */ new Map();
-const locationButtonAttributes = [
-  ["textType", "text-type"],
-  ["backgroundColor", "background-color"],
-  ["textColor", "text-color"],
-  ["iconTint", "icon-tint"],
-  ["strokeColor", "stroke-color"],
-  ["cornerRadius", "corner-radius"],
-  ["pressedCornerRadius", "pressed-corner-radius"],
-  ["strokeWidth", "stroke-width"],
-  ["clickablePadding", "clickable-padding"]
+const locationButtonStyles = [
+  ["backgroundColor", "--os-location-button-background-color", ""],
+  ["textColor", "--os-location-button-text-color", ""],
+  ["iconColor", "--os-location-button-icon-color", ""],
+  ["borderColor", "--os-location-button-border-color", ""],
+  ["cornerRadius", "border-radius", "px"],
+  ["borderWidth", "--os-location-button-border-width", "px"]
 ];
 function applyLocationButtonProperties(element, properties) {
-  for (const [property, attribute] of locationButtonAttributes) {
+  if (Object.prototype.hasOwnProperty.call(properties, "textType")) {
+    const value = properties.textType;
+    if (!value) {
+      element.removeAttribute("text-type");
+    } else {
+      element.setAttribute("text-type", value);
+    }
+  }
+  for (const [property, cssProperty, unit] of locationButtonStyles) {
     if (!Object.prototype.hasOwnProperty.call(properties, property)) continue;
     const value = properties[property];
     if (value === void 0 || value === null || value === "") {
-      element.removeAttribute(attribute);
+      element.style.removeProperty(cssProperty);
     } else {
-      element.setAttribute(attribute, String(value));
+      element.style.setProperty(cssProperty, `${String(value)}${unit}`);
     }
   }
 }
@@ -410,7 +412,7 @@ function updateLocationButton(handle, properties) {
   if (!currentContainer) {
     throw new Error(`Location Button container not found: ${mount.containerId}`);
   }
-  if (currentContainer !== mount.container) {
+  if (currentContainer !== mount.container || mount.element.parentElement !== currentContainer) {
     currentContainer.replaceChildren(mount.element);
     mount.container = currentContainer;
   }

@@ -801,7 +801,12 @@
     const parts = value.split(/\s+/);
     if (parts.length <= 2)
       return true;
-    return parts.length === 3 && Number.parseFloat(parts[2]) === 0;
+    return parts.length === 3 && /^[+-]?(?:0+(?:\.0*)?|\.(?:0+))(?:px)?$/i.test(parts[2]);
+  }
+  function hasMotionPath(style) {
+    const offsetRotate = style.getPropertyValue("offset-rotate").trim();
+    const defaultOffsetRotate = offsetRotate === "" || offsetRotate === "auto" || offsetRotate === "auto 0deg";
+    return propertyIsActive(style, "offset-path") || !defaultOffsetRotate;
   }
   function auditLayerKnockoutComposition(el) {
     const layerRect = el.getBoundingClientRect();
@@ -810,7 +815,7 @@
       const style = getComputedStyle(node);
       const isViewportRoot = node === document.body || node === document.documentElement;
       const zoom = style.getPropertyValue("zoom").trim();
-      if (!isAxisAlignedTransform(style.transform) || !isSupportedIndividualTranslate(style) || propertyIsActive(style, "scale") || propertyIsActive(style, "rotate") || propertyIsActive(style, "perspective") || propertyIsActive(style, "offset-path") || zoom !== "" && zoom !== "1" && zoom !== "normal") {
+      if (!isAxisAlignedTransform(style.transform) || !isSupportedIndividualTranslate(style) || propertyIsActive(style, "scale") || propertyIsActive(style, "rotate") || propertyIsActive(style, "perspective") || hasMotionPath(style) || zoom !== "" && zoom !== "1" && zoom !== "normal") {
         return {
           reason: "marked web layer knockout coordinates are unsafe under 3D translation, scale, rotation, skew, perspective, motion paths, or zoom",
           mayMoveWithoutRefresh: false
@@ -875,7 +880,7 @@
         });
         break;
       }
-      if (propertyIsActive(style, "offset-path")) {
+      if (hasMotionPath(style)) {
         issues.push({
           code: "non_axis_transform",
           island,
@@ -1011,9 +1016,10 @@
     return element.localName.includes("-");
   }
   class CompositionObserver {
-    constructor(invalidate, ignoreMutation = () => false) {
+    constructor(invalidate, ignoreMutation = () => false, onOpenRoot = () => void 0) {
       this.invalidate = invalidate;
       this.ignoreMutation = ignoreMutation;
+      this.onOpenRoot = onOpenRoot;
       this.ancestors = /* @__PURE__ */ new Set();
       this.roots = /* @__PURE__ */ new Map();
       this.hydrationWatches = /* @__PURE__ */ new Map();
@@ -1075,6 +1081,7 @@
       const slotChange = () => this.invalidate();
       root.addEventListener("slotchange", slotChange, true);
       this.roots.set(root, { observer, slotChange });
+      this.onOpenRoot(root);
     }
     watchAfterUpgrade(element) {
       if (typeof customElements === "undefined")
@@ -1331,13 +1338,10 @@
     return null;
   }
   function effectImpactForProperty(propertyName) {
-    if (/^(all|--.+|display|content|content-visibility|contain|zoom|position|box-sizing|overflow(?:-.+)?|aspect-ratio|(?:min-|max-)?width|(?:min-|max-)?height|top|right|bottom|left|inset(?:-.+)?|margin(?:-.+)?|padding(?:-.+)?|border(?:-.+)?-width|border-width|gap|row-gap|column-gap|flex(?:-.+)?|grid(?:-.+)?|align-.+|justify-.+|place-.+|order|float|clear|columns?|column-(?:width|count|gap|rule-width)|font(?:-.+)?|line-height|letter-spacing|word-spacing|white-space|text-indent|vertical-align|writing-mode)$/i.test(propertyName)) {
-      return "global-layout";
-    }
     if (/^(visibility|transform|transform-origin|transform-style|translate|scale|rotate|perspective|opacity|filter|backdrop-filter|mix-blend-mode|isolation|will-change|clip|clip-path|mask(?:-.+)?|offset-.+|border(?:-.+)?-radius|border-radius|z-index)$/i.test(propertyName)) {
       return "local-composition";
     }
-    if (/^(color|accent-color|caret-color|background(?:-color|-image|-position(?:-.+)?|-repeat|-size|-attachment|-blend-mode)?|border(?:-.+)?-color|outline(?:-color|-style)?|box-shadow|text-shadow|text-decoration(?:-.+)?|text-emphasis(?:-.+)?|fill|fill-opacity|stroke|stroke-opacity|stroke-dasharray|stroke-dashoffset)$/i.test(propertyName)) {
+    if (/^(color|accent-color|caret-color|background-color|border(?:-(?:top|right|bottom|left|block(?:-start|-end)?|inline(?:-start|-end)?))?-color|outline-color|column-rule-color|text-decoration-color|text-emphasis-color)$/i.test(propertyName)) {
       return "none";
     }
     return "global-layout";
@@ -1391,7 +1395,7 @@
     return false;
   }
   class StackingService {
-    constructor() {
+    constructor(onOpenRoot = () => void 0) {
       this.clipsEnabled = false;
       this.natives = [];
       this.layers = [];
@@ -1406,7 +1410,6 @@
       this.activeEffects = /* @__PURE__ */ new Map();
       this.watchedAnimations = /* @__PURE__ */ new WeakSet();
       this.effectRootDisposers = /* @__PURE__ */ new Map();
-      this.compositionObserver = new CompositionObserver(() => this.refresh(), (record) => this.isOwnMutation(record));
       this.refresh = () => {
         if (this.scheduled)
           return;
@@ -1440,6 +1443,7 @@
           });
         });
       };
+      this.compositionObserver = new CompositionObserver(() => this.refresh(), (record) => this.isOwnMutation(record), onOpenRoot);
     }
     registerNative(handle) {
       if (this.natives.some((candidate) => candidate.el === handle.el))
@@ -1670,6 +1674,7 @@
     }
     buildNatives(motion) {
       const states = this.natives.map((handle, dom) => {
+        handle.reconcileObservedStyles();
         const composition = auditIslandComposition(handle.islandId, handle.el);
         let fallbackReason = null;
         let active = handle.canAttemptNative() && isElementVisible(handle.el);
@@ -1937,7 +1942,7 @@
   class NativeIslandsRuntime {
     constructor() {
       this.transport = createWebTransport();
-      this.stacking = new StackingService();
+      this.stacking = new StackingService((root) => this.observeShadowRoot(root));
       this.transportDisposers = [];
       this.knownLayers = /* @__PURE__ */ new WeakSet();
       this.transportPriority = Number.NEGATIVE_INFINITY;
@@ -2062,6 +2067,13 @@
       void document.fonts?.ready?.then(() => this.refresh()).catch(() => void 0);
       document.fonts?.addEventListener("loadingdone", () => this.refresh());
       document.fonts?.addEventListener("loadingerror", () => this.refresh());
+      for (const query of [
+        "(prefers-color-scheme: dark)",
+        "(prefers-contrast: more)",
+        "(forced-colors: active)"
+      ]) {
+        window.matchMedia(query).addEventListener("change", () => this.refresh());
+      }
     }
     handleDomMutations(records) {
       for (const record of records) {
@@ -2204,6 +2216,9 @@
       throw new Error(`<${options.tagName}> was defined outside Native Islands.`);
     }
     const observedAttributes = [...new Set(options.observedAttributes ?? [])];
+    const observedStyles = [
+      ...new Set((options.observedStyles ?? []).map((property) => property.trim()).filter(Boolean))
+    ];
     const reflectedAttributes = /* @__PURE__ */ new Set();
     const contract = {
       tagName: options.tagName,
@@ -2226,6 +2241,7 @@
         this.eventDisposers = [];
         this.accessibilityFace = null;
         this.updateScheduled = false;
+        this.observedStyleSnapshot = null;
         this.fallbackAttributeChanges = /* @__PURE__ */ new Map();
         this.fallbackOnClick = null;
         const properties = this;
@@ -2303,6 +2319,7 @@
           this.degraded = false;
           this.nativeCreated = false;
           this.compositionFallbackReason = null;
+          this.observedStyleSnapshot = null;
           for (const dispose of this.eventDisposers.splice(0))
             dispose();
           nativeIslandsRuntime.unregister(this);
@@ -2354,7 +2371,31 @@
             this.scheduleUpdate();
         }
       }
+      reconcileObservedStyles() {
+        if (!this.connected || observedStyles.length === 0)
+          return;
+        const next = this.readObservedStyleSnapshot();
+        if (this.observedStyleSnapshot === null) {
+          this.observedStyleSnapshot = next;
+          return;
+        }
+        if (next === this.observedStyleSnapshot)
+          return;
+        this.observedStyleSnapshot = next;
+        if (this.nativeCreated && !this.degraded && this.compositionFallbackReason === null) {
+          this.scheduleUpdate();
+        } else {
+          this.renderFallback();
+        }
+      }
+      readObservedStyleSnapshot() {
+        const style = getComputedStyle(this);
+        return JSON.stringify(observedStyles.map((property) => style.getPropertyValue(property)));
+      }
       properties() {
+        if (observedStyles.length > 0) {
+          this.observedStyleSnapshot = this.readObservedStyleSnapshot();
+        }
         return options.getProperties?.(this);
       }
       async send(method) {
@@ -2572,48 +2613,34 @@
     "precise-location": "Precise location",
     none: "Share location"
   };
-  const NUMERIC_ATTRIBUTES = [
-    ["corner-radius", "cornerRadius", 0, 68, 22],
-    ["pressed-corner-radius", "pressedCornerRadius", 0, 68, 12],
-    ["stroke-width", "strokeWidth", 0, 3, 0],
-    ["clickable-padding", "clickablePadding", 4, 8, 6]
-  ];
-  const COLOR_ATTRIBUTES = [
-    ["background-color", "backgroundColor", "#0B57D0"],
-    ["text-color", "textColor", "#FFFFFF"],
-    ["icon-tint", "iconTint", "#FFFFFF"],
-    ["stroke-color", "strokeColor", "#000000"]
-  ];
-  const OBSERVED_ATTRIBUTES = [
-    "text-type",
-    ...COLOR_ATTRIBUTES.map(([attribute]) => attribute),
-    ...NUMERIC_ATTRIBUTES.map(([attribute]) => attribute)
-  ];
+  const STYLE_PROPERTIES = {
+    backgroundColor: "--os-location-button-background-color",
+    textColor: "--os-location-button-text-color",
+    iconTint: "--os-location-button-icon-color",
+    strokeColor: "--os-location-button-border-color",
+    strokeWidth: "--os-location-button-border-width"
+  };
+  const OBSERVED_ATTRIBUTES = ["text-type"];
+  const OBSERVED_STYLES = [...Object.values(STYLE_PROPERTIES), "border-radius"];
   const HEX_COLOR = /^#[0-9A-Fa-f]{6}$/;
   function textType(element) {
     const value = element.getAttribute("text-type") ?? "precise-location";
     return value in TEXT_LABELS ? value : "precise-location";
   }
-  function colorAttribute(element, name, fallback) {
-    const value = element.getAttribute(name);
-    return value !== null && HEX_COLOR.test(value) ? value : fallback;
+  function colorStyle(style, name, fallback) {
+    const value = style.getPropertyValue(name).trim();
+    return HEX_COLOR.test(value) ? value : fallback;
   }
-  function numericAttribute(element, name, minimum, maximum, fallback) {
-    const value = element.getAttribute(name);
-    if (value === null || value.trim() === "") return fallback;
-    const number = Number(value);
+  function pixelStyle(style, name, minimum, maximum, fallback) {
+    const value = style.getPropertyValue(name).trim();
+    if (!value.endsWith("px")) return fallback;
+    const number = Number.parseFloat(value);
     return Number.isFinite(number) && number >= minimum && number <= maximum ? number : fallback;
-  }
-  function syncOpaqueShape(element) {
-    const radius = numericAttribute(element, "corner-radius", 0, 68, 22);
-    element.style.setProperty("border-radius", `${radius}px`);
-    return radius;
   }
   function dispatch(element, type, detail) {
     element.dispatchEvent(new CustomEvent(type, { bubbles: true, composed: true, detail }));
   }
   function renderFallback(element) {
-    syncOpaqueShape(element);
     const button = document.createElement("button");
     button.type = "button";
     button.className = "os-location-button-fallback";
@@ -2628,12 +2655,6 @@
     text.textContent = label2;
     button.append(icon, text);
     button.setAttribute("aria-label", label2);
-    button.style.setProperty("--location-button-background", colorAttribute(element, "background-color", "#0B57D0"));
-    button.style.setProperty("--location-button-foreground", colorAttribute(element, "text-color", "#FFFFFF"));
-    button.style.setProperty("--location-button-icon", colorAttribute(element, "icon-tint", "#FFFFFF"));
-    button.style.setProperty("--location-button-stroke", colorAttribute(element, "stroke-color", "#000000"));
-    button.style.setProperty("--location-button-radius", `${numericAttribute(element, "corner-radius", 0, 68, 22)}px`);
-    button.style.setProperty("--location-button-stroke-width", `${numericAttribute(element, "stroke-width", 0, 3, 0)}px`);
     button.addEventListener("click", () => {
       const currentPlatform = platform();
       if (currentPlatform !== "web") {
@@ -2680,7 +2701,7 @@
     const style = document.createElement("style");
     style.dataset.osLocationButton = "";
     style.textContent = `
-    os-location-button {
+    :where(os-location-button) {
       display: inline-block;
       inline-size: min(100%, 22rem);
       min-inline-size: 3rem;
@@ -2700,15 +2721,15 @@
       min-inline-size: 3rem;
       min-block-size: 3rem;
       padding-inline: 1rem;
-      border: var(--location-button-stroke-width) solid var(--location-button-stroke);
-      border-radius: var(--location-button-radius);
-      background: var(--location-button-background);
-      color: var(--location-button-foreground);
+      border: var(--os-location-button-border-width, 0px) solid var(--os-location-button-border-color, #000000);
+      border-radius: inherit;
+      background: var(--os-location-button-background-color, #0b57d0);
+      color: var(--os-location-button-text-color, #ffffff);
       font: 600 1rem/1 system-ui, sans-serif;
     }
 
     .os-location-button-fallback__icon {
-      color: var(--location-button-icon);
+      color: var(--os-location-button-icon-color, var(--os-location-button-text-color, #ffffff));
       font-size: 1.25rem;
       line-height: 1;
     }
@@ -2759,17 +2780,21 @@
       isInteractive: true,
       accessibility: "native",
       observedAttributes: OBSERVED_ATTRIBUTES,
+      observedStyles: OBSERVED_STYLES,
       getProperties: (element) => {
-        const properties = {
-          textType: textType(element)
+        const style = getComputedStyle(element);
+        const cornerRadius = pixelStyle(style, "border-top-left-radius", 0, 68, 22);
+        const textColor = colorStyle(style, STYLE_PROPERTIES.textColor, "#FFFFFF");
+        return {
+          textType: textType(element),
+          backgroundColor: colorStyle(style, STYLE_PROPERTIES.backgroundColor, "#0B57D0"),
+          textColor,
+          iconTint: colorStyle(style, STYLE_PROPERTIES.iconTint, textColor),
+          strokeColor: colorStyle(style, STYLE_PROPERTIES.strokeColor, "#000000"),
+          cornerRadius,
+          pressedCornerRadius: Math.min(cornerRadius, 12),
+          strokeWidth: pixelStyle(style, STYLE_PROPERTIES.strokeWidth, 0, 3, 0)
         };
-        for (const [attribute, property, fallback] of COLOR_ATTRIBUTES) {
-          properties[property] = colorAttribute(element, attribute, fallback);
-        }
-        for (const [attribute, property, minimum, maximum, fallback] of NUMERIC_ATTRIBUTES) {
-          properties[property] = attribute === "corner-radius" ? syncOpaqueShape(element) : numericAttribute(element, attribute, minimum, maximum, fallback);
-        }
-        return properties;
       },
       renderFallback,
       events: {

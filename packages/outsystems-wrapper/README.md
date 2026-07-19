@@ -16,4 +16,6 @@ npm run build
 
 Use `mountLocationButton` to mount the component, `updateLocationButton` when block
 inputs change, and `destroyLocationButton` when the block is destroyed. The wrapper
-forwards grant, position, and error events to the supplied callbacks.
+forwards grant, position, and error events to the supplied callbacks. Appearance
+properties are applied through the custom element's CSS contract, so inherited
+custom properties and ordinary style classes remain available.
