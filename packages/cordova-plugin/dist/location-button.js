@@ -213,6 +213,59 @@
     const defaultOffsetRotate = offsetRotate === "" || offsetRotate === "auto" || offsetRotate === "auto 0deg";
     return propertyIsActive(style, "offset-path") || !defaultOffsetRotate;
   }
+  function colorAlpha(value) {
+    const color = value.trim().toLowerCase();
+    if (color === "transparent")
+      return 0;
+    const body = color.match(/^[a-z]+\((.*)\)$/)?.[1];
+    if (!body)
+      return null;
+    const slashAlpha = body.match(/\/\s*([+-]?(?:\d+\.?\d*|\.\d+)%?)(?:\s|$)/)?.[1];
+    const commaParts = body.split(",").map((part) => part.trim());
+    const alpha = slashAlpha ?? (commaParts.length === 4 ? commaParts[3] : null);
+    if (alpha === null)
+      return 1;
+    const parsed = Number.parseFloat(alpha);
+    if (!Number.isFinite(parsed))
+      return null;
+    return Math.min(1, Math.max(0, alpha.endsWith("%") ? parsed / 100 : parsed));
+  }
+  function backgroundColorClip(style) {
+    const clips2 = style.backgroundClip.split(",").map((value) => value.trim()).filter(Boolean);
+    return clips2[clips2.length - 1] ?? "border-box";
+  }
+  function hasSparsePaint(el, style) {
+    const paintedElementNames = /* @__PURE__ */ new Set(["BUTTON", "CANVAS", "IFRAME", "IMG", "INPUT", "SELECT", "TEXTAREA", "VIDEO"]);
+    if (paintedElementNames.has(el.tagName))
+      return true;
+    if (Array.from(el.childNodes).some((node) => node.nodeType === Node.TEXT_NODE && (node.textContent?.trim().length ?? 0) > 0) && (colorAlpha(style.color) ?? 0) > 0) {
+      return true;
+    }
+    if (Array.from(el.children).some((child) => ["CANVAS", "IFRAME", "IMG", "SVG", "VIDEO"].includes(child.tagName))) {
+      return true;
+    }
+    const hasBorder = [
+      [style.borderTopWidth, style.borderTopColor],
+      [style.borderRightWidth, style.borderRightColor],
+      [style.borderBottomWidth, style.borderBottomColor],
+      [style.borderLeftWidth, style.borderLeftColor]
+    ].some(([width, color]) => Number.parseFloat(width) > 0 && (colorAlpha(color) ?? 0) > 0);
+    return hasBorder || style.boxShadow !== "" && style.boxShadow !== "none" || style.textShadow !== "" && style.textShadow !== "none" || style.outlineStyle !== "" && style.outlineStyle !== "none" && Number.parseFloat(style.outlineWidth) > 0;
+  }
+  function automaticWebLayerCutoutIssue(el) {
+    const style = getComputedStyle(el);
+    const alpha = colorAlpha(style.backgroundColor);
+    const hasImage = style.backgroundImage !== "" && style.backgroundImage !== "none";
+    if ((alpha === 0 || alpha === null) && !hasImage && !hasSparsePaint(el, style))
+      return void 0;
+    if (alpha !== 1 || backgroundColorClip(style) !== "border-box") {
+      return {
+        reason: "sparse, translucent, or partially painted web content cannot use a box-shaped native cutout",
+        mayMoveWithoutRefresh: false
+      };
+    }
+    return auditWebLayerCutoutComposition(el);
+  }
   function auditWebLayerCutoutComposition(el) {
     const layerRect = el.getBoundingClientRect();
     let node = el;
@@ -234,19 +287,19 @@
       }
       if (!isAxisAlignedTransform(style.transform) || !isSupportedIndividualTranslate(style) || propertyIsActive(style, "scale") || propertyIsActive(style, "rotate") || propertyIsActive(style, "perspective") || hasMotionPath(style) || zoom !== "" && zoom !== "1" && zoom !== "normal") {
         return {
-          reason: "marked web layer cutout coordinates are unsafe under 3D translation, scale, rotation, skew, perspective, motion paths, or zoom",
+          reason: "opaque web surface coordinates are unsafe under 3D translation, scale, rotation, skew, perspective, motion paths, or zoom",
           mayMoveWithoutRefresh: false
         };
       }
       if (node === el && markedLayerPaintEscapes(el, style)) {
         return {
-          reason: "marked web layers with out-of-bounds paint or visible overflow cannot use a box-bounded cutout",
+          reason: "web surfaces with out-of-bounds paint or visible overflow cannot use a box-bounded cutout",
           mayMoveWithoutRefresh: false
         };
       }
       if (!isViewportRoot && scrolls(node, style)) {
         return {
-          reason: "marked web layer cutout coordinates are unsafe inside an independent web scroll container",
+          reason: "opaque web surface coordinates are unsafe inside an independent web scroll container",
           mayMoveWithoutRefresh: true
         };
       }
@@ -254,7 +307,7 @@
       const paintContains = clipsThroughPaintContainment(style);
       if (node !== el && !isViewportRoot && (overflowClips || paintContains) && (hasUnsupportedClipEdge(style) || !clipOpaqueShapeContains(node, style, layerRect))) {
         return {
-          reason: `marked web layer cutout coordinates are unsafe under a partially clipping ${paintContains ? "paint-containment" : "overflow"} ancestor`,
+          reason: `opaque web surface coordinates are unsafe under a partially clipping ${paintContains ? "paint-containment" : "overflow"} ancestor`,
           mayMoveWithoutRefresh: false
         };
       }
@@ -805,7 +858,8 @@
     return false;
   }
   class StackingService {
-    constructor(onOpenRoot = () => void 0) {
+    constructor(onOpenRoot = () => void 0, automaticLayerCandidates = () => []) {
+      this.automaticLayerCandidates = automaticLayerCandidates;
       this.compositionEnabled = false;
       this.natives = [];
       this.layers = [];
@@ -819,6 +873,7 @@
       this.activeEffects = /* @__PURE__ */ new Map();
       this.watchedAnimations = /* @__PURE__ */ new WeakSet();
       this.effectRootDisposers = /* @__PURE__ */ new Map();
+      this.automaticLayerClassifications = /* @__PURE__ */ new WeakMap();
       this.refresh = () => {
         if (this.scheduled)
           return;
@@ -870,6 +925,17 @@
       for (const handle of this.natives)
         handle.onTransportAvailable();
     }
+    invalidateAutomaticLayers(root) {
+      if (!root) {
+        this.automaticLayerClassifications = /* @__PURE__ */ new WeakMap();
+        return;
+      }
+      if (root instanceof HTMLElement)
+        this.automaticLayerClassifications.delete(root);
+      for (const element of root.querySelectorAll("*")) {
+        this.automaticLayerClassifications.delete(element);
+      }
+    }
     unregister(el) {
       const nativeIndex = this.natives.findIndex((candidate) => candidate.el === el);
       if (nativeIndex >= 0) {
@@ -889,13 +955,20 @@
         return;
       this.onChange = onChange;
       this.mutationObserver = new MutationObserver((records) => {
+        let changed = false;
         for (const record of records) {
           const target = record.target instanceof Element ? record.target : record.target.parentElement;
           if (!target)
             continue;
-          this.refresh();
-          return;
+          changed = true;
+          if (target instanceof HTMLStyleElement || target instanceof HTMLLinkElement || target.closest("style") !== null) {
+            this.invalidateAutomaticLayers();
+          } else if (record.type !== "characterData") {
+            this.invalidateAutomaticLayers(target);
+          }
         }
+        if (changed)
+          this.refresh();
       });
       this.mutationObserver.observe(document.documentElement, {
         attributes: true,
@@ -937,8 +1010,16 @@
           this.endEffect(event.target, `animation:${event.animationName}`);
         }
       };
-      const onLoad = () => this.refresh();
-      const onStyleStateChange = () => this.refresh();
+      const onLoad = (event) => {
+        if (event.target instanceof HTMLLinkElement || event.target instanceof HTMLStyleElement) {
+          this.invalidateAutomaticLayers();
+        }
+        this.refresh();
+      };
+      const onStyleStateChange = () => {
+        this.invalidateAutomaticLayers();
+        this.refresh();
+      };
       const styleStateEvents = [
         "pointerover",
         "pointerout",
@@ -1049,7 +1130,7 @@
       }
       return running;
     }
-    assessMotionSafety() {
+    assessMotionSafety(layers) {
       const safety = {
         globalLayout: false,
         movingMarkedLayer: false,
@@ -1060,7 +1141,7 @@
           safety.globalLayout = true;
         else
           safety.localCompositionTargets.add(effect.target);
-        if (this.layers.some((layer) => isComposedAncestor(effect.target, layer.el))) {
+        if (layers.some((layer) => isComposedAncestor(effect.target, layer.el))) {
           safety.movingMarkedLayer = true;
         }
       }
@@ -1154,7 +1235,8 @@
       }
     }
     buildLayers() {
-      return this.layers.filter((layer) => layer.el.isConnected).map((layer, dom) => {
+      const explicitElements = new Set(this.layers.map((layer) => layer.el));
+      const layers = this.layers.filter((layer) => layer.el.isConnected).map((layer, dom2) => {
         const style = getComputedStyle(layer.el);
         const radius = uniformCssCornerRadius([
           style.borderTopLeftRadius,
@@ -1165,21 +1247,67 @@
         return {
           el: layer.el,
           z: zIndex(layer.el),
-          dom,
+          dom: dom2,
           rect: { ...docRect(layer.el), r: radius ?? 0 },
           cutoutIssue: radius === null ? {
-            reason: "marked web layers require a uniform pixel border-radius",
+            reason: "declared opaque surfaces require a uniform pixel border-radius",
             mayMoveWithoutRefresh: false
           } : auditWebLayerCutoutComposition(layer.el)
         };
       });
+      if (!this.compositionEnabled || this.natives.length === 0)
+        return layers;
+      const nativeElements = new Set(this.natives.map((native) => native.el));
+      const nativeBounds = this.natives.filter((native) => native.el.isConnected).map((native) => ({
+        el: native.el,
+        z: zIndex(native.el),
+        dom: 0,
+        rect: docRect(native.el)
+      }));
+      let dom = layers.length;
+      for (const element of this.automaticLayerCandidates()) {
+        if (!element.isConnected || explicitElements.has(element) || nativeElements.has(element) || this.natives.some((native) => isComposedAncestor(element, native.el) || isComposedAncestor(native.el, element))) {
+          continue;
+        }
+        const cached = this.automaticLayerClassifications.get(element);
+        const issue = cached === void 0 ? automaticWebLayerCutoutIssue(element) : cached === false ? void 0 : cached;
+        if (cached === void 0)
+          this.automaticLayerClassifications.set(element, issue === void 0 ? false : issue);
+        if (issue === void 0 || !isElementVisible(element))
+          continue;
+        const rect = docRect(element);
+        const layer = {
+          el: element,
+          z: zIndex(element),
+          dom: dom++,
+          rect
+        };
+        if (!nativeBounds.some((native) => intersects(rect, native.rect) && above(layer, native)))
+          continue;
+        const style = getComputedStyle(element);
+        const radius = uniformCssCornerRadius([
+          style.borderTopLeftRadius,
+          style.borderTopRightRadius,
+          style.borderBottomRightRadius,
+          style.borderBottomLeftRadius
+        ]);
+        layers.push({
+          ...layer,
+          rect: { ...rect, r: radius ?? 0 },
+          cutoutIssue: radius === null ? {
+            reason: "automatically detected web surfaces require a uniform pixel border-radius",
+            mayMoveWithoutRefresh: false
+          } : issue
+        });
+      }
+      return layers;
     }
     detectLayerCoordinateConflicts(natives, layers) {
       if (!this.compositionEnabled)
         return;
       for (const layer of layers) {
         const issue = layer.cutoutIssue ?? (!isSafeBridgeRect(layer.rect) ? {
-          reason: "marked web layer geometry exceeds the shared safe coordinate or size range",
+          reason: "opaque web surface geometry exceeds the shared safe coordinate or size range",
           mayMoveWithoutRefresh: false
         } : null);
         if (!issue)
@@ -1188,6 +1316,9 @@
           if (!native.active || !native.rect || !issue.mayMoveWithoutRefresh && !intersects(native.rect, layer.rect)) {
             continue;
           }
+          const covered = layers.some((cover) => cover !== layer && cover.cutoutIssue === null && isElementVisible(cover.el) && above(cover, native) && opaqueContainsRect(cover.rect, layer.rect));
+          if (covered)
+            continue;
           native.fallbackReason = issue.reason;
           native.active = false;
           native.rect = null;
@@ -1199,7 +1330,7 @@
         if (!native.active || !native.rect)
           continue;
         const nativeRect = native.rect;
-        const cutouts = layers.filter((layer) => isElementVisible(layer.el) && above(layer, native) && intersects(layer.rect, nativeRect));
+        const cutouts = layers.filter((layer) => layer.cutoutIssue === null && isElementVisible(layer.el) && above(layer, native) && intersects(layer.rect, nativeRect));
         const unsupported = cutouts.some((left, index) => cutouts.slice(index + 1).some((right) => intersects(left.rect, right.rect) && ((left.rect.r ?? 0) > 0 || (right.rect.r ?? 0) > 0)));
         if (!unsupported)
           continue;
@@ -1219,9 +1350,9 @@
         ...this.natives.map((handle) => handle.el),
         ...this.layers.map((handle) => handle.el)
       ]);
-      const motion = this.assessMotionSafety();
-      const natives = this.buildNatives(motion);
       const layers = this.buildLayers();
+      const motion = this.assessMotionSafety(layers);
+      const natives = this.buildNatives(motion);
       this.detectLayerCoordinateConflicts(natives, layers);
       this.degradeOverlappingRoundedCutouts(natives, layers);
       this.syncCompositionFallbacks(natives);
@@ -1242,7 +1373,7 @@
         if (!native.active || !native.rect)
           continue;
         const nativeRect = native.rect;
-        cutouts[native.handle.islandId] = layers.filter((layer) => isElementVisible(layer.el) && above(layer, native) && intersects(layer.rect, nativeRect)).map((layer) => layer.rect);
+        cutouts[native.handle.islandId] = layers.filter((layer) => layer.cutoutIssue === null && isElementVisible(layer.el) && above(layer, native) && intersects(layer.rect, nativeRect)).map((layer) => layer.rect);
         const rects = layers.filter((layer) => touchable(layer) && above(layer, native) && intersects(layer.rect, nativeRect)).map((layer) => layer.rect);
         for (const other of natives) {
           if (other !== native && other.active && other.rect && above(other, native) && intersects(other.rect, native.rect)) {
@@ -1273,7 +1404,7 @@
       };
     }
   }
-  const LAYER_SELECTOR = "[data-native-islands-web-layer]";
+  const LAYER_SELECTOR = "[data-native-islands-opaque-surface]";
   const NATIVE_ISLANDS_TRANSPORT_PRIORITY = {
     unavailable: 0,
     carrier: 10
@@ -1285,9 +1416,10 @@
   class NativeIslandsRuntime {
     constructor() {
       this.transport = createWebTransport();
-      this.stacking = new StackingService((root) => this.observeShadowRoot(root));
+      this.stacking = new StackingService((root) => this.observeShadowRoot(root), () => this.knownElements);
       this.transportDisposers = [];
       this.knownLayers = /* @__PURE__ */ new WeakSet();
+      this.knownElements = /* @__PURE__ */ new Set();
       this.transportPriority = Number.NEGATIVE_INFINITY;
       this.started = false;
       this.domObserver = null;
@@ -1384,7 +1516,7 @@
       this.domObserver = new MutationObserver((records) => this.handleDomMutations(records));
       this.domObserver.observe(document.body, {
         attributes: true,
-        attributeFilter: ["data-native-islands-web-layer"],
+        attributeFilter: ["data-native-islands-opaque-surface"],
         childList: true,
         subtree: true
       });
@@ -1400,11 +1532,18 @@
       window.addEventListener("resize", () => this.refresh(), {
         passive: true
       });
-      window.addEventListener("load", () => this.refresh(), {
-        once: true
+      window.addEventListener("load", () => {
+        this.stacking.invalidateAutomaticLayers();
+        this.refresh();
+      }, { once: true });
+      window.addEventListener("hashchange", () => {
+        this.stacking.invalidateAutomaticLayers();
+        this.refresh();
       });
-      window.addEventListener("hashchange", () => this.refresh());
-      document.addEventListener("fullscreenchange", () => this.refresh());
+      document.addEventListener("fullscreenchange", () => {
+        this.stacking.invalidateAutomaticLayers();
+        this.refresh();
+      });
       document.addEventListener("visibilitychange", () => {
         if (document.visibilityState === "visible")
           this.refresh();
@@ -1413,7 +1552,10 @@
       document.fonts?.addEventListener("loadingdone", () => this.refresh());
       document.fonts?.addEventListener("loadingerror", () => this.refresh());
       for (const query of ["(prefers-color-scheme: dark)", "(prefers-contrast: more)", "(forced-colors: active)"]) {
-        window.matchMedia(query).addEventListener("change", () => this.refresh());
+        window.matchMedia(query).addEventListener("change", () => {
+          this.stacking.invalidateAutomaticLayers();
+          this.refresh();
+        });
       }
     }
     handleDomMutations(records) {
@@ -1446,6 +1588,7 @@
       }
       const elements = root instanceof HTMLElement ? [root, ...root.querySelectorAll("*")] : Array.from(root.querySelectorAll("*"));
       for (const element of elements) {
+        this.knownElements.add(element);
         if (element.shadowRoot)
           this.observeShadowRoot(element.shadowRoot);
       }
@@ -1491,10 +1634,12 @@
     }
     unregisterTree(root) {
       this.visitOpenTree(root, (tree) => {
-        if (tree instanceof HTMLElement && tree.matches(LAYER_SELECTOR))
-          this.unregisterLayer(tree);
-        for (const layer of tree.querySelectorAll(LAYER_SELECTOR))
-          this.unregisterLayer(layer);
+        const elements = tree instanceof HTMLElement ? [tree, ...tree.querySelectorAll("*")] : Array.from(tree.querySelectorAll("*"));
+        for (const element of elements) {
+          this.knownElements.delete(element);
+          if (element.matches(LAYER_SELECTOR))
+            this.unregisterLayer(element);
+        }
       });
     }
     disconnectShadowTrees(root) {
