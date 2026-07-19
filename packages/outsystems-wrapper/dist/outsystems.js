@@ -331,12 +331,12 @@ var __privateMethod = (obj, member, method) => (__accessCheck(obj, member, "acce
   const locationButtonMounts = /* @__PURE__ */ new Map();
   const locationButtonMountByContainerId = /* @__PURE__ */ new Map();
   const locationButtonStyles = [
-    ["backgroundColor", "--os-location-button-background-color", ""],
-    ["textColor", "--os-location-button-text-color", ""],
+    ["backgroundColor", "background-color", ""],
+    ["textColor", "color", ""],
     ["iconColor", "--os-location-button-icon-color", ""],
-    ["borderColor", "--os-location-button-border-color", ""],
+    ["borderColor", "border-color", ""],
     ["cornerRadius", "border-radius", "px"],
-    ["borderWidth", "--os-location-button-border-width", "px"]
+    ["borderWidth", "border-width", "px"]
   ];
   function applyLocationButtonProperties(element, properties) {
     if (Object.prototype.hasOwnProperty.call(properties, "textType")) {
@@ -422,6 +422,10 @@ var __privateMethod = (obj, member, method) => (__accessCheck(obj, member, "acce
     }
     applyLocationButtonProperties(mount.element, properties);
   }
+  function updateLocationButtonInContainer(containerId, properties) {
+    const handle = locationButtonMountByContainerId.get(containerId);
+    if (handle) updateLocationButton(handle, properties);
+  }
   function destroyLocationButton(handle) {
     const mount = locationButtonMounts.get(handle);
     if (!mount) return;
@@ -431,9 +435,15 @@ var __privateMethod = (obj, member, method) => (__accessCheck(obj, member, "acce
     }
     mount.dispose();
   }
+  function destroyLocationButtonInContainer(containerId) {
+    const handle = locationButtonMountByContainerId.get(containerId);
+    if (handle) destroyLocationButton(handle);
+  }
   exports2.OSGeolocationInstance = OSGeolocationInstance;
   exports2.destroyLocationButton = destroyLocationButton;
+  exports2.destroyLocationButtonInContainer = destroyLocationButtonInContainer;
   exports2.mountLocationButton = mountLocationButton;
   exports2.updateLocationButton = updateLocationButton;
+  exports2.updateLocationButtonInContainer = updateLocationButtonInContainer;
   Object.defineProperty(exports2, Symbol.toStringTag, { value: "Module" });
 });

@@ -1,510 +1,5 @@
 (function() {
   "use strict";
-  /*! Capacitor: https://capacitorjs.com/ - MIT License */
-  var ExceptionCode;
-  (function(ExceptionCode2) {
-    ExceptionCode2["Unimplemented"] = "UNIMPLEMENTED";
-    ExceptionCode2["Unavailable"] = "UNAVAILABLE";
-  })(ExceptionCode || (ExceptionCode = {}));
-  class CapacitorException extends Error {
-    constructor(message, code, data) {
-      super(message);
-      this.message = message;
-      this.code = code;
-      this.data = data;
-    }
-  }
-  const getPlatformId = (win) => {
-    var _a, _b;
-    if (win === null || win === void 0 ? void 0 : win.androidBridge) {
-      return "android";
-    } else if ((_b = (_a = win === null || win === void 0 ? void 0 : win.webkit) === null || _a === void 0 ? void 0 : _a.messageHandlers) === null || _b === void 0 ? void 0 : _b.bridge) {
-      return "ios";
-    } else {
-      return "web";
-    }
-  };
-  const createCapacitor = (win) => {
-    const capCustomPlatform = win.CapacitorCustomPlatform || null;
-    const cap = win.Capacitor || {};
-    const Plugins = cap.Plugins = cap.Plugins || {};
-    const getPlatform = () => {
-      return capCustomPlatform !== null ? capCustomPlatform.name : getPlatformId(win);
-    };
-    const isNativePlatform = () => getPlatform() !== "web";
-    const isPluginAvailable = (pluginName) => {
-      const plugin = registeredPlugins.get(pluginName);
-      if (plugin === null || plugin === void 0 ? void 0 : plugin.platforms.has(getPlatform())) {
-        return true;
-      }
-      if (getPluginHeader(pluginName)) {
-        return true;
-      }
-      return false;
-    };
-    const getPluginHeader = (pluginName) => {
-      var _a;
-      return (_a = cap.PluginHeaders) === null || _a === void 0 ? void 0 : _a.find((h) => h.name === pluginName);
-    };
-    const handleError = (err) => win.console.error(err);
-    const registeredPlugins = /* @__PURE__ */ new Map();
-    const registerPlugin2 = (pluginName, jsImplementations = {}) => {
-      const registeredPlugin = registeredPlugins.get(pluginName);
-      if (registeredPlugin) {
-        console.warn(`Capacitor plugin "${pluginName}" already registered. Cannot register plugins twice.`);
-        return registeredPlugin.proxy;
-      }
-      const platform2 = getPlatform();
-      const pluginHeader = getPluginHeader(pluginName);
-      let jsImplementation;
-      const loadPluginImplementation = async () => {
-        if (!jsImplementation && platform2 in jsImplementations) {
-          jsImplementation = typeof jsImplementations[platform2] === "function" ? jsImplementation = await jsImplementations[platform2]() : jsImplementation = jsImplementations[platform2];
-        } else if (capCustomPlatform !== null && !jsImplementation && "web" in jsImplementations) {
-          jsImplementation = typeof jsImplementations["web"] === "function" ? jsImplementation = await jsImplementations["web"]() : jsImplementation = jsImplementations["web"];
-        }
-        return jsImplementation;
-      };
-      const createPluginMethod = (impl, prop) => {
-        var _a, _b;
-        if (pluginHeader) {
-          const methodHeader = pluginHeader === null || pluginHeader === void 0 ? void 0 : pluginHeader.methods.find((m) => prop === m.name);
-          if (methodHeader) {
-            if (methodHeader.rtype === "promise") {
-              return (options) => cap.nativePromise(pluginName, prop.toString(), options);
-            } else {
-              return (options, callback) => cap.nativeCallback(pluginName, prop.toString(), options, callback);
-            }
-          } else if (impl) {
-            return (_a = impl[prop]) === null || _a === void 0 ? void 0 : _a.bind(impl);
-          }
-        } else if (impl) {
-          return (_b = impl[prop]) === null || _b === void 0 ? void 0 : _b.bind(impl);
-        } else {
-          throw new CapacitorException(`"${pluginName}" plugin is not implemented on ${platform2}`, ExceptionCode.Unimplemented);
-        }
-      };
-      const createPluginMethodWrapper = (prop) => {
-        let remove;
-        const wrapper = (...args) => {
-          const p = loadPluginImplementation().then((impl) => {
-            const fn = createPluginMethod(impl, prop);
-            if (fn) {
-              const p2 = fn(...args);
-              remove = p2 === null || p2 === void 0 ? void 0 : p2.remove;
-              return p2;
-            } else {
-              throw new CapacitorException(`"${pluginName}.${prop}()" is not implemented on ${platform2}`, ExceptionCode.Unimplemented);
-            }
-          });
-          if (prop === "addListener") {
-            p.remove = async () => remove();
-          }
-          return p;
-        };
-        wrapper.toString = () => `${prop.toString()}() { [capacitor code] }`;
-        Object.defineProperty(wrapper, "name", {
-          value: prop,
-          writable: false,
-          configurable: false
-        });
-        return wrapper;
-      };
-      const addListener = createPluginMethodWrapper("addListener");
-      const removeListener = createPluginMethodWrapper("removeListener");
-      const addListenerNative = (eventName, callback) => {
-        const call2 = addListener({ eventName }, callback);
-        const remove = async () => {
-          const callbackId = await call2;
-          removeListener({
-            eventName,
-            callbackId
-          }, callback);
-        };
-        const p = new Promise((resolve) => call2.then(() => resolve({ remove })));
-        p.remove = async () => {
-          console.warn(`Using addListener() without 'await' is deprecated.`);
-          await remove();
-        };
-        return p;
-      };
-      const proxy = new Proxy({}, {
-        get(_, prop) {
-          switch (prop) {
-            case "$$typeof":
-              return void 0;
-            case "toJSON":
-              return () => ({});
-            case "addListener":
-              return pluginHeader ? addListenerNative : addListener;
-            case "removeListener":
-              return removeListener;
-            default:
-              return createPluginMethodWrapper(prop);
-          }
-        }
-      });
-      Plugins[pluginName] = proxy;
-      registeredPlugins.set(pluginName, {
-        name: pluginName,
-        proxy,
-        platforms: /* @__PURE__ */ new Set([...Object.keys(jsImplementations), ...pluginHeader ? [platform2] : []])
-      });
-      return proxy;
-    };
-    if (!cap.convertFileSrc) {
-      cap.convertFileSrc = (filePath) => filePath;
-    }
-    cap.getPlatform = getPlatform;
-    cap.handleError = handleError;
-    cap.isNativePlatform = isNativePlatform;
-    cap.isPluginAvailable = isPluginAvailable;
-    cap.registerPlugin = registerPlugin2;
-    cap.Exception = CapacitorException;
-    cap.DEBUG = !!cap.DEBUG;
-    cap.isLoggingEnabled = !!cap.isLoggingEnabled;
-    return cap;
-  };
-  const initCapacitorGlobal = (win) => win.Capacitor = createCapacitor(win);
-  const Capacitor = /* @__PURE__ */ initCapacitorGlobal(typeof globalThis !== "undefined" ? globalThis : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : typeof global !== "undefined" ? global : {});
-  const registerPlugin = Capacitor.registerPlugin;
-  class WebPlugin {
-    constructor() {
-      this.listeners = {};
-      this.retainedEventArguments = {};
-      this.windowListeners = {};
-    }
-    addListener(eventName, listenerFunc) {
-      let firstListener = false;
-      const listeners = this.listeners[eventName];
-      if (!listeners) {
-        this.listeners[eventName] = [];
-        firstListener = true;
-      }
-      this.listeners[eventName].push(listenerFunc);
-      const windowListener = this.windowListeners[eventName];
-      if (windowListener && !windowListener.registered) {
-        this.addWindowListener(windowListener);
-      }
-      if (firstListener) {
-        this.sendRetainedArgumentsForEvent(eventName);
-      }
-      const remove = async () => this.removeListener(eventName, listenerFunc);
-      const p = Promise.resolve({ remove });
-      return p;
-    }
-    async removeAllListeners() {
-      this.listeners = {};
-      for (const listener in this.windowListeners) {
-        this.removeWindowListener(this.windowListeners[listener]);
-      }
-      this.windowListeners = {};
-    }
-    notifyListeners(eventName, data, retainUntilConsumed) {
-      const listeners = this.listeners[eventName];
-      if (!listeners) {
-        if (retainUntilConsumed) {
-          let args = this.retainedEventArguments[eventName];
-          if (!args) {
-            args = [];
-          }
-          args.push(data);
-          this.retainedEventArguments[eventName] = args;
-        }
-        return;
-      }
-      listeners.forEach((listener) => listener(data));
-    }
-    hasListeners(eventName) {
-      var _a;
-      return !!((_a = this.listeners[eventName]) === null || _a === void 0 ? void 0 : _a.length);
-    }
-    registerWindowListener(windowEventName, pluginEventName) {
-      this.windowListeners[pluginEventName] = {
-        registered: false,
-        windowEventName,
-        pluginEventName,
-        handler: (event) => {
-          this.notifyListeners(pluginEventName, event);
-        }
-      };
-    }
-    unimplemented(msg = "not implemented") {
-      return new Capacitor.Exception(msg, ExceptionCode.Unimplemented);
-    }
-    unavailable(msg = "not available") {
-      return new Capacitor.Exception(msg, ExceptionCode.Unavailable);
-    }
-    async removeListener(eventName, listenerFunc) {
-      const listeners = this.listeners[eventName];
-      if (!listeners) {
-        return;
-      }
-      const index = listeners.indexOf(listenerFunc);
-      this.listeners[eventName].splice(index, 1);
-      if (!this.listeners[eventName].length) {
-        this.removeWindowListener(this.windowListeners[eventName]);
-      }
-    }
-    addWindowListener(handle) {
-      window.addEventListener(handle.windowEventName, handle.handler);
-      handle.registered = true;
-    }
-    removeWindowListener(handle) {
-      if (!handle) {
-        return;
-      }
-      window.removeEventListener(handle.windowEventName, handle.handler);
-      handle.registered = false;
-    }
-    sendRetainedArgumentsForEvent(eventName) {
-      const args = this.retainedEventArguments[eventName];
-      if (!args) {
-        return;
-      }
-      delete this.retainedEventArguments[eventName];
-      args.forEach((arg) => {
-        this.notifyListeners(eventName, arg);
-      });
-    }
-  }
-  const encode = (str) => encodeURIComponent(str).replace(/%(2[346B]|5E|60|7C)/g, decodeURIComponent).replace(/[()]/g, escape);
-  const decode = (str) => str.replace(/(%[\dA-F]{2})+/gi, decodeURIComponent);
-  class CapacitorCookiesPluginWeb extends WebPlugin {
-    async getCookies() {
-      const cookies = document.cookie;
-      const cookieMap = {};
-      cookies.split(";").forEach((cookie) => {
-        if (cookie.length <= 0)
-          return;
-        let [key, value] = cookie.replace(/=/, "CAP_COOKIE").split("CAP_COOKIE");
-        key = decode(key).trim();
-        value = decode(value).trim();
-        cookieMap[key] = value;
-      });
-      return cookieMap;
-    }
-    async setCookie(options) {
-      try {
-        const encodedKey = encode(options.key);
-        const encodedValue = encode(options.value);
-        const expires = options.expires ? `; expires=${options.expires.replace("expires=", "")}` : "";
-        const path = (options.path || "/").replace("path=", "");
-        const domain = options.url != null && options.url.length > 0 ? `domain=${options.url}` : "";
-        document.cookie = `${encodedKey}=${encodedValue || ""}${expires}; path=${path}; ${domain};`;
-      } catch (error) {
-        return Promise.reject(error);
-      }
-    }
-    async deleteCookie(options) {
-      try {
-        document.cookie = `${options.key}=; Max-Age=0`;
-      } catch (error) {
-        return Promise.reject(error);
-      }
-    }
-    async clearCookies() {
-      try {
-        const cookies = document.cookie.split(";") || [];
-        for (const cookie of cookies) {
-          document.cookie = cookie.replace(/^ +/, "").replace(/=.*/, `=;expires=${(/* @__PURE__ */ new Date()).toUTCString()};path=/`);
-        }
-      } catch (error) {
-        return Promise.reject(error);
-      }
-    }
-    async clearAllCookies() {
-      try {
-        await this.clearCookies();
-      } catch (error) {
-        return Promise.reject(error);
-      }
-    }
-  }
-  registerPlugin("CapacitorCookies", {
-    web: () => new CapacitorCookiesPluginWeb()
-  });
-  const readBlobAsBase64 = async (blob) => new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const base64String = reader.result;
-      resolve(base64String.indexOf(",") >= 0 ? base64String.split(",")[1] : base64String);
-    };
-    reader.onerror = (error) => reject(error);
-    reader.readAsDataURL(blob);
-  });
-  const normalizeHttpHeaders = (headers = {}) => {
-    const originalKeys = Object.keys(headers);
-    const loweredKeys = Object.keys(headers).map((k) => k.toLocaleLowerCase());
-    const normalized = loweredKeys.reduce((acc, key, index) => {
-      acc[key] = headers[originalKeys[index]];
-      return acc;
-    }, {});
-    return normalized;
-  };
-  const buildUrlParams = (params, shouldEncode = true) => {
-    if (!params)
-      return null;
-    const output = Object.entries(params).reduce((accumulator, entry) => {
-      const [key, value] = entry;
-      let encodedValue;
-      let item;
-      if (Array.isArray(value)) {
-        item = "";
-        value.forEach((str) => {
-          encodedValue = shouldEncode ? encodeURIComponent(str) : str;
-          item += `${key}=${encodedValue}&`;
-        });
-        item.slice(0, -1);
-      } else {
-        encodedValue = shouldEncode ? encodeURIComponent(value) : value;
-        item = `${key}=${encodedValue}`;
-      }
-      return `${accumulator}&${item}`;
-    }, "");
-    return output.substr(1);
-  };
-  const buildRequestInit = (options, extra = {}) => {
-    const output = Object.assign({ method: options.method || "GET", headers: options.headers }, extra);
-    const headers = normalizeHttpHeaders(options.headers);
-    const type = headers["content-type"] || "";
-    if (typeof options.data === "string") {
-      output.body = options.data;
-    } else if (type.includes("application/x-www-form-urlencoded")) {
-      const params = new URLSearchParams();
-      for (const [key, value] of Object.entries(options.data || {})) {
-        params.set(key, value);
-      }
-      output.body = params.toString();
-    } else if (type.includes("multipart/form-data") || options.data instanceof FormData) {
-      const form = new FormData();
-      if (options.data instanceof FormData) {
-        options.data.forEach((value, key) => {
-          form.append(key, value);
-        });
-      } else {
-        for (const key of Object.keys(options.data)) {
-          form.append(key, options.data[key]);
-        }
-      }
-      output.body = form;
-      const headers2 = new Headers(output.headers);
-      headers2.delete("content-type");
-      output.headers = headers2;
-    } else if (type.includes("application/json") || typeof options.data === "object") {
-      output.body = JSON.stringify(options.data);
-    }
-    return output;
-  };
-  class CapacitorHttpPluginWeb extends WebPlugin {
-    /**
-     * Perform an Http request given a set of options
-     * @param options Options to build the HTTP request
-     */
-    async request(options) {
-      const requestInit = buildRequestInit(options, options.webFetchExtra);
-      const urlParams = buildUrlParams(options.params, options.shouldEncodeUrlParams);
-      const url = urlParams ? `${options.url}?${urlParams}` : options.url;
-      const response = await fetch(url, requestInit);
-      const contentType = response.headers.get("content-type") || "";
-      let { responseType = "text" } = response.ok ? options : {};
-      if (contentType.includes("application/json")) {
-        responseType = "json";
-      }
-      let data;
-      let blob;
-      switch (responseType) {
-        case "arraybuffer":
-        case "blob":
-          blob = await response.blob();
-          data = await readBlobAsBase64(blob);
-          break;
-        case "json":
-          data = await response.json();
-          break;
-        case "document":
-        case "text":
-        default:
-          data = await response.text();
-      }
-      const headers = {};
-      response.headers.forEach((value, key) => {
-        headers[key] = value;
-      });
-      return {
-        data,
-        headers,
-        status: response.status,
-        url: response.url
-      };
-    }
-    /**
-     * Perform an Http GET request given a set of options
-     * @param options Options to build the HTTP request
-     */
-    async get(options) {
-      return this.request(Object.assign(Object.assign({}, options), { method: "GET" }));
-    }
-    /**
-     * Perform an Http POST request given a set of options
-     * @param options Options to build the HTTP request
-     */
-    async post(options) {
-      return this.request(Object.assign(Object.assign({}, options), { method: "POST" }));
-    }
-    /**
-     * Perform an Http PUT request given a set of options
-     * @param options Options to build the HTTP request
-     */
-    async put(options) {
-      return this.request(Object.assign(Object.assign({}, options), { method: "PUT" }));
-    }
-    /**
-     * Perform an Http PATCH request given a set of options
-     * @param options Options to build the HTTP request
-     */
-    async patch(options) {
-      return this.request(Object.assign(Object.assign({}, options), { method: "PATCH" }));
-    }
-    /**
-     * Perform an Http DELETE request given a set of options
-     * @param options Options to build the HTTP request
-     */
-    async delete(options) {
-      return this.request(Object.assign(Object.assign({}, options), { method: "DELETE" }));
-    }
-  }
-  registerPlugin("CapacitorHttp", {
-    web: () => new CapacitorHttpPluginWeb()
-  });
-  var SystemBarsStyle;
-  (function(SystemBarsStyle2) {
-    SystemBarsStyle2["Dark"] = "DARK";
-    SystemBarsStyle2["Light"] = "LIGHT";
-    SystemBarsStyle2["Default"] = "DEFAULT";
-  })(SystemBarsStyle || (SystemBarsStyle = {}));
-  var SystemBarType;
-  (function(SystemBarType2) {
-    SystemBarType2["StatusBar"] = "StatusBar";
-    SystemBarType2["NavigationBar"] = "NavigationBar";
-  })(SystemBarType || (SystemBarType = {}));
-  class SystemBarsPluginWeb extends WebPlugin {
-    async setStyle() {
-      this.unavailable("not available for web");
-    }
-    async setAnimation() {
-      this.unavailable("not available for web");
-    }
-    async show() {
-      this.unavailable("not available for web");
-    }
-    async hide() {
-      this.unavailable("not available for web");
-    }
-  }
-  registerPlugin("SystemBars", {
-    web: () => new SystemBarsPluginWeb()
-  });
   function globalSingleton(name, create) {
     const key = Symbol.for(`@capacitor/native-islands/${name}`);
     const scope = globalThis;
@@ -515,7 +10,6 @@
     scope[key] = value;
     return value;
   }
-  globalSingleton("capacitor-proxies/v1", () => /* @__PURE__ */ new Map());
   const contracts = globalSingleton("contracts/v1", () => /* @__PURE__ */ new Map());
   function registerIslandContract(nativeComponent, contract) {
     const existing = contracts.get(nativeComponent);
@@ -530,7 +24,7 @@
   function islandContract(nativeComponent) {
     return contracts.get(nativeComponent);
   }
-  const PROTOCOL_VERSION = 1;
+  const PROTOCOL_VERSION = 2;
   const BRIDGE_LIMITS = {
     requestBytes: 16384,
     identifierBytes: 64,
@@ -588,89 +82,12 @@
     const radius = rect.r ?? 0;
     return [rect.x, rect.y, rect.w, rect.h, radius].every(Number.isFinite) && Math.abs(rect.x) <= BRIDGE_LIMITS.coordinateMagnitudeCssPixels && Math.abs(rect.y) <= BRIDGE_LIMITS.coordinateMagnitudeCssPixels && rect.w > 0 && rect.w <= BRIDGE_LIMITS.sizeCssPixels && rect.h > 0 && rect.h <= BRIDGE_LIMITS.sizeCssPixels && radius >= 0 && radius <= BRIDGE_LIMITS.sizeCssPixels;
   }
-  function intersection(left, right) {
-    const x = Math.max(left.x, right.x);
-    const y = Math.max(left.y, right.y);
-    const maxX = Math.min(left.x + left.w, right.x + right.w);
-    const maxY = Math.min(left.y + left.h, right.y + right.h);
-    if (maxX <= x || maxY <= y)
-      return null;
-    return {
-      x: round2(x),
-      y: round2(y),
-      w: round2(maxX - x),
-      h: round2(maxY - y)
-    };
-  }
   function intersects(left, right) {
     return left.x < right.x + right.w && right.x < left.x + left.w && left.y < right.y + right.h && right.y < left.y + left.h;
   }
   const CONTAINMENT_EPSILON = 0.5;
   function contains(outer, inner) {
     return inner.x >= outer.x - CONTAINMENT_EPSILON && inner.y >= outer.y - CONTAINMENT_EPSILON && inner.x + inner.w <= outer.x + outer.w + CONTAINMENT_EPSILON && inner.y + inner.h <= outer.y + outer.h + CONTAINMENT_EPSILON;
-  }
-  function disjointHoles(holes) {
-    const area = (rect) => rect.w * rect.h;
-    const sameOpaqueShape = (left, right) => left.x === right.x && left.y === right.y && left.w === right.w && left.h === right.h && (left.r ?? 0) === (right.r ?? 0);
-    const survivors = holes.filter((hole, index) => !holes.some((candidate, candidateIndex) => {
-      if (candidateIndex === index || !sameOpaqueShape(candidate, hole) && !opaqueContainsRect(candidate, hole)) {
-        return false;
-      }
-      const candidateArea = area(candidate);
-      const holeArea = area(hole);
-      return candidateArea > holeArea || candidateArea === holeArea && candidateIndex < index;
-    }));
-    const isSimple = (rect) => !(rect.r && rect.r > 0);
-    const remaining = new Set(survivors.map((_, index) => index));
-    const output = [];
-    while (remaining.size) {
-      const seed = remaining.values().next().value;
-      const component = [seed];
-      remaining.delete(seed);
-      for (const componentIndex of component) {
-        for (const candidate of Array.from(remaining)) {
-          if (intersects(survivors[componentIndex], survivors[candidate])) {
-            component.push(candidate);
-            remaining.delete(candidate);
-          }
-        }
-      }
-      const rects = component.map((index) => survivors[index]);
-      if (rects.length === 1 || !rects.every(isSimple)) {
-        output.push(...rects);
-        continue;
-      }
-      const xs = Array.from(new Set(rects.flatMap((rect) => [rect.x, rect.x + rect.w]))).sort((a, b) => a - b);
-      const ys = Array.from(new Set(rects.flatMap((rect) => [rect.y, rect.y + rect.h]))).sort((a, b) => a - b);
-      const union = [];
-      for (let yIndex = 0; yIndex < ys.length - 1; yIndex++) {
-        const y = ys[yIndex];
-        const height = ys[yIndex + 1] - y;
-        let runStart = null;
-        for (let xIndex = 0; xIndex < xs.length - 1; xIndex++) {
-          const x = xs[xIndex];
-          const covered = rects.some((rect) => x >= rect.x && xs[xIndex + 1] <= rect.x + rect.w && y >= rect.y && ys[yIndex + 1] <= rect.y + rect.h);
-          if (covered && runStart === null)
-            runStart = x;
-          const closes = runStart !== null && (!covered || xIndex === xs.length - 2);
-          if (!closes)
-            continue;
-          const start = runStart;
-          if (start === null)
-            continue;
-          const right = covered && xIndex === xs.length - 2 ? xs[xIndex + 1] : x;
-          const width = right - start;
-          const above2 = union.find((rect) => rect.x === start && rect.w === width && rect.y + rect.h === y);
-          if (above2)
-            above2.h += height;
-          else
-            union.push({ x: start, y, w: width, h: height });
-          runStart = null;
-        }
-      }
-      output.push(...union);
-    }
-    return output.sort((left, right) => left.y - right.y || left.x - right.x || left.w - right.w || left.h - right.h);
   }
   function partialOverlap(left, right) {
     return intersects(left, right) && !contains(left, right) && !contains(right, left);
@@ -698,18 +115,6 @@
   }
   function hasComplexOpaqueShape(rect) {
     return Boolean(rect.r && rect.r > 0);
-  }
-  function knockoutPath(host, holes) {
-    const width = round2(host.w);
-    const height = round2(host.h);
-    let path = `M0 0 H${width} V${height} H0 Z`;
-    for (const hole of holes) {
-      const x = hole.x - host.x;
-      const y = hole.y - host.y;
-      const radius = Math.min(hole.r ?? 0, hole.w / 2, hole.h / 2);
-      path += ` M${round2(x + radius)} ${round2(y)} A${radius} ${radius} 0 0 0 ${round2(x)} ${round2(y + radius)} L${round2(x)} ${round2(y + hole.h - radius)} A${radius} ${radius} 0 0 0 ${round2(x + radius)} ${round2(y + hole.h)} L${round2(x + hole.w - radius)} ${round2(y + hole.h)} A${radius} ${radius} 0 0 0 ${round2(x + hole.w)} ${round2(y + hole.h - radius)} L${round2(x + hole.w)} ${round2(y + radius)} A${radius} ${radius} 0 0 0 ${round2(x + hole.w - radius)} ${round2(y)} Z`;
-    }
-    return `path("${path}")`;
   }
   function isAxisAlignedTransform(transform) {
     if (!transform || transform === "none")
@@ -808,28 +213,40 @@
     const defaultOffsetRotate = offsetRotate === "" || offsetRotate === "auto" || offsetRotate === "auto 0deg";
     return propertyIsActive(style, "offset-path") || !defaultOffsetRotate;
   }
-  function auditLayerKnockoutComposition(el) {
+  function auditWebLayerCutoutComposition(el) {
     const layerRect = el.getBoundingClientRect();
     let node = el;
     while (node) {
       const style = getComputedStyle(node);
       const isViewportRoot = node === document.body || node === document.documentElement;
       const zoom = style.getPropertyValue("zoom").trim();
+      if (style.position === "fixed" || style.position === "sticky") {
+        return {
+          reason: "fixed and sticky web layers cannot use document-space native cutouts",
+          mayMoveWithoutRefresh: true
+        };
+      }
+      if (Number.parseFloat(style.opacity) !== 1 || propertyIsActive(style, "filter") || propertyIsActive(style, "backdrop-filter") || propertyIsActive(style, "-webkit-backdrop-filter") || (style.getPropertyValue("mix-blend-mode").trim() || "normal") !== "normal" || propertyIsActive(style, "clip-path") || propertyIsActive(style, "mask-image") || propertyIsActive(style, "-webkit-mask-image")) {
+        return {
+          reason: "translucent, filtered, blended, clipped, or masked web layers cannot use box-shaped native cutouts",
+          mayMoveWithoutRefresh: false
+        };
+      }
       if (!isAxisAlignedTransform(style.transform) || !isSupportedIndividualTranslate(style) || propertyIsActive(style, "scale") || propertyIsActive(style, "rotate") || propertyIsActive(style, "perspective") || hasMotionPath(style) || zoom !== "" && zoom !== "1" && zoom !== "normal") {
         return {
-          reason: "marked web layer knockout coordinates are unsafe under 3D translation, scale, rotation, skew, perspective, motion paths, or zoom",
+          reason: "marked web layer cutout coordinates are unsafe under 3D translation, scale, rotation, skew, perspective, motion paths, or zoom",
           mayMoveWithoutRefresh: false
         };
       }
       if (node === el && markedLayerPaintEscapes(el, style)) {
         return {
-          reason: "marked web layers with out-of-bounds paint or visible overflow cannot use a box-bounded knockout",
+          reason: "marked web layers with out-of-bounds paint or visible overflow cannot use a box-bounded cutout",
           mayMoveWithoutRefresh: false
         };
       }
       if (!isViewportRoot && scrolls(node, style)) {
         return {
-          reason: "marked web layer knockout coordinates are unsafe inside an independent web scroll container",
+          reason: "marked web layer cutout coordinates are unsafe inside an independent web scroll container",
           mayMoveWithoutRefresh: true
         };
       }
@@ -837,7 +254,7 @@
       const paintContains = clipsThroughPaintContainment(style);
       if (node !== el && !isViewportRoot && (overflowClips || paintContains) && (hasUnsupportedClipEdge(style) || !clipOpaqueShapeContains(node, style, layerRect))) {
         return {
-          reason: `marked web layer knockout coordinates are unsafe under a partially clipping ${paintContains ? "paint-containment" : "overflow"} ancestor`,
+          reason: `marked web layer cutout coordinates are unsafe under a partially clipping ${paintContains ? "paint-containment" : "overflow"} ancestor`,
           mayMoveWithoutRefresh: false
         };
       }
@@ -919,8 +336,7 @@
         break;
       }
       const mask = style.maskImage || style.getPropertyValue("-webkit-mask-image");
-      const runtimeKnockout = node.hasAttribute("data-ni-runtime-clip") && style.clipPath !== "none";
-      if (!runtimeKnockout && style.clipPath !== "none" || mask && mask !== "none") {
+      if (style.clipPath !== "none" || mask && mask !== "none") {
         issues.push({
           code: "css_clip_or_mask",
           island,
@@ -1306,12 +722,6 @@
     const value = Number.parseInt(getComputedStyle(el).zIndex, 10);
     return Number.isFinite(value) ? value : 0;
   }
-  function setInlineClipPath(el, value, priority) {
-    if (value)
-      el.style.setProperty("clip-path", value, priority);
-    else
-      el.style.removeProperty("clip-path");
-  }
   function isElementVisible(el) {
     if (!el.isConnected || el.hidden || el.getClientRects().length === 0)
       return false;
@@ -1396,7 +806,7 @@
   }
   class StackingService {
     constructor(onOpenRoot = () => void 0) {
-      this.clipsEnabled = false;
+      this.compositionEnabled = false;
       this.natives = [];
       this.layers = [];
       this.onChange = null;
@@ -1406,7 +816,6 @@
       this.acknowledgedSignature = "";
       this.pendingSignature = null;
       this.planGeneration = 0;
-      this.ownStyleWrites = /* @__PURE__ */ new WeakMap();
       this.activeEffects = /* @__PURE__ */ new Map();
       this.watchedAnimations = /* @__PURE__ */ new WeakSet();
       this.effectRootDisposers = /* @__PURE__ */ new Map();
@@ -1416,34 +825,28 @@
         this.scheduled = true;
         requestAnimationFrame(() => {
           this.scheduled = false;
-          const plan = this.resolve();
-          const signature = JSON.stringify({
-            payload: plan.payload,
-            clips: plan.clips.map((entry) => entry.clipPath)
-          });
+          const payload = this.resolve();
+          const signature = JSON.stringify(payload);
           if (this.pendingSignature === null && signature === this.acknowledgedSignature) {
-            this.applyLayerClipPlan(plan.clips);
             return;
           }
           if (signature === this.pendingSignature)
             return;
           const generation = ++this.planGeneration;
           this.pendingSignature = signature;
-          this.closeRuntimeClips();
-          const apply = this.onChange?.(plan.payload) ?? Promise.resolve();
+          const apply = this.onChange?.(payload) ?? Promise.resolve();
           void apply.then(() => {
             if (generation !== this.planGeneration)
               return;
             this.pendingSignature = null;
             this.acknowledgedSignature = signature;
-            this.applyLayerClipPlan(plan.clips);
           }).catch(() => {
             if (generation === this.planGeneration)
               this.pendingSignature = null;
           });
         });
       };
-      this.compositionObserver = new CompositionObserver(() => this.refresh(), (record) => this.isOwnMutation(record), onOpenRoot);
+      this.compositionObserver = new CompositionObserver(() => this.refresh(), void 0, onOpenRoot);
     }
     registerNative(handle) {
       if (this.natives.some((candidate) => candidate.el === handle.el))
@@ -1476,17 +879,6 @@
       const layerIndex = this.layers.findIndex((candidate) => candidate.el === el);
       if (layerIndex >= 0) {
         this.invalidatePendingPlan();
-        const layer = this.layers[layerIndex];
-        const inlinePriority = layer.el.style.getPropertyPriority("clip-path");
-        if (layer.runtimeClipPath !== null && (layer.el.style.clipPath !== layer.runtimeInlineClipPath || inlinePriority !== layer.runtimeInlineClipPathPriority)) {
-          layer.authoredInlineClipPath = layer.el.style.clipPath;
-          layer.authoredInlineClipPathPriority = inlinePriority;
-        }
-        setInlineClipPath(layer.el, layer.authoredInlineClipPath, layer.authoredInlineClipPathPriority);
-        layer.el.removeAttribute("data-ni-runtime-clip");
-        layer.runtimeClipPath = null;
-        layer.runtimeInlineClipPath = null;
-        layer.runtimeInlineClipPathPriority = null;
         this.layers.splice(layerIndex, 1);
       }
       this.resizeObserver?.unobserve(el);
@@ -1500,8 +892,6 @@
         for (const record of records) {
           const target = record.target instanceof Element ? record.target : record.target.parentElement;
           if (!target)
-            continue;
-          if (this.isOwnMutation(record))
             continue;
           this.refresh();
           return;
@@ -1548,6 +938,20 @@
         }
       };
       const onLoad = () => this.refresh();
+      const onStyleStateChange = () => this.refresh();
+      const styleStateEvents = [
+        "pointerover",
+        "pointerout",
+        "pointerdown",
+        "pointerup",
+        "pointercancel",
+        "focusin",
+        "focusout",
+        "input",
+        "change",
+        "beforetoggle",
+        "toggle"
+      ];
       target.addEventListener("transitionrun", onTransitionRun, true);
       target.addEventListener("transitionend", onTransitionEnd, true);
       target.addEventListener("transitioncancel", onTransitionEnd, true);
@@ -1555,6 +959,9 @@
       target.addEventListener("animationend", onAnimationEnd, true);
       target.addEventListener("animationcancel", onAnimationEnd, true);
       target.addEventListener("load", onLoad, true);
+      for (const eventName of styleStateEvents) {
+        target.addEventListener(eventName, onStyleStateChange, true);
+      }
       this.effectRootDisposers.set(root, () => {
         target.removeEventListener("transitionrun", onTransitionRun, true);
         target.removeEventListener("transitionend", onTransitionEnd, true);
@@ -1563,6 +970,9 @@
         target.removeEventListener("animationend", onAnimationEnd, true);
         target.removeEventListener("animationcancel", onAnimationEnd, true);
         target.removeEventListener("load", onLoad, true);
+        for (const eventName of styleStateEvents) {
+          target.removeEventListener(eventName, onStyleStateChange, true);
+        }
       });
     }
     unobserveEffectRoot(root) {
@@ -1587,16 +997,6 @@
           this.activeEffects.delete(target);
       }
       this.refresh();
-    }
-    isOwnMutation(record) {
-      if (record.type !== "attributes" || !(record.target instanceof Element))
-        return false;
-      if (record.attributeName === "data-ni-runtime-clip")
-        return true;
-      return record.attributeName === "style" && this.ownStyleWrites.get(record.target) === record.target.getAttribute("style");
-    }
-    isRuntimeMutation(record) {
-      return this.isOwnMutation(record);
     }
     watchAnimation(animation) {
       if (this.watchedAnimations.has(animation))
@@ -1755,113 +1155,57 @@
     }
     buildLayers() {
       return this.layers.filter((layer) => layer.el.isConnected).map((layer, dom) => {
-        const authored = this.readAuthoredVisuals(layer);
+        const style = getComputedStyle(layer.el);
+        const radius = uniformCssCornerRadius([
+          style.borderTopLeftRadius,
+          style.borderTopRightRadius,
+          style.borderBottomRightRadius,
+          style.borderBottomLeftRadius
+        ]);
         return {
-          layer,
           el: layer.el,
           z: zIndex(layer.el),
           dom,
-          rect: docRect(layer.el),
-          authoredClipPath: authored.clipPath,
-          authoredMask: authored.mask,
-          knockoutIssue: auditLayerKnockoutComposition(layer.el)
+          rect: { ...docRect(layer.el), r: radius ?? 0 },
+          cutoutIssue: radius === null ? {
+            reason: "marked web layers require a uniform pixel border-radius",
+            mayMoveWithoutRefresh: false
+          } : auditWebLayerCutoutComposition(layer.el)
         };
       });
     }
     detectLayerCoordinateConflicts(natives, layers) {
-      if (!this.clipsEnabled)
+      if (!this.compositionEnabled)
         return;
       for (const layer of layers) {
-        if (!layer.knockoutIssue)
+        const issue = layer.cutoutIssue ?? (!isSafeBridgeRect(layer.rect) ? {
+          reason: "marked web layer geometry exceeds the shared safe coordinate or size range",
+          mayMoveWithoutRefresh: false
+        } : null);
+        if (!issue)
           continue;
         for (const native of natives) {
-          if (!native.active || !native.rect || !layer.knockoutIssue.mayMoveWithoutRefresh && !intersects(native.rect, layer.rect)) {
+          if (!native.active || !native.rect || !issue.mayMoveWithoutRefresh && !intersects(native.rect, layer.rect)) {
             continue;
           }
-          native.fallbackReason = layer.knockoutIssue.reason;
+          native.fallbackReason = issue.reason;
           native.active = false;
           native.rect = null;
         }
       }
     }
-    readAuthoredVisuals(layer) {
-      const el = layer.el;
-      const inlinePriority = el.style.getPropertyPriority("clip-path");
-      if (layer.runtimeClipPath === null) {
-        layer.authoredInlineClipPath = el.style.clipPath;
-        layer.authoredInlineClipPathPriority = inlinePriority;
-      } else if (el.style.clipPath !== layer.runtimeInlineClipPath || inlinePriority !== layer.runtimeInlineClipPathPriority) {
-        layer.authoredInlineClipPath = el.style.clipPath;
-        layer.authoredInlineClipPathPriority = inlinePriority;
-      }
-      const runtimeInline = {
-        value: el.style.clipPath,
-        priority: inlinePriority
-      };
-      const hadMarker = el.hasAttribute("data-ni-runtime-clip");
-      setInlineClipPath(el, layer.authoredInlineClipPath, layer.authoredInlineClipPathPriority);
-      el.removeAttribute("data-ni-runtime-clip");
-      const style = getComputedStyle(el);
-      const clipPath = style.clipPath === "none" ? "" : style.clipPath;
-      const maskImage = style.maskImage || style.getPropertyValue("-webkit-mask-image");
-      const mask = maskImage && maskImage !== "none" ? maskImage : "";
-      setInlineClipPath(el, runtimeInline.value, runtimeInline.priority);
-      el.toggleAttribute("data-ni-runtime-clip", hadMarker);
-      this.ownStyleWrites.set(el, el.getAttribute("style") ?? "");
-      return { clipPath, mask };
-    }
-    detectLayerShapeConflicts(natives, layers) {
-      if (!this.clipsEnabled)
-        return;
-      for (const layer of layers) {
-        if (!layer.authoredClipPath && !layer.authoredMask)
+    degradeOverlappingRoundedCutouts(natives, layers) {
+      for (const native of natives) {
+        if (!native.active || !native.rect)
           continue;
-        for (const native of natives) {
-          if (!native.active || !native.rect || !intersects(native.rect, layer.rect))
-            continue;
-          native.fallbackReason = "authored clip-paths and masks require path-shaped native clipping and hit testing";
-          native.active = false;
-          native.rect = null;
-        }
-      }
-    }
-    planLayerClips(natives, layers) {
-      return layers.map((layer) => {
-        const overlapping = natives.filter((native) => native.active && native.rect !== null && above(native, layer) && intersects(native.rect, layer.rect));
-        const holes = this.clipsEnabled ? disjointHoles(overlapping.map((native) => native.rect)) : [];
-        const fullyOccluded = holes.some((hole) => opaqueContainsRect(hole, layer.rect));
-        return {
-          layer: layer.layer,
-          clipPath: fullyOccluded ? "inset(50%)" : holes.length ? knockoutPath(layer.rect, holes) : null
-        };
-      });
-    }
-    applyLayerClipPlan(plan) {
-      for (const entry of plan) {
-        const { layer } = entry;
-        if (!this.layers.includes(layer) || !layer.el.isConnected || !layer.el.hasAttribute("data-native-islands-layer")) {
+        const nativeRect = native.rect;
+        const cutouts = layers.filter((layer) => isElementVisible(layer.el) && above(layer, native) && intersects(layer.rect, nativeRect));
+        const unsupported = cutouts.some((left, index) => cutouts.slice(index + 1).some((right) => intersects(left.rect, right.rect) && ((left.rect.r ?? 0) > 0 || (right.rect.r ?? 0) > 0)));
+        if (!unsupported)
           continue;
-        }
-        const nextInline = entry.clipPath ?? layer.authoredInlineClipPath;
-        const nextPriority = entry.clipPath === null ? layer.authoredInlineClipPathPriority : "important";
-        if (layer.runtimeClipPath === entry.clipPath && layer.el.style.clipPath === nextInline && layer.el.style.getPropertyPriority("clip-path") === nextPriority && layer.el.hasAttribute("data-ni-runtime-clip") === (entry.clipPath !== null)) {
-          continue;
-        }
-        layer.runtimeClipPath = entry.clipPath;
-        setInlineClipPath(layer.el, nextInline, nextPriority);
-        layer.runtimeInlineClipPath = entry.clipPath === null ? null : layer.el.style.clipPath;
-        layer.runtimeInlineClipPathPriority = entry.clipPath === null ? null : layer.el.style.getPropertyPriority("clip-path");
-        layer.el.toggleAttribute("data-ni-runtime-clip", entry.clipPath !== null);
-        this.ownStyleWrites.set(layer.el, layer.el.getAttribute("style") ?? "");
-      }
-    }
-    closeRuntimeClips() {
-      for (const layer of this.layers) {
-        if (layer.runtimeClipPath === null)
-          continue;
-        setInlineClipPath(layer.el, layer.authoredInlineClipPath, layer.authoredInlineClipPathPriority);
-        layer.el.removeAttribute("data-ni-runtime-clip");
-        this.ownStyleWrites.set(layer.el, layer.el.getAttribute("style") ?? "");
+        native.fallbackReason = "overlapping rounded web layers require native path union support";
+        native.active = false;
+        native.rect = null;
       }
     }
     syncCompositionFallbacks(natives) {
@@ -1879,9 +1223,8 @@
       const natives = this.buildNatives(motion);
       const layers = this.buildLayers();
       this.detectLayerCoordinateConflicts(natives, layers);
-      this.detectLayerShapeConflicts(natives, layers);
+      this.degradeOverlappingRoundedCutouts(natives, layers);
       this.syncCompositionFallbacks(natives);
-      const clips2 = this.planLayerClips(natives, layers);
       const order = natives.filter((native) => native.active).slice().sort((a, b) => {
         if (above(a, b))
           return 1;
@@ -1893,12 +1236,14 @@
         const style = getComputedStyle(layer.el);
         return style.visibility === "visible" && style.pointerEvents !== "none" && inertAncestor(layer.el) === null;
       };
+      const cutouts = {};
       const exclusions = {};
       for (const native of natives) {
         if (!native.active || !native.rect)
           continue;
         const nativeRect = native.rect;
-        const rects = layers.filter((layer) => touchable(layer) && above(layer, native) && intersects(layer.rect, nativeRect)).map((layer) => intersection(layer.rect, nativeRect)).filter((rect) => rect !== null);
+        cutouts[native.handle.islandId] = layers.filter((layer) => isElementVisible(layer.el) && above(layer, native) && intersects(layer.rect, nativeRect)).map((layer) => layer.rect);
+        const rects = layers.filter((layer) => touchable(layer) && above(layer, native) && intersects(layer.rect, nativeRect)).map((layer) => layer.rect);
         for (const other of natives) {
           if (other !== native && other.active && other.rect && above(other, native) && intersects(other.rect, native.rect)) {
             rects.push(other.rect);
@@ -1920,17 +1265,15 @@
         active: native.active
       }));
       return {
-        payload: {
-          ...createEnvelope(),
-          components,
-          order,
-          exclusions
-        },
-        clips: clips2
+        ...createEnvelope(),
+        components,
+        order,
+        cutouts,
+        exclusions
       };
     }
   }
-  const LAYER_SELECTOR = "[data-native-islands-layer]";
+  const LAYER_SELECTOR = "[data-native-islands-web-layer]";
   const NATIVE_ISLANDS_TRANSPORT_PRIORITY = {
     unavailable: 0,
     carrier: 10
@@ -1962,7 +1305,7 @@
       this.transport = transport;
       this.transportIdentity = options.identity;
       this.transportPriority = priority;
-      this.stacking.clipsEnabled = transport.available;
+      this.stacking.compositionEnabled = transport.available;
       if (transport.available) {
         transport.reset(createEnvelope());
         this.transportDisposers.push(transport.on("islandError", createEnvelope(), (event) => {
@@ -2041,7 +1384,7 @@
       this.domObserver = new MutationObserver((records) => this.handleDomMutations(records));
       this.domObserver.observe(document.body, {
         attributes: true,
-        attributeFilter: ["data-native-islands-layer"],
+        attributeFilter: ["data-native-islands-web-layer"],
         childList: true,
         subtree: true
       });
@@ -2060,6 +1403,8 @@
       window.addEventListener("load", () => this.refresh(), {
         once: true
       });
+      window.addEventListener("hashchange", () => this.refresh());
+      document.addEventListener("fullscreenchange", () => this.refresh());
       document.addEventListener("visibilitychange", () => {
         if (document.visibilityState === "visible")
           this.refresh();
@@ -2067,11 +1412,7 @@
       void document.fonts?.ready?.then(() => this.refresh()).catch(() => void 0);
       document.fonts?.addEventListener("loadingdone", () => this.refresh());
       document.fonts?.addEventListener("loadingerror", () => this.refresh());
-      for (const query of [
-        "(prefers-color-scheme: dark)",
-        "(prefers-contrast: more)",
-        "(forced-colors: active)"
-      ]) {
+      for (const query of ["(prefers-color-scheme: dark)", "(prefers-contrast: more)", "(forced-colors: active)"]) {
         window.matchMedia(query).addEventListener("change", () => this.refresh());
       }
     }
@@ -2115,10 +1456,7 @@
       this.stacking.observeEffectRoot(root);
       this.scan(root);
       const observer = new MutationObserver((records) => {
-        const authoredRecords = records.filter((record) => !this.stacking.isRuntimeMutation(record));
-        if (authoredRecords.length === 0)
-          return;
-        this.handleDomMutations(authoredRecords);
+        this.handleDomMutations(records);
         this.stacking.refresh();
       });
       observer.observe(root, {
@@ -2148,12 +1486,7 @@
         return;
       this.knownLayers.add(el);
       this.stacking.registerLayer({
-        el,
-        authoredInlineClipPath: el.style.clipPath,
-        authoredInlineClipPathPriority: el.style.getPropertyPriority("clip-path"),
-        runtimeClipPath: null,
-        runtimeInlineClipPath: null,
-        runtimeInlineClipPathPriority: null
+        el
       });
     }
     unregisterTree(root) {
@@ -2614,22 +1947,38 @@
     none: "Share location"
   };
   const STYLE_PROPERTIES = {
-    backgroundColor: "--os-location-button-background-color",
-    textColor: "--os-location-button-text-color",
+    backgroundColor: "background-color",
+    textColor: "color",
     iconTint: "--os-location-button-icon-color",
-    strokeColor: "--os-location-button-border-color",
-    strokeWidth: "--os-location-button-border-width"
+    strokeColor: "border-top-color",
+    strokeWidth: "border-top-width"
   };
   const OBSERVED_ATTRIBUTES = ["text-type"];
-  const OBSERVED_STYLES = [...Object.values(STYLE_PROPERTIES), "border-radius"];
+  const OBSERVED_STYLES = [
+    STYLE_PROPERTIES.backgroundColor,
+    STYLE_PROPERTIES.textColor,
+    STYLE_PROPERTIES.iconTint,
+    STYLE_PROPERTIES.strokeColor,
+    STYLE_PROPERTIES.strokeWidth,
+    "border-top-left-radius"
+  ];
   const HEX_COLOR = /^#[0-9A-Fa-f]{6}$/;
+  const RGB_COLOR = /^rgba?\((.+)\)$/;
   function textType(element) {
     const value = element.getAttribute("text-type") ?? "precise-location";
     return value in TEXT_LABELS ? value : "precise-location";
   }
   function colorStyle(style, name, fallback) {
     const value = style.getPropertyValue(name).trim();
-    return HEX_COLOR.test(value) ? value : fallback;
+    if (HEX_COLOR.test(value)) return value.toUpperCase();
+    const match = value.match(RGB_COLOR);
+    if (!match) return fallback;
+    const channels = match[1].match(/\d+(?:\.\d+)?/g)?.map(Number);
+    if (!channels || channels.length < 3 || channels.slice(0, 3).some((channel) => channel < 0 || channel > 255)) {
+      return fallback;
+    }
+    if (channels.length > 3 && channels[3] < 1) return fallback;
+    return `#${channels.slice(0, 3).map((channel) => Math.round(channel).toString(16).padStart(2, "0")).join("").toUpperCase()}`;
   }
   function pixelStyle(style, name, minimum, maximum, fallback) {
     const value = style.getPropertyValue(name).trim();
@@ -2708,7 +2057,12 @@
       block-size: 3.25rem;
       min-block-size: 3rem;
       max-block-size: 136px;
+      box-sizing: border-box;
+      overflow: hidden;
+      border: 0 solid #000000;
       border-radius: 22px;
+      background-color: #0b57d0;
+      color: #ffffff;
     }
 
     .os-location-button-fallback {
@@ -2721,15 +2075,15 @@
       min-inline-size: 3rem;
       min-block-size: 3rem;
       padding-inline: 1rem;
-      border: var(--os-location-button-border-width, 0px) solid var(--os-location-button-border-color, #000000);
+      border: 0;
       border-radius: inherit;
-      background: var(--os-location-button-background-color, #0b57d0);
-      color: var(--os-location-button-text-color, #ffffff);
+      background: transparent;
+      color: inherit;
       font: 600 1rem/1 system-ui, sans-serif;
     }
 
     .os-location-button-fallback__icon {
-      color: var(--os-location-button-icon-color, var(--os-location-button-text-color, #ffffff));
+      color: var(--os-location-button-icon-color, currentColor);
       font-size: 1.25rem;
       line-height: 1;
     }

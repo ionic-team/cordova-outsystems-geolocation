@@ -16,9 +16,37 @@ allprojects {
     }
 }
 
+def locationButtonCompileSdkValue =
+    rootProject.ext.has('compileSdkVersion')
+        ? rootProject.ext.compileSdkVersion
+        : (project.ext.has('cordovaConfig') && cordovaConfig.COMPILE_SDK_VERSION
+            ? cordovaConfig.COMPILE_SDK_VERSION
+            : 36)
+def locationButtonCompileSdkMatch =
+    locationButtonCompileSdkValue.toString() =~ /(\d+)$/
+def locationButtonCompileSdk =
+    locationButtonCompileSdkMatch ? locationButtonCompileSdkMatch[0][1].toInteger() : 36
+def locationButtonLibraryDirectory =
+    [file('libs'), file('src/main/libs')].find {
+        new File(it, 'IONGeolocationLib-compat-release.aar').isFile()
+    }
+
 dependencies {
-    implementation files('libs/IONGeolocationLib-release.aar')
-    implementation files('libs/ionnativeislands-android-release.aar')
+    if (locationButtonLibraryDirectory != null) {
+        if (locationButtonCompileSdk >= 37) {
+            implementation files(
+                new File(locationButtonLibraryDirectory, 'IONGeolocationLib-api37-release.aar'),
+            )
+            implementation 'androidx.core.locationbutton:locationbutton:1.0.0-alpha01'
+        } else {
+            implementation files(
+                new File(locationButtonLibraryDirectory, 'IONGeolocationLib-compat-release.aar'),
+            )
+        }
+        implementation files(
+            new File(locationButtonLibraryDirectory, 'ionnativeislands-android-release.aar'),
+        )
+    }
     implementation("androidx.browser:browser:1.8.0")
     implementation("com.google.android.gms:play-services-auth:21.2.0")
     implementation("com.google.android.gms:play-services-location:21.3.0")

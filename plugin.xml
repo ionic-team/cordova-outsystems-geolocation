@@ -34,7 +34,8 @@
         <source-file src="packages/cordova-plugin/android/OSGeolocationPermissionEvents.kt" target-dir="app/src/main/kotlin/com/outsystems/plugins/geolocation" />
         <source-file src="packages/cordova-plugin/android/OSGeolocationErrors.kt" target-dir="app/src/main/kotlin/com/outsystems/plugins/geolocation" />
         <source-file src="packages/cordova-plugin/android/OSGeolocationIslands.kt" target-dir="app/src/main/kotlin/com/outsystems/plugins/geolocation" />
-        <lib-file src="packages/cordova-plugin/libs/android/IONGeolocationLib-release.aar" />
+        <lib-file src="packages/cordova-plugin/libs/android/IONGeolocationLib-compat-release.aar" />
+        <lib-file src="packages/cordova-plugin/libs/android/IONGeolocationLib-api37-release.aar" />
         <lib-file src="packages/cordova-plugin/libs/android/ionnativeislands-android-release.aar" />
         <framework src="packages/cordova-plugin/android/build.gradle" custom="true" type="gradleReference" />
         

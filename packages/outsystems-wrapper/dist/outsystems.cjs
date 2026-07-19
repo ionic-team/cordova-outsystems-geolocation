@@ -329,12 +329,12 @@ const OSGeolocationInstance = new OSGeolocation();
 const locationButtonMounts = /* @__PURE__ */ new Map();
 const locationButtonMountByContainerId = /* @__PURE__ */ new Map();
 const locationButtonStyles = [
-  ["backgroundColor", "--os-location-button-background-color", ""],
-  ["textColor", "--os-location-button-text-color", ""],
+  ["backgroundColor", "background-color", ""],
+  ["textColor", "color", ""],
   ["iconColor", "--os-location-button-icon-color", ""],
-  ["borderColor", "--os-location-button-border-color", ""],
+  ["borderColor", "border-color", ""],
   ["cornerRadius", "border-radius", "px"],
-  ["borderWidth", "--os-location-button-border-width", "px"]
+  ["borderWidth", "border-width", "px"]
 ];
 function applyLocationButtonProperties(element, properties) {
   if (Object.prototype.hasOwnProperty.call(properties, "textType")) {
@@ -420,6 +420,10 @@ function updateLocationButton(handle, properties) {
   }
   applyLocationButtonProperties(mount.element, properties);
 }
+function updateLocationButtonInContainer(containerId, properties) {
+  const handle = locationButtonMountByContainerId.get(containerId);
+  if (handle) updateLocationButton(handle, properties);
+}
 function destroyLocationButton(handle) {
   const mount = locationButtonMounts.get(handle);
   if (!mount) return;
@@ -429,7 +433,13 @@ function destroyLocationButton(handle) {
   }
   mount.dispose();
 }
+function destroyLocationButtonInContainer(containerId) {
+  const handle = locationButtonMountByContainerId.get(containerId);
+  if (handle) destroyLocationButton(handle);
+}
 exports.OSGeolocationInstance = OSGeolocationInstance;
 exports.destroyLocationButton = destroyLocationButton;
+exports.destroyLocationButtonInContainer = destroyLocationButtonInContainer;
 exports.mountLocationButton = mountLocationButton;
 exports.updateLocationButton = updateLocationButton;
+exports.updateLocationButtonInContainer = updateLocationButtonInContainer;

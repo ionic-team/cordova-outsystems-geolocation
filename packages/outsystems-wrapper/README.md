@@ -14,8 +14,22 @@ npm run build
 
 ## Location Button
 
-Use `mountLocationButton` to mount the component, `updateLocationButton` when block
-inputs change, and `destroyLocationButton` when the block is destroyed. The wrapper
-forwards grant, position, and error events to the supplied callbacks. Appearance
-properties are applied through the custom element's CSS contract, so inherited
-custom properties and ordinary style classes remain available.
+Use `mountLocationButton` to mount the component. UI Blocks can update and destroy it
+by Container ID with `updateLocationButtonInContainer` and
+`destroyLocationButtonInContainer`. The wrapper forwards grant, position, and error
+events to the supplied callbacks.
+
+Appearance options set ordinary CSS properties on the custom element. Style classes
+can customize the same properties directly:
+
+```css
+os-location-button {
+  background-color: #0b57d0;
+  color: #ffffff;
+  --os-location-button-icon-color: #ffffff;
+  border-color: #000000;
+  border-width: 1px;
+  border-radius: 16px;
+  z-index: 2;
+}
+```

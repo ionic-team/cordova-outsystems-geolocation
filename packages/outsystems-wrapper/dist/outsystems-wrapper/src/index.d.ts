@@ -28,5 +28,7 @@ export interface LocationButtonPosition {
 }
 export declare function mountLocationButton(containerId: string, properties: LocationButtonProperties, onGrant?: (granted: boolean) => void, onPosition?: (position: LocationButtonPosition) => void, onError?: (reason: string) => void): string;
 export declare function updateLocationButton(handle: string, properties: LocationButtonProperties): void;
+export declare function updateLocationButtonInContainer(containerId: string, properties: LocationButtonProperties): void;
 export declare function destroyLocationButton(handle: string): void;
+export declare function destroyLocationButtonInContainer(containerId: string): void;
 export {};

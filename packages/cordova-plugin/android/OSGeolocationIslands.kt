@@ -68,7 +68,8 @@ class OSGeolocationIslands : CordovaPlugin() {
                 val components = envelope.opt("components") as JSONArray
                 val order = envelope.opt("order") as JSONArray
                 val exclusions = envelope.opt("exclusions") as JSONObject
-                controller.validateLayout(components, order, exclusions)?.let { reason ->
+                val cutouts = envelope.opt("cutouts") as JSONObject
+                controller.validateLayout(components, order, exclusions, cutouts)?.let { reason ->
                     reject(callback, "invalid_request", reason)
                     return true
                 }
@@ -76,6 +77,7 @@ class OSGeolocationIslands : CordovaPlugin() {
                     components,
                     order,
                     exclusions,
+                    cutouts,
                     failure = { code, message -> reject(callback, code, message) },
                 ) { callback.success() }
                 true
