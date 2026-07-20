@@ -149,7 +149,7 @@ packages:
     hasBin: true
 
   '@capacitor/native-islands@file:packages/cordova-plugin/vendor/capacitor-native-islands-1.0.0.tgz':
-    resolution: {integrity: sha512-j7yW8kZb72WQysGvPfanOlEhGJdCIlj/riiExtCDg2+CnuwxAHv67AcNj2zaiCzQ/1Itq+vR/WYlv2r64YO7Uw==, tarball: file:packages/cordova-plugin/vendor/capacitor-native-islands-1.0.0.tgz}
+    resolution: {integrity: sha512-s14j3A4sUtiEKWRRSQoYeZOs8Tzo7kgF0cqak8K8D+l/3/86dAVg7xzGXJl1nbb/tYxNm8I7vgIq4dVwcdh2xw==, tarball: file:packages/cordova-plugin/vendor/capacitor-native-islands-1.0.0.tgz}
     version: 1.0.0
     peerDependencies:
       '@capacitor/core': '>=8.4.1 <9'

@@ -7,6 +7,8 @@ import {
   type NativeIslandsTransport,
 } from '@capacitor/native-islands/internal/runtime';
 
+import type { OSGLOCPosition, PluginError, Position } from './definitions';
+
 interface CordovaWindow {
   cordova?: {
     exec?: (
@@ -55,7 +57,7 @@ function bridgeError(value: unknown): Error & { code?: string } {
 }
 
 function call(
-  action: 'applyLayout' | 'command' | 'reset',
+  action: 'applyLayout' | 'applyScrollOffsets' | 'command' | 'reset',
   payload: NativeIslandsEnvelope,
 ): Promise<void> {
   const exec = cordovaWindow()?.cordova?.exec;
@@ -82,9 +84,15 @@ function createCordovaTransport(): NativeIslandsTransport {
   const exec = cordovaWindow()?.cordova?.exec;
   return {
     available: Boolean(exec),
+    innerScrollMode:
+      platform() === 'ios' ? 'native' : platform() === 'android' ? 'presentation' : 'unsupported',
 
     applyLayout(payload) {
       return call('applyLayout', payload);
+    },
+
+    applyScrollOffsets(payload) {
+      return call('applyScrollOffsets', payload);
     },
 
     async command(request) {
@@ -231,6 +239,53 @@ function dispatch<T>(element: HTMLElement, type: string, detail: T): void {
   element.dispatchEvent(new CustomEvent(type, { bubbles: true, composed: true, detail }));
 }
 
+function dispatchPosition(element: HTMLElement, position: Position): void {
+  dispatch<LocationButtonPositionDetail>(element, 'location-position', {
+    latitude: position.coords.latitude,
+    longitude: position.coords.longitude,
+    accuracy: position.coords.accuracy,
+    timestamp: position.timestamp,
+  });
+}
+
+function requestNativeFallback(element: HTMLElement): void {
+  const exec = cordovaWindow()?.cordova?.exec;
+  if (!exec) {
+    dispatch<LocationButtonErrorDetail>(element, 'location-error', {
+      reason: 'Cordova is not available',
+    });
+    return;
+  }
+  exec(
+    (value) => {
+      const position = value as OSGLOCPosition;
+      dispatch<LocationButtonGrantDetail>(element, 'location-grant', {
+        granted: true,
+      });
+      dispatch<LocationButtonPositionDetail>(element, 'location-position', {
+        latitude: position.latitude,
+        longitude: position.longitude,
+        accuracy: position.accuracy,
+        timestamp: position.timestamp,
+      });
+    },
+    (value) => {
+      const error = value as PluginError | undefined;
+      if (error?.code === 'OS-PLUG-GLOC-0003' || error?.code === 'OS-PLUG-GLOC-0008') {
+        dispatch<LocationButtonGrantDetail>(element, 'location-grant', {
+          granted: false,
+        });
+      }
+      dispatch<LocationButtonErrorDetail>(element, 'location-error', {
+        reason: error?.message || 'Location request failed',
+      });
+    },
+    'OSGeolocation',
+    'getCurrentPosition',
+    [{ enableHighAccuracy: true }],
+  );
+}
+
 function renderFallback(element: HTMLElement): void {
   const button = document.createElement('button');
   button.type = 'button';
@@ -249,9 +304,7 @@ function renderFallback(element: HTMLElement): void {
   button.addEventListener('click', () => {
     const currentPlatform = platform();
     if (currentPlatform !== 'web') {
-      dispatch<LocationButtonErrorDetail>(element, 'location-error', {
-        reason: `Location Button is unavailable on ${currentPlatform}`,
-      });
+      requestNativeFallback(element);
       return;
     }
     if (!navigator.geolocation) {
@@ -265,12 +318,7 @@ function renderFallback(element: HTMLElement): void {
         dispatch<LocationButtonGrantDetail>(element, 'location-grant', {
           granted: true,
         });
-        dispatch<LocationButtonPositionDetail>(element, 'location-position', {
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
-          accuracy: position.coords.accuracy,
-          timestamp: position.timestamp,
-        });
+        dispatchPosition(element, position);
       },
       (error) => {
         if (error.code === error.PERMISSION_DENIED) {
@@ -387,6 +435,7 @@ function registerLocationButton(): void {
     nativeComponent: 'os.locationButton',
     isInteractive: true,
     accessibility: 'native',
+    requiresUnobscuredSurface: true,
     observedAttributes: OBSERVED_ATTRIBUTES,
     observedStyles: OBSERVED_STYLES,
     getProperties: (element) => {

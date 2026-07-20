@@ -69,7 +69,16 @@ class OSGeolocationIslands : CordovaPlugin() {
                 val order = envelope.opt("order") as JSONArray
                 val exclusions = envelope.opt("exclusions") as JSONObject
                 val cutouts = envelope.opt("cutouts") as JSONObject
-                controller.validateLayout(components, order, exclusions, cutouts)?.let { reason ->
+                val scrollContainers = envelope.opt("scrollContainers") as JSONArray
+                val motionPresentation = envelope.optBoolean("motionPresentation", false)
+                controller.validateLayout(
+                    components,
+                    order,
+                    exclusions,
+                    cutouts,
+                    scrollContainers,
+                    motionPresentation,
+                )?.let { reason ->
                     reject(callback, "invalid_request", reason)
                     return true
                 }
@@ -78,6 +87,26 @@ class OSGeolocationIslands : CordovaPlugin() {
                     order,
                     exclusions,
                     cutouts,
+                    scrollContainers,
+                    motionPresentation,
+                    failure = { code, message -> reject(callback, code, message) },
+                ) { callback.success() }
+                true
+            }
+
+            "applyScrollOffsets" -> {
+                if (
+                    !validate(
+                        callback,
+                        NativeIslandsBridgeValidator.validateScrollOffsetsOperation(envelope),
+                    )
+                ) {
+                    return true
+                }
+                controller.applyScrollOffsets(
+                    sequence = (envelope.opt("sequence") as Number).toLong(),
+                    offsets = envelope.opt("offsets") as JSONArray,
+                    settled = envelope.optBoolean("settled", false),
                     failure = { code, message -> reject(callback, code, message) },
                 ) { callback.success() }
                 true
@@ -239,6 +268,7 @@ class OSGeolocationIslands : CordovaPlugin() {
 
     companion object {
         private const val LOCATION_BUTTON_PERMISSION_REQUEST_CODE = 22333
-        private val SUPPORTED_ACTIONS = setOf("applyLayout", "command", "reset", "events")
+        private val SUPPORTED_ACTIONS =
+            setOf("applyLayout", "applyScrollOffsets", "command", "reset", "events")
     }
 }

@@ -5,11 +5,15 @@ buildscript {
     }
 
     dependencies {
-        classpath 'com.android.tools.build:gradle:8.2.2'
+        if (org.gradle.util.GradleVersion.current() < org.gradle.util.GradleVersion.version('9.1')) {
+            classpath 'com.android.tools.build:gradle:8.2.2'
+        }
     }
 }
 
-apply plugin: 'kotlin-kapt'
+if (org.gradle.util.GradleVersion.current() < org.gradle.util.GradleVersion.version('9.1')) {
+    apply plugin: 'kotlin-kapt'
+}
 allprojects {
     repositories {
         maven { url 'https://pkgs.dev.azure.com/OutSystemsRD/9e79bc5b-69b2-4476-9ca5-d67594972a52/_packaging/PublicArtifactRepository/maven/v1' }
