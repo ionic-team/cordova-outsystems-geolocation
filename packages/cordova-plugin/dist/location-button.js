@@ -2180,7 +2180,7 @@
         const discoveredScrollPath = active ? scrollPath(handle.el) : [];
         const fixedAncestorContainsScroller = positionedAncestor?.viewportFixed === true && discoveredScrollPath.some((container) => isComposedAncestor(positionedAncestor.element, container));
         const coordinateSpace = positionedAncestor?.viewportFixed && !fixedAncestorContainsScroller ? "viewport" : "document";
-        const plane = coordinateSpace === "viewport" ? "overlay" : "underlay";
+        const plane = coordinateSpace === "viewport" || handle.requiresUnobscuredSurface ? "overlay" : "underlay";
         const coordinateScrollPath = coordinateSpace === "document" ? discoveredScrollPath : [];
         const modeledScrollPath = this.innerScrollMode === "unsupported" ? [] : coordinateScrollPath;
         const composition = auditIslandComposition(handle.islandId, handle.el, modeledScrollPath);
