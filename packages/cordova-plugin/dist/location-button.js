@@ -628,7 +628,7 @@
       this.name = "NativeIslandError";
     }
   }
-  const IDENTIFIER = /^[A-Za-z_][A-Za-z0-9._:-]*$/;
+  const IDENTIFIER$1 = /^[A-Za-z_][A-Za-z0-9._:-]*$/;
   const COMMAND = /^[A-Za-z][A-Za-z0-9._-]*$/;
   const encoder = new TextEncoder();
   const MAX_JSON_DEPTH = 32;
@@ -646,10 +646,10 @@
     return Object.values(value).every((child) => hasSupportedDepth(child, depth + 1));
   }
   function validateCommand(island, nativeComponent, command, properties) {
-    if (!IDENTIFIER.test(island) || byteLength(island) > BRIDGE_LIMITS.identifierBytes) {
+    if (!IDENTIFIER$1.test(island) || byteLength(island) > BRIDGE_LIMITS.identifierBytes) {
       throw new NativeIslandError("invalid_request", "Invalid native island id.");
     }
-    if (!IDENTIFIER.test(nativeComponent) || byteLength(nativeComponent) > BRIDGE_LIMITS.identifierBytes) {
+    if (!IDENTIFIER$1.test(nativeComponent) || byteLength(nativeComponent) > BRIDGE_LIMITS.identifierBytes) {
       throw new NativeIslandError("invalid_request", "Invalid native component name.");
     }
     if (!COMMAND.test(command) || byteLength(command) > BRIDGE_LIMITS.commandBytes) {
@@ -1009,7 +1009,7 @@
   function usesMotionPresentation(mode) {
     return mode === "presentation" || mode === "native-presentation";
   }
-  const SCROLL_PRESENTATION_PREPARE = "__CAPACITOR_NATIVE_ISLANDS_SCROLL_PREPARE__";
+  const SCROLL_PRESENTATION_PREPARE$1 = "__CAPACITOR_NATIVE_ISLANDS_SCROLL_PREPARE__";
   const scrollPreflightState = globalSingleton("scroll-preflight/v1", () => ({
     containers: /* @__PURE__ */ new Map(),
     dispose: null
@@ -1017,7 +1017,7 @@
   function invokeScrollPresentationPrepare(containers, sequence) {
     try {
       const topWindow = window.top ?? window;
-      const helper = topWindow[SCROLL_PRESENTATION_PREPARE];
+      const helper = topWindow[SCROLL_PRESENTATION_PREPARE$1];
       return typeof helper === "function" && helper(containers, sequence) === true;
     } catch {
       return false;
@@ -3695,9 +3695,12 @@
     return DefinedNativeIsland;
   }
   const SERVICE = "OSGeolocationIslands";
+  const SCROLL_PRESENTATION_PREPARE = "__CAPACITOR_NATIVE_ISLANDS_SCROLL_PREPARE__";
+  const IDENTIFIER = /^[A-Za-z_][A-Za-z0-9._:-]{0,63}$/;
   const eventListeners = /* @__PURE__ */ new Map();
   let eventChannelOpen = false;
   let runtimeInitialized = false;
+  let protocolVersion;
   function cordovaWindow() {
     return typeof window === "undefined" ? void 0 : window;
   }
@@ -3716,6 +3719,7 @@
     return error;
   }
   function call(action, payload) {
+    protocolVersion = payload.protocolVersion;
     const exec = cordovaWindow()?.cordova?.exec;
     if (!exec) {
       return Promise.reject(
@@ -3733,6 +3737,22 @@
         [payload]
       );
     });
+  }
+  function installScrollPresentationPrepare() {
+    const exec = cordovaWindow()?.cordova?.exec;
+    if (!exec || platform() !== "android") return;
+    const scope = window;
+    scope[SCROLL_PRESENTATION_PREPARE] = (containerIds, sequence) => {
+      if (!Array.isArray(containerIds) || containerIds.length === 0 || containerIds.length > 256 || !containerIds.every((id) => typeof id === "string" && IDENTIFIER.test(id)) || new Set(containerIds).size !== containerIds.length || !Number.isSafeInteger(sequence) || sequence < 0 || protocolVersion === void 0) {
+        return false;
+      }
+      void call("prepareScrollPresentation", {
+        protocolVersion,
+        containerIds,
+        sequence
+      }).catch(() => void 0);
+      return true;
+    };
   }
   function createCordovaTransport() {
     const exec = cordovaWindow()?.cordova?.exec;
@@ -3801,6 +3821,7 @@
     const transport = createCordovaTransport();
     if (!transport.available) return;
     runtimeInitialized = true;
+    installScrollPresentationPrepare();
     initializeNativeIslands(transport, {
       identity: "com.outsystems.plugins.geolocation/location-button",
       priority: NATIVE_ISLANDS_TRANSPORT_PRIORITY.carrier

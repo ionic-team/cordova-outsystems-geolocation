@@ -121,6 +121,23 @@ class OSGeolocationIslands : CordovaPlugin() {
                 true
             }
 
+            "prepareScrollPresentation" -> {
+                if (
+                    !validate(
+                        callback,
+                        NativeIslandsBridgeValidator.validateScrollPresentationOperation(envelope),
+                    )
+                ) {
+                    return true
+                }
+                if (controller.prepareScrollPresentation(envelope.getJSONArray("containerIds"))) {
+                    callback.success()
+                } else {
+                    reject(callback, "internal_error", "Native scroll presentation is unavailable")
+                }
+                true
+            }
+
             "command" -> {
                 if (!validate(callback, NativeIslandsBridgeValidator.validateCommandOperation(envelope))) {
                     return true
@@ -278,6 +295,14 @@ class OSGeolocationIslands : CordovaPlugin() {
     companion object {
         private const val LOCATION_BUTTON_PERMISSION_REQUEST_CODE = 22333
         private val SUPPORTED_ACTIONS =
-            setOf("applyLayout", "applyScrollOffsets", "command", "reset", "events", "capabilities")
+            setOf(
+                "applyLayout",
+                "applyScrollOffsets",
+                "prepareScrollPresentation",
+                "command",
+                "reset",
+                "events",
+                "capabilities",
+            )
     }
 }
