@@ -24,7 +24,7 @@
   function islandContract(nativeComponent) {
     return contracts.get(nativeComponent);
   }
-  const PROTOCOL_VERSION = 4;
+  const PROTOCOL_VERSION = 6;
   const BRIDGE_LIMITS = {
     requestBytes: 16384,
     identifierBytes: 64,
@@ -82,6 +82,15 @@
       h: round2(bounds.height)
     };
   }
+  function viewportRect(element) {
+    const bounds = element.getBoundingClientRect();
+    return {
+      x: round2(bounds.left),
+      y: round2(bounds.top),
+      w: round2(bounds.width),
+      h: round2(bounds.height)
+    };
+  }
   function isSafeBridgeRect(rect) {
     const radius = rect.r ?? 0;
     return [rect.x, rect.y, rect.w, rect.h, radius].every(Number.isFinite) && Math.abs(rect.x) <= BRIDGE_LIMITS.coordinateMagnitudeCssPixels && Math.abs(rect.y) <= BRIDGE_LIMITS.coordinateMagnitudeCssPixels && rect.w > 0 && rect.w <= BRIDGE_LIMITS.sizeCssPixels && rect.h > 0 && rect.h <= BRIDGE_LIMITS.sizeCssPixels && radius >= 0 && radius <= BRIDGE_LIMITS.sizeCssPixels;
@@ -110,9 +119,105 @@
   function partialOverlap(left, right) {
     return intersects(left, right) && !contains(left, right) && !contains(right, left);
   }
+  function disjointHoles(holes) {
+    const area = (rect) => rect.w * rect.h;
+    const survivors = holes.filter((hole, index) => !holes.some((other, otherIndex) => {
+      if (otherIndex === index || !contains(other, hole))
+        return false;
+      const otherArea = area(other);
+      const holeArea = area(hole);
+      return otherArea > holeArea || otherArea === holeArea && otherIndex < index;
+    }));
+    const remaining = new Set(survivors.map((_, index) => index));
+    const output = [];
+    while (remaining.size > 0) {
+      const seed = remaining.values().next().value;
+      const component = [seed];
+      remaining.delete(seed);
+      for (const current of component) {
+        for (const candidate of Array.from(remaining)) {
+          if (!intersects(survivors[current], survivors[candidate]))
+            continue;
+          component.push(candidate);
+          remaining.delete(candidate);
+        }
+      }
+      const rects = component.map((index) => survivors[index]);
+      if (rects.length === 1 || rects.some((rect) => (rect.r ?? 0) > 0)) {
+        output.push(...rects);
+        continue;
+      }
+      const xs = Array.from(new Set(rects.flatMap((rect) => [rect.x, rect.x + rect.w]))).sort((a, b) => a - b);
+      const ys = Array.from(new Set(rects.flatMap((rect) => [rect.y, rect.y + rect.h]))).sort((a, b) => a - b);
+      const union = [];
+      for (let yIndex = 0; yIndex < ys.length - 1; yIndex++) {
+        const y = ys[yIndex];
+        const height = ys[yIndex + 1] - y;
+        let runStart = null;
+        for (let xIndex = 0; xIndex < xs.length - 1; xIndex++) {
+          const x = xs[xIndex];
+          const covered = rects.some((rect) => x >= rect.x && xs[xIndex + 1] <= rect.x + rect.w && y >= rect.y && ys[yIndex + 1] <= rect.y + rect.h);
+          if (covered && runStart === null)
+            runStart = x;
+          const closes = runStart !== null && (!covered || xIndex === xs.length - 2);
+          if (!closes)
+            continue;
+          const left = runStart;
+          const right = covered && xIndex === xs.length - 2 ? xs[xIndex + 1] : x;
+          const width = right - left;
+          const previous = union.find((rect) => rect.x === left && rect.w === width && rect.y + rect.h === y);
+          if (previous)
+            previous.h += height;
+          else
+            union.push({ x: left, y, w: width, h: height });
+          runStart = null;
+        }
+      }
+      output.push(...union);
+    }
+    return output.sort((left, right) => left.y - right.y || left.x - right.x || left.w - right.w || left.h - right.h);
+  }
+  function complementRects(layer, holes) {
+    const clipped = holes.flatMap((hole) => {
+      const value = intersection(layer, hole);
+      return value ? [value] : [];
+    });
+    if (clipped.length === 0)
+      return [{ ...layer, r: 0 }];
+    const xs = Array.from(/* @__PURE__ */ new Set([layer.x, layer.x + layer.w, ...clipped.flatMap((rect) => [rect.x, rect.x + rect.w])])).sort((a, b) => a - b);
+    const ys = Array.from(/* @__PURE__ */ new Set([layer.y, layer.y + layer.h, ...clipped.flatMap((rect) => [rect.y, rect.y + rect.h])])).sort((a, b) => a - b);
+    const output = [];
+    for (let yIndex = 0; yIndex < ys.length - 1; yIndex++) {
+      const y = ys[yIndex];
+      const height = ys[yIndex + 1] - y;
+      let runStart = null;
+      for (let xIndex = 0; xIndex < xs.length - 1; xIndex++) {
+        const x = xs[xIndex];
+        const covered = clipped.some((hole) => x >= hole.x && xs[xIndex + 1] <= hole.x + hole.w && y >= hole.y && ys[yIndex + 1] <= hole.y + hole.h);
+        if (!covered && runStart === null)
+          runStart = x;
+        const closes = runStart !== null && (covered || xIndex === xs.length - 2);
+        if (!closes)
+          continue;
+        const left = runStart;
+        const right = !covered && xIndex === xs.length - 2 ? xs[xIndex + 1] : x;
+        const width = right - left;
+        const previous = output.find((rect) => rect.x === left && rect.w === width && rect.y + rect.h === y);
+        if (previous)
+          previous.h += height;
+        else
+          output.push({ x: left, y, w: width, h: height, r: 0 });
+        runStart = null;
+      }
+    }
+    return output;
+  }
   function opaqueContainsRect(outer, inner) {
     if (!contains(outer, inner))
       return false;
+    if (Math.abs(outer.x - inner.x) <= CONTAINMENT_EPSILON && Math.abs(outer.y - inner.y) <= CONTAINMENT_EPSILON && Math.abs(outer.w - inner.w) <= CONTAINMENT_EPSILON && Math.abs(outer.h - inner.h) <= CONTAINMENT_EPSILON && Math.abs((outer.r ?? 0) - (inner.r ?? 0)) <= CONTAINMENT_EPSILON) {
+      return true;
+    }
     const radius = Math.min(outer.r ?? 0, outer.w / 2, outer.h / 2);
     if (radius <= 0)
       return true;
@@ -133,6 +238,21 @@
   }
   function hasComplexOpaqueShape(rect) {
     return Boolean(rect.r && rect.r > 0);
+  }
+  function knockoutPathData(layer, holes) {
+    const width = round2(layer.w);
+    const height = round2(layer.h);
+    let path = `M0 0 H${width} V${height} H0 Z`;
+    for (const hole of holes) {
+      const x = round2(hole.x - layer.x);
+      const y = round2(hole.y - layer.y);
+      const radius = Math.min(hole.r ?? 0, hole.w / 2, hole.h / 2);
+      path += ` M${round2(x + radius)} ${y} A${radius} ${radius} 0 0 0 ${x} ${round2(y + radius)} L${x} ${round2(y + hole.h - radius)} A${radius} ${radius} 0 0 0 ${round2(x + radius)} ${round2(y + hole.h)} L${round2(x + hole.w - radius)} ${round2(y + hole.h)} A${radius} ${radius} 0 0 0 ${round2(x + hole.w)} ${round2(y + hole.h - radius)} L${round2(x + hole.w)} ${round2(y + radius)} A${radius} ${radius} 0 0 0 ${round2(x + hole.w - radius)} ${y} Z`;
+    }
+    return path;
+  }
+  function knockoutPath(layer, holes) {
+    return `path("${knockoutPathData(layer, holes)}")`;
   }
   function isAxisAlignedTransform(transform) {
     if (!transform || transform === "none")
@@ -164,6 +284,12 @@
     const scrollable = (value) => value === "auto" || value === "scroll";
     return scrollable(style.overflowX) && el.scrollWidth > el.clientWidth + 1 || scrollable(style.overflowY) && el.scrollHeight > el.clientHeight + 1;
   }
+  function runtimeOwnsClip(el, style) {
+    if (!el.hasAttribute("data-ni-runtime-clip"))
+      return false;
+    const inline = el.style.getPropertyValue("clip-path");
+    return inline !== "" && el.style.getPropertyPriority("clip-path") === "" && style.clipPath === inline;
+  }
   function independentScrollContainers(element) {
     const containers = [];
     let node = composedParentElement(element);
@@ -181,9 +307,8 @@
     return /(?:^|\s)(?:paint|strict|content)(?:\s|$)/.test(style.getPropertyValue("contain").trim());
   }
   function hasUnsupportedClipEdge(style) {
-    const hasBorder = [style.borderTopWidth, style.borderRightWidth, style.borderBottomWidth, style.borderLeftWidth].some((value) => Number.parseFloat(value) > 0);
     const clipMargin = style.getPropertyValue("overflow-clip-margin").trim();
-    return hasBorder || clipMargin !== "" && clipMargin !== "0" && clipMargin !== "0px";
+    return clipMargin !== "" && clipMargin !== "0" && clipMargin !== "0px";
   }
   function markedLayerPaintEscapes(el, style) {
     const ownOutsetPaint = style.boxShadow !== "" && style.boxShadow !== "none" || style.textShadow !== "" && style.textShadow !== "none" || style.outlineStyle !== "" && style.outlineStyle !== "none" && Number.parseFloat(style.outlineWidth) > 0 || propertyIsActive(style, "filter");
@@ -200,12 +325,17 @@
     ]);
     if (radius === null)
       return false;
+    const borderTop = Number.parseFloat(style.borderTopWidth) || 0;
+    const borderRight = Number.parseFloat(style.borderRightWidth) || 0;
+    const borderBottom = Number.parseFloat(style.borderBottomWidth) || 0;
+    const borderLeft = Number.parseFloat(style.borderLeftWidth) || 0;
+    const innerRadius = Math.max(0, radius - Math.min(borderTop, borderRight, borderBottom, borderLeft));
     const outer = {
-      x: bounds.left,
-      y: bounds.top,
-      w: bounds.right - bounds.left,
-      h: bounds.bottom - bounds.top,
-      r: radius
+      x: bounds.left + borderLeft,
+      y: bounds.top + borderTop,
+      w: Math.max(0, bounds.right - bounds.left - borderLeft - borderRight),
+      h: Math.max(0, bounds.bottom - bounds.top - borderTop - borderBottom),
+      r: innerRadius
     };
     const inner = {
       x: islandRect.left,
@@ -261,6 +391,32 @@
       return null;
     return Math.min(1, Math.max(0, alpha.endsWith("%") ? parsed / 100 : parsed));
   }
+  function separableBackgroundPaint(style) {
+    const image = style.backgroundImage.trim() || "none";
+    const alpha = colorAlpha(style.backgroundColor);
+    if ((alpha === null || alpha === 0) && image === "none")
+      return null;
+    const imageIsPortable = image === "none" || !/(?:url|image-set|cross-fade|element|paint)\s*\(/i.test(image) && /(?:repeating-)?(?:linear|radial|conic)-gradient\s*\(/i.test(image);
+    const clips2 = style.backgroundClip.split(",").map((value) => value.trim());
+    const origins = style.backgroundOrigin.split(",").map((value) => value.trim());
+    const attachments = style.backgroundAttachment.split(",").map((value) => value.trim());
+    const blendModes = style.backgroundBlendMode.split(",").map((value) => value.trim() || "normal");
+    if (!imageIsPortable || clips2.some((value) => value !== "border-box") || origins.some((value) => value !== "padding-box") || attachments.some((value) => value !== "scroll") || blendModes.some((value) => value !== "normal")) {
+      return null;
+    }
+    return {
+      color: style.backgroundColor,
+      image,
+      size: style.backgroundSize,
+      position: style.backgroundPosition,
+      repeat: style.backgroundRepeat,
+      origin: style.backgroundOrigin,
+      clip: style.backgroundClip,
+      attachment: style.backgroundAttachment,
+      blendMode: style.backgroundBlendMode,
+      borderWidths: [style.borderTopWidth, style.borderRightWidth, style.borderBottomWidth, style.borderLeftWidth]
+    };
+  }
   function backgroundColorClip(style) {
     const clips2 = style.backgroundClip.split(",").map((value) => value.trim()).filter(Boolean);
     return clips2[clips2.length - 1] ?? "border-box";
@@ -283,34 +439,57 @@
     ].some(([width, color]) => Number.parseFloat(width) > 0 && (colorAlpha(color) ?? 0) > 0);
     return hasBorder || style.boxShadow !== "" && style.boxShadow !== "none" || style.textShadow !== "" && style.textShadow !== "none" || style.outlineStyle !== "" && style.outlineStyle !== "none" && Number.parseFloat(style.outlineWidth) > 0;
   }
-  function automaticWebLayerCutoutIssue(el, modeledScrollContainer = null) {
+  function hasPaintOutsideBorderBox(el, style) {
+    const hasVisiblePseudo = (pseudo) => {
+      const pseudoStyle = getComputedStyle(el, pseudo);
+      const content = (pseudoStyle.content ?? "").trim();
+      if (content === "" || content === "none" || content === "normal")
+        return false;
+      return pseudoStyle.display !== "none" && pseudoStyle.visibility !== "hidden" && Number.parseFloat(pseudoStyle.opacity) !== 0;
+    };
+    return style.boxShadow !== "" && style.boxShadow !== "none" || style.textShadow !== "" && style.textShadow !== "none" || style.outlineStyle !== "" && style.outlineStyle !== "none" && Number.parseFloat(style.outlineWidth) > 0 || hasVisiblePseudo("::before") || hasVisiblePseudo("::after");
+  }
+  function automaticWebLayerCutoutIssue(el, modeledScrollContainer = null, allowViewportPosition = false, requireOpaqueBox = false) {
     const style = getComputedStyle(el);
     const alpha = colorAlpha(style.backgroundColor);
     const hasImage = style.backgroundImage !== "" && style.backgroundImage !== "none";
-    if ((alpha === 0 || alpha === null) && !hasImage && !hasSparsePaint(el, style))
+    const sparsePaint = hasSparsePaint(el, style);
+    if ((alpha === 0 || alpha === null) && !hasImage && !sparsePaint)
       return void 0;
-    if (alpha !== 1 || backgroundColorClip(style) !== "border-box") {
+    const opaqueBorderBox = alpha === 1 && backgroundColorClip(style) === "border-box";
+    if (requireOpaqueBox && (!opaqueBorderBox || hasPaintOutsideBorderBox(el, style))) {
+      return {
+        reason: "web paint above an overlay island must be fully opaque across its bounded box",
+        mayMoveWithoutRefresh: false
+      };
+    }
+    if (el.children.length === 0) {
+      return auditWebLayerCutoutComposition(el, modeledScrollContainer, false, allowViewportPosition);
+    }
+    if (alpha !== 1 || backgroundColorClip(style) !== "border-box" || hasImage || sparsePaint) {
       return {
         reason: "sparse, translucent, or partially painted web content cannot use a box-shaped native cutout",
         mayMoveWithoutRefresh: false
       };
     }
-    return auditWebLayerCutoutComposition(el, modeledScrollContainer);
+    return auditWebLayerCutoutComposition(el, modeledScrollContainer, false, allowViewportPosition);
   }
-  function auditWebLayerCutoutComposition(el, modeledScrollContainer = null) {
+  function auditWebLayerCutoutComposition(el, modeledScrollContainers = null, backgroundOnly = false, allowViewportPosition = false) {
+    const modeledScrollContainerSet = new Set(modeledScrollContainers === null ? [] : Array.isArray(modeledScrollContainers) ? modeledScrollContainers : [modeledScrollContainers]);
     const layerRect = el.getBoundingClientRect();
     let node = el;
     while (node) {
       const style = getComputedStyle(node);
       const isViewportRoot = node === document.body || node === document.documentElement;
+      const runtimeClip = runtimeOwnsClip(node, style);
       const zoom = style.getPropertyValue("zoom").trim();
-      if (style.position === "fixed" || style.position === "sticky") {
+      if (style.position === "sticky" || !allowViewportPosition && style.position === "fixed") {
         return {
           reason: "fixed and sticky web layers cannot use document-space native cutouts",
           mayMoveWithoutRefresh: true
         };
       }
-      if (Number.parseFloat(style.opacity) !== 1 || propertyIsActive(style, "filter") || propertyIsActive(style, "backdrop-filter") || propertyIsActive(style, "-webkit-backdrop-filter") || (style.getPropertyValue("mix-blend-mode").trim() || "normal") !== "normal" || propertyIsActive(style, "clip-path") || propertyIsActive(style, "mask-image") || propertyIsActive(style, "-webkit-mask-image")) {
+      if (Number.parseFloat(style.opacity) !== 1 || propertyIsActive(style, "filter") || propertyIsActive(style, "backdrop-filter") || propertyIsActive(style, "-webkit-backdrop-filter") || (style.getPropertyValue("mix-blend-mode").trim() || "normal") !== "normal" || !runtimeClip && propertyIsActive(style, "clip-path") || propertyIsActive(style, "mask-image") || propertyIsActive(style, "-webkit-mask-image")) {
         return {
           reason: "translucent, filtered, blended, clipped, or masked web layers cannot use box-shaped native cutouts",
           mayMoveWithoutRefresh: false
@@ -322,7 +501,7 @@
           mayMoveWithoutRefresh: false
         };
       }
-      if (node === el && markedLayerPaintEscapes(el, style)) {
+      if (node === el && !isViewportRoot && !backgroundOnly && markedLayerPaintEscapes(el, style)) {
         return {
           reason: "web surfaces with out-of-bounds paint or visible overflow cannot use a box-bounded cutout",
           mayMoveWithoutRefresh: false
@@ -330,7 +509,7 @@
       }
       const overflowClips = clips(style);
       const paintContains = clipsThroughPaintContainment(style);
-      const modeledScrollClip = node === modeledScrollContainer && overflowClips && !paintContains && ["", "0", "0px"].includes(style.getPropertyValue("overflow-clip-margin").trim());
+      const modeledScrollClip = modeledScrollContainerSet.has(node) && overflowClips && !paintContains && ["", "0", "0px"].includes(style.getPropertyValue("overflow-clip-margin").trim());
       if (node !== el && !isViewportRoot && (overflowClips || paintContains) && !modeledScrollClip && (hasUnsupportedClipEdge(style) || !clipOpaqueShapeContains(node, style, layerRect))) {
         return {
           reason: `opaque web surface coordinates are unsafe under a partially clipping ${paintContains ? "paint-containment" : "overflow"} ancestor`,
@@ -341,7 +520,8 @@
     }
     return null;
   }
-  function auditIslandComposition(island, el, modeledScrollContainer = null) {
+  function auditIslandComposition(island, el, modeledScrollContainers = null) {
+    const modeledScrollContainerSet = new Set(modeledScrollContainers === null ? [] : Array.isArray(modeledScrollContainers) ? modeledScrollContainers : [modeledScrollContainers]);
     const issues = [];
     const islandRect = el.getBoundingClientRect();
     let node = el;
@@ -349,6 +529,7 @@
       const style = getComputedStyle(node);
       const element = label(node);
       const isViewportRoot = node === document.body || node === document.documentElement;
+      const runtimeClip = runtimeOwnsClip(node, style);
       if (!isAxisAlignedTransform(style.transform)) {
         issues.push({
           code: "non_axis_transform",
@@ -415,7 +596,7 @@
         break;
       }
       const mask = style.maskImage || style.getPropertyValue("-webkit-mask-image");
-      if (style.clipPath !== "none" || mask && mask !== "none") {
+      if (!runtimeClip && style.clipPath !== "none" || mask && mask !== "none") {
         issues.push({
           code: "css_clip_or_mask",
           island,
@@ -426,7 +607,7 @@
       }
       const overflowClips = clips(style);
       const paintContains = clipsThroughPaintContainment(style);
-      const modeledScrollClip = node === modeledScrollContainer && overflowClips && !paintContains && ["", "0", "0px"].includes(style.getPropertyValue("overflow-clip-margin").trim());
+      const modeledScrollClip = modeledScrollContainerSet.has(node) && overflowClips && !paintContains && ["", "0", "0px"].includes(style.getPropertyValue("overflow-clip-margin").trim());
       if (node !== el && !isViewportRoot && (overflowClips || paintContains) && !modeledScrollClip && (hasUnsupportedClipEdge(style) || !clipOpaqueShapeContains(node, style, islandRect))) {
         issues.push({
           code: "overflow_clip",
@@ -636,6 +817,33 @@
   }
   let contextMemo = /* @__PURE__ */ new WeakMap();
   let nscMemo = /* @__PURE__ */ new WeakMap();
+  let topLayerSequence = 0;
+  const topLayerOrder = /* @__PURE__ */ new WeakMap();
+  function matchesState(element, selector) {
+    try {
+      return element.matches(selector);
+    } catch {
+      return false;
+    }
+  }
+  function activeTopLayerAncestor(element) {
+    let current = element;
+    while (current) {
+      if (current === document.fullscreenElement || matchesState(current, ":modal") || matchesState(current, ":popover-open")) {
+        return current;
+      }
+      current = composedParentElement(current);
+    }
+    return null;
+  }
+  function noteTopLayerState(element, active) {
+    if (active) {
+      if (!topLayerOrder.has(element))
+        topLayerOrder.set(element, ++topLayerSequence);
+    } else {
+      topLayerOrder.delete(element);
+    }
+  }
   function resetPaintOrderCache() {
     contextMemo = /* @__PURE__ */ new WeakMap();
     nscMemo = /* @__PURE__ */ new WeakMap();
@@ -650,7 +858,7 @@
   function hasEffectiveZIndex(el, style) {
     return style.zIndex !== "auto" && (style.position !== "static" || isFlexOrGridItem(el));
   }
-  function establishesContext(el) {
+  function establishesStackingContext(el) {
     const cached = contextMemo.get(el);
     if (cached !== void 0)
       return cached;
@@ -669,7 +877,7 @@
     if (cached !== void 0)
       return cached;
     let p = composedParentElement(el);
-    while (p && !establishesContext(p))
+    while (p && !establishesStackingContext(p))
       p = composedParentElement(p);
     nscMemo.set(el, p);
     return p;
@@ -699,7 +907,7 @@
       return 0;
     if (level > 0)
       return 5;
-    if (establishesContext(el) || cs.position !== "static")
+    if (establishesStackingContext(el) || cs.position !== "static")
       return 4;
     if (cs.float !== void 0 && cs.float !== "none")
       return 2;
@@ -753,6 +961,21 @@
   function comparePaintOrder(a, b) {
     if (a === b)
       return 0;
+    const topA = activeTopLayerAncestor(a);
+    const topB = activeTopLayerAncestor(b);
+    if (topA !== topB) {
+      if (topA && !topB)
+        return 1;
+      if (topB && !topA)
+        return -1;
+      if (topA && topB) {
+        const orderA = topLayerOrder.get(topA) ?? 0;
+        const orderB = topLayerOrder.get(topB) ?? 0;
+        if (orderA !== orderB)
+          return orderA - orderB;
+        return compareComposedTreeOrder(topA, topB);
+      }
+    }
     const chainA = participationChain(a);
     const chainB = participationChain(b);
     const setB = new Set(chainB);
@@ -783,6 +1006,9 @@
       return phaseA - phaseB;
     return compareComposedTreeOrder(repA, repB);
   }
+  function usesMotionPresentation(mode) {
+    return mode === "presentation" || mode === "native-presentation";
+  }
   const SCROLL_PRESENTATION_PREPARE = "__CAPACITOR_NATIVE_ISLANDS_SCROLL_PREPARE__";
   const scrollPreflightState = globalSingleton("scroll-preflight/v1", () => ({
     containers: /* @__PURE__ */ new Map(),
@@ -797,12 +1023,78 @@
       return false;
     }
   }
+  const BACKGROUND_PROPERTIES = [
+    "background-color",
+    "background-image",
+    "background-size",
+    "background-position",
+    "background-repeat",
+    "background-origin",
+    "background-clip",
+    "background-attachment",
+    "background-blend-mode"
+  ];
+  const MAX_SCROLL_PATH_DEPTH = 16;
+  const MAX_MOTION_DEPENDENCIES = 256;
+  const MAX_REGIONS_PER_COMPONENT = 256;
   const above = (a, b) => {
     const paintOrder = comparePaintOrder(a.el, b.el);
     if (paintOrder !== 0)
       return paintOrder > 0;
     return a.z !== b.z ? a.z > b.z : a.dom > b.dom;
   };
+  function directTextIntersects(element, rect) {
+    for (const node of element.childNodes) {
+      if (node.nodeType !== Node.TEXT_NODE || !node.textContent?.trim())
+        continue;
+      const range = document.createRange();
+      range.selectNodeContents(node);
+      for (const bounds of range.getClientRects()) {
+        if (intersects(rect, {
+          x: bounds.left + window.scrollX,
+          y: bounds.top + window.scrollY,
+          w: bounds.width,
+          h: bounds.height
+        })) {
+          range.detach();
+          return true;
+        }
+      }
+      range.detach();
+    }
+    return false;
+  }
+  function hasVisiblePseudoElement(element) {
+    return ["::before", "::after"].some((pseudo) => {
+      const style = getComputedStyle(element, pseudo);
+      return style.display !== "none" && style.visibility !== "hidden" && style.content !== "" && style.content !== "none" && style.content !== "normal" && Number.parseFloat(style.opacity) > 0;
+    });
+  }
+  function borderContains(element, rect) {
+    const style = getComputedStyle(element);
+    const bounds = docRect(element);
+    const widths = [
+      Number.parseFloat(style.borderTopWidth),
+      Number.parseFloat(style.borderRightWidth),
+      Number.parseFloat(style.borderBottomWidth),
+      Number.parseFloat(style.borderLeftWidth)
+    ];
+    const painted = [
+      [style.borderTopStyle, style.borderTopColor, widths[0]],
+      [style.borderRightStyle, style.borderRightColor, widths[1]],
+      [style.borderBottomStyle, style.borderBottomColor, widths[2]],
+      [style.borderLeftStyle, style.borderLeftColor, widths[3]]
+    ].some(([borderStyle, color, width]) => borderStyle !== "none" && color !== "transparent" && color !== "rgba(0, 0, 0, 0)" && Number(width) > 0);
+    if (!painted)
+      return true;
+    const [top, right, bottom, left] = widths;
+    return contains({
+      x: bounds.x + left,
+      y: bounds.y + top,
+      w: Math.max(0, bounds.w - left - right),
+      h: Math.max(0, bounds.h - top - bottom)
+    }, rect);
+  }
   function zIndex(el) {
     const value = Number.parseInt(getComputedStyle(el).zIndex, 10);
     return Number.isFinite(value) ? value : 0;
@@ -816,16 +1108,86 @@
       y: round2(verticalReversed ? element.scrollHeight - element.clientHeight + element.scrollTop : element.scrollTop)
     };
   }
-  function rectInsideScrollContainer(element, scrollContainer) {
+  function scrollPath(element) {
+    return independentScrollContainers(element).reverse();
+  }
+  function sameScrollPath(left, right) {
+    return left.length === right.length && left.every((element, index) => element === right[index]);
+  }
+  function sameCoordinatePath(left, right) {
+    return left.coordinateSpace === right.coordinateSpace && sameScrollPath(left.scrollPath, right.scrollPath);
+  }
+  function scrollPathOffset(path) {
+    return path.reduce((total, element) => {
+      const offset = physicalScrollOffset(element);
+      total.x += offset.x;
+      total.y += offset.y;
+      return total;
+    }, { x: 0, y: 0 });
+  }
+  function rectInsideScrollPath(element, path) {
     const rect = docRect(element);
-    if (!scrollContainer)
-      return rect;
-    const offset = physicalScrollOffset(scrollContainer);
+    const offset = scrollPathOffset(path);
     return {
       ...rect,
       x: round2(rect.x + offset.x),
       y: round2(rect.y + offset.y)
     };
+  }
+  function rectInScrollPathCoordinates(rect, path) {
+    const offset = scrollPathOffset(path);
+    return {
+      ...rect,
+      x: round2(rect.x + offset.x),
+      y: round2(rect.y + offset.y)
+    };
+  }
+  function visibleRectInsideScrollPath(rect, path) {
+    let visible = rect;
+    for (const container of path) {
+      const scrollport = scrollContainerRect(container);
+      if (!scrollport || !visible)
+        return null;
+      visible = intersection(visible, scrollport);
+    }
+    return visible;
+  }
+  function scrollPathViewport(path) {
+    if (path.length === 0)
+      return null;
+    let viewport = scrollContainerRect(path[0]);
+    for (let index = 1; index < path.length; index++) {
+      const scrollport = scrollContainerRect(path[index]);
+      if (!viewport || !scrollport)
+        return null;
+      viewport = intersection(viewport, scrollport);
+    }
+    return viewport;
+  }
+  function pathsMayCross(leftRect, leftPath, rightRect, rightPath) {
+    if (intersects(leftRect, rightRect))
+      return true;
+    const leftViewport = scrollPathViewport(leftPath);
+    const rightViewport = scrollPathViewport(rightPath);
+    return leftViewport !== null && intersects(leftViewport, rightRect) || rightViewport !== null && intersects(leftRect, rightViewport) || leftViewport !== null && rightViewport !== null && intersects(leftViewport, rightViewport);
+  }
+  function fullyVisibleInsideScrollPath(rect, path) {
+    return path.every((container) => {
+      const scrollport = scrollContainerRect(container);
+      return scrollport !== null && opaqueContainsRect(scrollport, rect);
+    });
+  }
+  function addSymmetricPathDifference(target, left, right) {
+    const leftSet = new Set(left);
+    const rightSet = new Set(right);
+    for (const element of left) {
+      if (!rightSet.has(element))
+        target.add(element);
+    }
+    for (const element of right) {
+      if (!leftSet.has(element))
+        target.add(element);
+    }
   }
   function scrollContainerRect(element) {
     const bounds = element.getBoundingClientRect();
@@ -851,21 +1213,107 @@
       r: round2(innerRadius)
     };
   }
+  function documentCanvasRect() {
+    const root = document.documentElement;
+    const body = document.body;
+    return {
+      x: 0,
+      y: 0,
+      w: round2(Math.max(window.innerWidth, root.scrollWidth, body?.scrollWidth ?? 0)),
+      h: round2(Math.max(window.innerHeight, root.scrollHeight, body?.scrollHeight ?? 0))
+    };
+  }
+  function hasVisibleBackground(style) {
+    const image = style.backgroundImage.trim();
+    const color = style.backgroundColor.replace(/\s+/g, "").toLowerCase();
+    return image !== "" && image !== "none" || color !== "" && color !== "transparent" && color !== "rgba(0,0,0,0)" && !color.endsWith("/0)");
+  }
   function isElementVisible(el) {
     if (!el.isConnected || el.hidden || el.getClientRects().length === 0)
       return false;
-    const style = getComputedStyle(el);
-    return style.visibility !== "hidden" && style.visibility !== "collapse" && Number.parseFloat(style.opacity) !== 0;
+    let hasAutomaticContentVisibility = false;
+    let current = el;
+    while (current) {
+      if (current.hidden)
+        return false;
+      const style = getComputedStyle(current);
+      if (style.visibility === "hidden" || style.visibility === "collapse" || style.contentVisibility === "hidden" || Number.parseFloat(style.opacity) === 0) {
+        return false;
+      }
+      if (style.contentVisibility === "auto")
+        hasAutomaticContentVisibility = true;
+      current = composedParentElement(current);
+    }
+    if (hasAutomaticContentVisibility) {
+      const probe = el.checkVisibility;
+      if (typeof probe !== "function")
+        return false;
+      try {
+        if (!probe.call(el, { contentVisibilityAuto: true }))
+          return false;
+      } catch {
+        return false;
+      }
+    }
+    return true;
+  }
+  function establishesFixedContainingBlock(element) {
+    const style = getComputedStyle(element);
+    const active = (value) => value !== void 0 && value !== "" && value !== "none";
+    const contain = new Set(style.contain.split(/\s+/).filter(Boolean));
+    const willChange = new Set(style.willChange.split(",").map((value) => value.trim()).filter(Boolean));
+    const individualTransform = ["translate", "scale", "rotate"].some((property) => {
+      const value = style.getPropertyValue(property).trim();
+      return value !== "" && value !== "none";
+    }) || willChange.has("transform");
+    return active(style.transform) || individualTransform || active(style.perspective) || active(style.filter) || active(style.getPropertyValue("backdrop-filter")) || contain.has("layout") || contain.has("paint") || contain.has("strict") || contain.has("content") || style.contentVisibility === "auto" || style.contentVisibility === "hidden" || willChange.has("perspective") || willChange.has("filter");
+  }
+  function isViewportFixed(element) {
+    let ancestor = composedParentElement(element);
+    while (ancestor && ancestor !== document.documentElement) {
+      if (establishesFixedContainingBlock(ancestor))
+        return false;
+      ancestor = composedParentElement(ancestor);
+    }
+    return true;
   }
   function fixedOrStickyAncestor(el) {
     let current = el;
     while (current) {
       const position = getComputedStyle(current).position;
-      if (position === "fixed" || position === "sticky")
-        return current;
+      if (position === "fixed" || position === "sticky") {
+        return {
+          element: current,
+          position,
+          viewportFixed: position === "fixed" && isViewportFixed(current)
+        };
+      }
       current = composedParentElement(current);
     }
     return null;
+  }
+  function rootScrollCanCross(documentRect, viewportRect2) {
+    const root = document.documentElement;
+    const body = document.body;
+    const maxX = Math.max(0, Math.max(root.scrollWidth, body?.scrollWidth ?? 0) - window.innerWidth);
+    const maxY = Math.max(0, Math.max(root.scrollHeight, body?.scrollHeight ?? 0) - window.innerHeight);
+    const axisCanCross = (documentStart, documentSize, viewportStart, viewportSize, maximumOffset) => {
+      const lowerOffset = documentStart - (viewportStart + viewportSize);
+      const upperOffset = documentStart + documentSize - viewportStart;
+      return Math.max(0, lowerOffset) < Math.min(maximumOffset, upperOffset) || maximumOffset === 0 && lowerOffset < 0 && upperOffset > 0;
+    };
+    return axisCanCross(documentRect.x, documentRect.w, viewportRect2.x, viewportRect2.w, maxX) && axisCanCross(documentRect.y, documentRect.h, viewportRect2.y, viewportRect2.h, maxY);
+  }
+  function canMoveIntoIntersection(left, right) {
+    if (intersects(left.visualRect, right.visualRect))
+      return true;
+    if (left.coordinateSpace === right.coordinateSpace)
+      return false;
+    const documentSide = left.coordinateSpace === "document" ? left : right;
+    const viewportSide = left.coordinateSpace === "viewport" ? left : right;
+    if (documentSide.scrollPath.length > 0 || viewportSide.scrollPath.length > 0)
+      return false;
+    return rootScrollCanCross(documentSide.rect, viewportSide.rect);
   }
   function inertAncestor(el) {
     let current = el;
@@ -877,10 +1325,10 @@
     return null;
   }
   function effectImpactForProperty(propertyName) {
-    if (/^(visibility|transform|transform-origin|transform-style|translate|scale|rotate|perspective|opacity|filter|backdrop-filter|mix-blend-mode|isolation|will-change|clip|clip-path|mask(?:-.+)?|offset-.+|border(?:-.+)?-radius|border-radius|z-index)$/i.test(propertyName)) {
+    if (/^(visibility|transform|transform-origin|transform-style|translate|scale|rotate|perspective|opacity|filter|backdrop-filter|mix-blend-mode|isolation|will-change|clip|clip-path|mask(?:-.+)?|offset-.+|background(?:-.+)?|border(?:-.+)?-radius|border-radius|z-index)$/i.test(propertyName)) {
       return "local-composition";
     }
-    if (/^(color|accent-color|caret-color|background-color|border(?:-(?:top|right|bottom|left|block(?:-start|-end)?|inline(?:-start|-end)?))?-color|outline-color|column-rule-color|text-decoration-color|text-emphasis-color)$/i.test(propertyName)) {
+    if (/^(color|accent-color|caret-color|border(?:-(?:top|right|bottom|left|block(?:-start|-end)?|inline(?:-start|-end)?))?-color|outline-color|column-rule-color|text-decoration-color|text-emphasis-color)$/i.test(propertyName)) {
       return "none";
     }
     return "global-layout";
@@ -932,6 +1380,18 @@
       current = composedParentElement(current);
     }
     return false;
+  }
+  function canClipLayerAsUnit(layer, native) {
+    return establishesStackingContext(layer) && !isComposedAncestor(layer, native);
+  }
+  function activeModalDialogs() {
+    return Array.from(document.querySelectorAll("dialog")).filter((dialog) => {
+      try {
+        return dialog.matches(":modal");
+      } catch {
+        return false;
+      }
+    });
   }
   function propertyDescriptor(target, property) {
     let current = target;
@@ -1176,7 +1636,13 @@
       this.scrollSettledPending = false;
       this.scrollEndTimer = null;
       this.presentationPending = false;
+      this.presentationActive = false;
       this.presentedScrollContainers = /* @__PURE__ */ new Set();
+      this.movingScrollContainers = /* @__PURE__ */ new Set();
+      this.lastNatives = [];
+      this.lastLayers = [];
+      this.runtimeClips = /* @__PURE__ */ new Map();
+      this.runtimeBackgrounds = /* @__PURE__ */ new Map();
       this.refresh = () => {
         if (this.scheduled)
           return;
@@ -1227,8 +1693,8 @@
     degradeScrollContainers(ids, reason) {
       const failed = new Set(ids);
       for (const handle of this.natives) {
-        const container = independentScrollContainers(handle.el)[0];
-        if (container && failed.has(this.idForScrollContainer(container))) {
+        const affected = independentScrollContainers(handle.el).some((container) => failed.has(this.idForScrollContainer(container)));
+        if (affected) {
           handle.degradeToFallback(reason);
         }
       }
@@ -1259,6 +1725,8 @@
         this.invalidatePendingPlan();
         this.layers.splice(layerIndex, 1);
       }
+      this.releaseRuntimeClip(el);
+      this.releaseRuntimeBackground(el);
       this.resizeObserver?.unobserve(el);
       this.refresh();
     }
@@ -1273,8 +1741,32 @@
           const target = record.target instanceof Element ? record.target : record.target.parentElement;
           if (!target)
             continue;
+          if (target instanceof HTMLElement && record.type === "attributes") {
+            const runtimeClip = this.runtimeClips.get(target);
+            const runtimeBackground = this.runtimeBackgrounds.get(target);
+            if (runtimeClip && record.attributeName === "style") {
+              const ownsClip = target.style.getPropertyValue("clip-path") === runtimeClip.appliedValue && target.style.getPropertyPriority("clip-path") === "";
+              if (!ownsClip)
+                this.releaseRuntimeClip(target);
+            } else if (runtimeClip && record.attributeName === "data-ni-runtime-clip" && !target.hasAttribute("data-ni-runtime-clip")) {
+              this.releaseRuntimeClip(target);
+            } else if (runtimeClip && record.attributeName !== "style" && record.attributeName !== "data-ni-runtime-clip") {
+              this.releaseRuntimeClip(target);
+            }
+            if (runtimeBackground && record.attributeName === "style") {
+              const ownsBackground = Array.from(runtimeBackground.applied).every(([property, value]) => target.style.getPropertyValue(property) === value && target.style.getPropertyPriority(property) === "");
+              if (!ownsBackground)
+                this.releaseRuntimeBackground(target);
+            } else if (runtimeBackground && record.attributeName === "data-ni-runtime-background" && !target.hasAttribute("data-ni-runtime-background")) {
+              this.releaseRuntimeBackground(target);
+            } else if (runtimeBackground && record.attributeName !== "style" && record.attributeName !== "data-ni-runtime-background") {
+              this.releaseRuntimeBackground(target);
+            }
+          }
           changed = true;
           if (target instanceof HTMLStyleElement || target instanceof HTMLLinkElement || target.closest("style") !== null) {
+            for (const element of this.runtimeBackgrounds.keys())
+              this.releaseRuntimeBackground(element);
             this.invalidateAutomaticLayers();
           } else if (record.type !== "characterData") {
             this.invalidateAutomaticLayers(target);
@@ -1317,12 +1809,12 @@
       }
       for (const [id, element] of next) {
         this.trackedScrollContainers.set(id, element);
-        if (this.innerScrollMode !== "bridge" && this.innerScrollMode !== "presentation" || this.scrollDisposers.has(id)) {
+        if (this.innerScrollMode !== "bridge" && !usesMotionPresentation(this.innerScrollMode) || this.scrollDisposers.has(id)) {
           continue;
         }
-        const restoreProgrammaticPreflight = this.innerScrollMode === "presentation" ? installProgrammaticScrollPreflight(element, () => this.prepareInnerScroll([id])) : () => void 0;
+        const restoreProgrammaticPreflight = usesMotionPresentation(this.innerScrollMode) ? installProgrammaticScrollPreflight(element, () => this.prepareInnerScroll([id])) : () => void 0;
         const onScroll = () => {
-          if (this.innerScrollMode === "presentation")
+          if (usesMotionPresentation(this.innerScrollMode))
             this.prepareInnerScroll([id]);
           else {
             this.scheduleScrollOffsets(false);
@@ -1330,7 +1822,7 @@
           }
         };
         const onScrollEnd = () => {
-          if (this.innerScrollMode === "presentation")
+          if (usesMotionPresentation(this.innerScrollMode))
             this.scheduleScrollSettlement();
           else {
             if (this.scrollEndTimer !== null)
@@ -1341,7 +1833,7 @@
         };
         const onWheel = () => this.prepareInnerScroll([id]);
         const onInputStart = () => {
-          this.presentationPending = true;
+          this.prepareInnerScroll([id]);
         };
         const onKeyDown = (event) => {
           if (["ArrowDown", "ArrowLeft", "ArrowRight", "ArrowUp", "End", "Home", "PageDown", "PageUp", " "].includes(event.key)) {
@@ -1351,7 +1843,7 @@
         const onInputTerminal = () => this.scheduleScrollSettlement();
         element.addEventListener("scroll", onScroll, { passive: true });
         element.addEventListener("scrollend", onScrollEnd, { passive: true });
-        if (this.innerScrollMode === "presentation") {
+        if (usesMotionPresentation(this.innerScrollMode)) {
           element.addEventListener("pointerdown", onInputStart, { capture: true, passive: true });
           element.addEventListener("touchstart", onInputStart, { capture: true, passive: true });
           element.addEventListener("wheel", onWheel, { capture: true, passive: true });
@@ -1377,11 +1869,15 @@
           window.removeEventListener("touchcancel", onInputTerminal);
         });
       }
-      if (next.size === 0 && this.scrollEndTimer !== null) {
-        window.clearTimeout(this.scrollEndTimer);
+      if (next.size === 0) {
+        if (this.scrollEndTimer !== null)
+          window.clearTimeout(this.scrollEndTimer);
         this.scrollEndTimer = null;
         this.presentationPending = false;
+        this.presentationActive = false;
         this.presentedScrollContainers.clear();
+        this.movingScrollContainers.clear();
+        this.clearScrollPresentationFaces();
       }
     }
     scheduleScrollOffsets(settled) {
@@ -1407,7 +1903,7 @@
       });
     }
     prepareInnerScroll(containers) {
-      if (this.innerScrollMode !== "presentation" || containers.length === 0)
+      if (!usesMotionPresentation(this.innerScrollMode) || containers.length === 0)
         return;
       const unprepared = containers.filter((id) => !this.presentedScrollContainers.has(id));
       if (unprepared.length === 0) {
@@ -1415,43 +1911,77 @@
         return;
       }
       const sequence = ++this.scrollPresentationSequence;
-      const prepared = invokeScrollPresentationPrepare(unprepared, sequence);
+      const prepared = this.innerScrollMode === "native-presentation" || invokeScrollPresentationPrepare(unprepared, sequence);
       if (!prepared) {
         this.degradeScrollContainers(unprepared, "Native scroll presentation is unavailable.");
         return;
       }
-      for (const id of unprepared)
+      if (!this.presentationActive) {
+        this.presentationActive = true;
+      }
+      for (const id of unprepared) {
         this.presentedScrollContainers.add(id);
+        const element = this.trackedScrollContainers.get(id);
+        if (element)
+          this.movingScrollContainers.add(element);
+      }
+      this.syncScrollPresentationFaces(this.lastNatives);
+      this.applyWebKnockouts(this.lastNatives, this.lastLayers);
       this.presentationPending = true;
       this.scheduleScrollSettlement();
     }
     scheduleScrollSettlement() {
-      if (this.innerScrollMode === "presentation" && !this.presentationPending)
+      if (usesMotionPresentation(this.innerScrollMode) && !this.presentationPending)
         return;
       if (this.scrollEndTimer !== null)
         window.clearTimeout(this.scrollEndTimer);
       this.scrollEndTimer = window.setTimeout(() => {
         this.scrollEndTimer = null;
-        this.scheduleScrollOffsets(true);
+        if (!usesMotionPresentation(this.innerScrollMode)) {
+          this.scheduleScrollOffsets(true);
+          return;
+        }
+        this.presentationPending = false;
+        this.presentationActive = false;
+        this.presentedScrollContainers.clear();
+        this.movingScrollContainers.clear();
+        this.refresh();
+        if (this.innerScrollMode === "presentation") {
+          requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+              void this.flushScrollOffsets(true).finally(() => {
+                requestAnimationFrame(() => this.clearScrollPresentationFaces());
+              });
+            });
+          });
+        }
       }, 120);
     }
     flushScrollOffsets(settled) {
       if (!this.onScroll || this.trackedScrollContainers.size === 0)
-        return;
-      if (settled && this.innerScrollMode === "presentation") {
-        this.presentationPending = false;
-        this.presentedScrollContainers.clear();
-      }
+        return Promise.resolve();
       const offsets = Array.from(this.trackedScrollContainers, ([id, element]) => ({
         id,
         ...physicalScrollOffset(element)
       }));
-      void this.onScroll({
+      return this.onScroll({
         ...createEnvelope(),
         sequence: ++this.scrollSequence,
         offsets,
         ...settled ? { settled: true } : {}
       }).catch(() => void 0);
+    }
+    syncScrollPresentationFaces(natives) {
+      if (!usesMotionPresentation(this.innerScrollMode))
+        return;
+      for (const native of natives) {
+        native.handle.setScrollPresentation(this.presentationActive && native.active && (native.plane === "overlay" || Array.from(native.motionDependencies).some((container) => this.movingScrollContainers.has(container))));
+      }
+    }
+    clearScrollPresentationFaces() {
+      for (const native of this.lastNatives) {
+        native.handle.setScrollPresentation(false);
+      }
     }
     observeEffectRoot(root) {
       if (this.effectRootDisposers.has(root))
@@ -1499,8 +2029,25 @@
         "input",
         "change",
         "beforetoggle",
-        "toggle"
+        "toggle",
+        "close",
+        "cancel",
+        "contentvisibilityautostatechange"
       ];
+      const onTopLayerState = (event) => {
+        if (!(event.target instanceof Element))
+          return;
+        if (event.type === "beforetoggle") {
+          const next = event.newState;
+          noteTopLayerState(event.target, next === "open");
+        } else if (event.type === "close" || event.type === "cancel") {
+          noteTopLayerState(event.target, false);
+        } else {
+          const owner = activeTopLayerAncestor(event.target);
+          if (owner)
+            noteTopLayerState(owner, true);
+        }
+      };
       target.addEventListener("transitionrun", onTransitionRun, true);
       target.addEventListener("transitionend", onTransitionEnd, true);
       target.addEventListener("transitioncancel", onTransitionEnd, true);
@@ -1510,6 +2057,7 @@
       target.addEventListener("load", onLoad, true);
       for (const eventName of styleStateEvents) {
         target.addEventListener(eventName, onStyleStateChange, true);
+        target.addEventListener(eventName, onTopLayerState, true);
       }
       this.effectRootDisposers.set(root, () => {
         target.removeEventListener("transitionrun", onTransitionRun, true);
@@ -1521,6 +2069,7 @@
         target.removeEventListener("load", onLoad, true);
         for (const eventName of styleStateEvents) {
           target.removeEventListener(eventName, onStyleStateChange, true);
+          target.removeEventListener(eventName, onTopLayerState, true);
         }
       });
     }
@@ -1622,16 +2171,31 @@
       this.pendingSignature = null;
     }
     buildNatives(motion) {
+      const modalDialogs = activeModalDialogs();
       const states = this.natives.map((handle, dom) => {
         handle.reconcileObservedStyles();
         let fallbackReason = null;
         let active = handle.canAttemptNative() && isElementVisible(handle.el);
-        const discoveredScrollContainers = active ? independentScrollContainers(handle.el) : [];
-        const modeledScrollContainer = discoveredScrollContainers.length === 1 && this.innerScrollMode !== "unsupported" ? discoveredScrollContainers[0] : null;
-        const composition = auditIslandComposition(handle.islandId, handle.el, modeledScrollContainer);
-        const fixedAncestor = handle.canAttemptNative() ? fixedOrStickyAncestor(handle.el) : null;
-        if (fixedAncestor) {
-          fallbackReason = "fixed and sticky ancestors cannot participate in document-layer composition";
+        const positionedAncestor = handle.canAttemptNative() ? fixedOrStickyAncestor(handle.el) : null;
+        const discoveredScrollPath = active ? scrollPath(handle.el) : [];
+        const fixedAncestorContainsScroller = positionedAncestor?.viewportFixed === true && discoveredScrollPath.some((container) => isComposedAncestor(positionedAncestor.element, container));
+        const coordinateSpace = positionedAncestor?.viewportFixed && !fixedAncestorContainsScroller ? "viewport" : "document";
+        const plane = coordinateSpace === "viewport" ? "overlay" : "underlay";
+        const coordinateScrollPath = coordinateSpace === "document" ? discoveredScrollPath : [];
+        const modeledScrollPath = this.innerScrollMode === "unsupported" ? [] : coordinateScrollPath;
+        const composition = auditIslandComposition(handle.islandId, handle.el, modeledScrollPath);
+        const externalModal = modalDialogs.find((dialog) => !isComposedAncestor(dialog, handle.el));
+        if (externalModal) {
+          fallbackReason = "native islands outside an active modal use their web presentation";
+          active = false;
+        }
+        const fullscreen = document.fullscreenElement;
+        if (!fallbackReason && fullscreen && !isComposedAncestor(fullscreen, handle.el)) {
+          fallbackReason = "native islands outside the fullscreen element use their web presentation";
+          active = false;
+        }
+        if (positionedAncestor?.position === "sticky") {
+          fallbackReason = "sticky native islands use the web presentation until sticky motion is modeled";
           active = false;
         }
         const animatedAncestor = handle.canAttemptNative() && Array.from(motion.localCompositionTargets).some((target) => isComposedAncestor(target, handle.el));
@@ -1646,32 +2210,32 @@
           fallbackReason = structuralIssue.message;
           active = false;
         }
-        const scrollContainers = active ? discoveredScrollContainers : [];
-        let scrollContainer = scrollContainers[0] ?? null;
-        let scrollViewport = null;
-        if (active && scrollContainers.length > 1) {
-          fallbackReason = "nested independent scroll containers use the web fallback";
+        let activeScrollPath = active ? coordinateScrollPath : [];
+        if (active && activeScrollPath.length > MAX_SCROLL_PATH_DEPTH) {
+          fallbackReason = "nested scroll depth exceeds the native host safety limit";
           active = false;
-          scrollContainer = null;
-        } else if (active && scrollContainer && this.innerScrollMode === "unsupported") {
+          activeScrollPath = [];
+        } else if (active && activeScrollPath.length > 0 && this.innerScrollMode === "unsupported") {
           fallbackReason = "independent scroll containers are not supported by the active native transport";
           active = false;
-          scrollContainer = null;
-        } else if (active && scrollContainer) {
-          scrollViewport = scrollContainerRect(scrollContainer);
-          if (!scrollViewport || !isSafeBridgeRect(scrollViewport)) {
+          activeScrollPath = [];
+        } else if (active && activeScrollPath.length > 0) {
+          const invalidScrollport = activeScrollPath.some((container) => {
+            const scrollport = scrollContainerRect(container);
+            return !scrollport || !isSafeBridgeRect(scrollport);
+          });
+          if (invalidScrollport) {
             fallbackReason = "the scroll container geometry cannot be represented safely by the native host";
             active = false;
-            scrollContainer = null;
-            scrollViewport = null;
+            activeScrollPath = [];
           }
         }
         let rect = null;
         let visualRect = null;
         if (active) {
-          const bounds = rectInsideScrollContainer(handle.el, scrollContainer);
+          const bounds = coordinateSpace === "viewport" ? viewportRect(handle.el) : rectInsideScrollPath(handle.el, activeScrollPath);
           const viewportBounds = docRect(handle.el);
-          visualRect = scrollViewport ? intersection(viewportBounds, scrollViewport) : viewportBounds;
+          visualRect = visibleRectInsideScrollPath(viewportBounds, activeScrollPath);
           const style = getComputedStyle(handle.el);
           const cssRadius = uniformCssCornerRadius([
             style.borderTopLeftRadius,
@@ -1701,7 +2265,10 @@
           interactive: handle.interactive && getComputedStyle(handle.el).pointerEvents !== "none" && inertAncestor(handle.el) === null,
           rect,
           visualRect,
-          scrollContainer,
+          plane,
+          coordinateSpace,
+          scrollPath: activeScrollPath,
+          motionDependencies: new Set(activeScrollPath),
           fallbackReason
         };
       });
@@ -1717,8 +2284,8 @@
           const right = states[rightIndex];
           if (!right.active || !right.rect || !right.visualRect)
             continue;
-          if (left.scrollContainer !== right.scrollContainer) {
-            if (intersects(left.visualRect, right.visualRect)) {
+          if (!sameCoordinatePath(left, right)) {
+            if (!usesMotionPresentation(this.innerScrollMode) && intersects(left.visualRect, right.visualRect)) {
               const fallback2 = left.visualRect.w * left.visualRect.h <= right.visualRect.w * right.visualRect.h ? left : right;
               fallback2.fallbackReason = "overlapping native islands from different scroll containers use the web fallback";
               fallback2.active = false;
@@ -1741,69 +2308,150 @@
         }
       }
     }
+    resolveHostPlanes(natives, layers) {
+      let changed = true;
+      while (changed) {
+        changed = false;
+        for (const native of natives) {
+          if (!native.active || native.plane !== "underlay" || !native.rect || !native.visualRect)
+            continue;
+          const mustCrossWebView = layers.some((layer) => layer.coordinateSpace === "viewport" && above(native, layer) && canMoveIntoIntersection(native, layer)) || natives.some((other) => other !== native && other.active && other.plane === "overlay" && other.rect !== null && other.visualRect !== null && above(native, other) && canMoveIntoIntersection(native, other));
+          if (!mustCrossWebView)
+            continue;
+          native.plane = "overlay";
+          changed = true;
+        }
+      }
+      changed = true;
+      while (changed) {
+        changed = false;
+        for (const native of natives) {
+          if (!native.active || native.plane !== "underlay" || !native.rect || !native.visualRect)
+            continue;
+          const webAbove = layers.some((layer) => isElementVisible(layer.el) && above(layer, native) && canMoveIntoIntersection(layer, native));
+          const underlayNativeAbove = natives.some((other) => other !== native && other.active && other.plane === "underlay" && other.rect !== null && other.visualRect !== null && above(other, native) && canMoveIntoIntersection(other, native));
+          if (webAbove || underlayNativeAbove)
+            continue;
+          native.plane = "overlay";
+          changed = true;
+        }
+      }
+    }
+    detectOverlayCutoutConflicts(natives, layers) {
+      for (const native of natives) {
+        if (!native.active || native.plane !== "overlay" || !native.visualRect)
+          continue;
+        const unsupported = layers.find((layer) => layer.overlayCutoutIssue !== null && above(layer, native) && canMoveIntoIntersection(layer, native));
+        if (!unsupported)
+          continue;
+        native.fallbackReason = unsupported.overlayCutoutIssue?.reason ?? "the upper web surface cannot become a native cutout";
+        native.active = false;
+        native.rect = null;
+        native.visualRect = null;
+      }
+    }
     buildLayers() {
       const explicitElements = new Set(this.layers.map((layer) => layer.el));
       const layers = this.layers.filter((layer) => layer.el.isConnected).map((layer, dom2) => {
         const style = getComputedStyle(layer.el);
-        const scrollContainers = independentScrollContainers(layer.el);
-        const scrollContainer = scrollContainers.length === 1 ? scrollContainers[0] : null;
+        const positionedAncestor = fixedOrStickyAncestor(layer.el);
+        const coordinateSpace = positionedAncestor?.viewportFixed ? "viewport" : "document";
+        const layerScrollPath = coordinateSpace === "viewport" ? [] : scrollPath(layer.el);
+        const allowFixedPosition = positionedAncestor?.position === "fixed";
         const radius = uniformCssCornerRadius([
           style.borderTopLeftRadius,
           style.borderTopRightRadius,
           style.borderBottomRightRadius,
           style.borderBottomLeftRadius
         ]);
+        const overlayClassification = automaticWebLayerCutoutIssue(layer.el, layerScrollPath[layerScrollPath.length - 1] ?? null, allowFixedPosition, true);
         return {
           el: layer.el,
           z: zIndex(layer.el),
           dom: dom2,
-          rect: { ...rectInsideScrollContainer(layer.el, scrollContainer), r: radius ?? 0 },
+          rect: {
+            ...coordinateSpace === "viewport" ? viewportRect(layer.el) : rectInsideScrollPath(layer.el, layerScrollPath),
+            r: radius ?? 0
+          },
           visualRect: { ...docRect(layer.el), r: radius ?? 0 },
-          scrollContainer,
-          cutoutIssue: scrollContainers.length > 1 ? {
-            reason: "web surfaces inside nested independent scroll containers cannot be tracked safely",
-            mayMoveWithoutRefresh: true
-          } : radius === null ? {
+          coordinateSpace,
+          scrollPath: layerScrollPath,
+          backgroundPaint: null,
+          cutoutIssue: radius === null ? {
             reason: "declared opaque surfaces require a uniform pixel border-radius",
             mayMoveWithoutRefresh: false
-          } : auditWebLayerCutoutComposition(layer.el, scrollContainer)
+          } : auditWebLayerCutoutComposition(layer.el, layerScrollPath, false, allowFixedPosition),
+          overlayCutoutIssue: overlayClassification === void 0 ? {
+            reason: "web paint above an overlay island must be opaque across its bounded box",
+            mayMoveWithoutRefresh: false
+          } : overlayClassification
         };
       });
       if (!this.compositionEnabled || this.natives.length === 0)
         return layers;
       const nativeElements = new Set(this.natives.map((native) => native.el));
-      const nativeBounds = this.natives.filter((native) => native.el.isConnected).map((native) => ({
-        el: native.el,
-        z: zIndex(native.el),
-        dom: 0,
-        rect: docRect(native.el)
-      }));
+      const htmlRuntimeBackground = this.runtimeBackgrounds.get(document.documentElement);
+      const htmlHasBackground = htmlRuntimeBackground !== void 0 || hasVisibleBackground(getComputedStyle(document.documentElement));
+      const nativeBounds = this.natives.filter((native) => native.el.isConnected).map((native) => {
+        const positionedAncestor = fixedOrStickyAncestor(native.el);
+        const coordinateSpace = positionedAncestor?.viewportFixed ? "viewport" : "document";
+        const nativeScrollPath = coordinateSpace === "viewport" ? [] : scrollPath(native.el);
+        const rect = coordinateSpace === "viewport" ? viewportRect(native.el) : rectInsideScrollPath(native.el, nativeScrollPath);
+        return {
+          el: native.el,
+          z: zIndex(native.el),
+          dom: 0,
+          rect,
+          visualRect: docRect(native.el),
+          coordinateSpace,
+          scrollPath: nativeScrollPath
+        };
+      });
       let dom = layers.length;
       for (const element of this.automaticLayerCandidates()) {
-        if (!element.isConnected || explicitElements.has(element) || nativeElements.has(element) || this.natives.some((native) => isComposedAncestor(element, native.el) || isComposedAncestor(native.el, element))) {
+        if (!element.isConnected || explicitElements.has(element) || nativeElements.has(element) || this.natives.some((native) => isComposedAncestor(native.el, element))) {
           continue;
         }
-        const scrollContainers = independentScrollContainers(element);
-        const scrollContainer = scrollContainers.length === 1 ? scrollContainers[0] : null;
-        const cached = scrollContainer ? void 0 : this.automaticLayerClassifications.get(element);
-        const issue = cached === void 0 ? automaticWebLayerCutoutIssue(element, scrollContainer) : cached === false ? void 0 : cached;
-        if (cached === void 0 && !scrollContainer) {
+        const positionedAncestor = fixedOrStickyAncestor(element);
+        const coordinateSpace = positionedAncestor?.viewportFixed ? "viewport" : "document";
+        const layerScrollPath = coordinateSpace === "viewport" ? [] : scrollPath(element);
+        const allowFixedPosition = positionedAncestor?.position === "fixed";
+        const runtimeBackground = this.runtimeBackgrounds.get(element);
+        const sourceBackground = runtimeBackground?.source ?? separableBackgroundPaint(getComputedStyle(element));
+        const isViewportRoot = element === document.body || element === document.documentElement;
+        const paintsDocumentCanvas = element === document.documentElement || element === document.body && !htmlHasBackground;
+        const backgroundPaint = sourceBackground !== null && (element.children.length > 0 || isViewportRoot) ? sourceBackground : null;
+        const cached = layerScrollPath.length > 0 ? void 0 : this.automaticLayerClassifications.get(element);
+        const issue = backgroundPaint !== null ? auditWebLayerCutoutComposition(element, layerScrollPath, true, allowFixedPosition) : cached === void 0 ? automaticWebLayerCutoutIssue(element, layerScrollPath[layerScrollPath.length - 1] ?? null, allowFixedPosition) : cached === false ? void 0 : cached;
+        const overlayClassification = automaticWebLayerCutoutIssue(element, layerScrollPath[layerScrollPath.length - 1] ?? null, allowFixedPosition, true);
+        const overlayCutoutIssue = overlayClassification === void 0 ? {
+          reason: "web paint above an overlay island must be opaque across its bounded box",
+          mayMoveWithoutRefresh: false
+        } : overlayClassification;
+        if (cached === void 0 && layerScrollPath.length === 0) {
           this.automaticLayerClassifications.set(element, issue === void 0 ? false : issue);
         }
         if (issue === void 0 || !isElementVisible(element))
           continue;
-        const visualRect = docRect(element);
-        const rect = rectInsideScrollContainer(element, scrollContainer);
+        const visualRect = paintsDocumentCanvas ? documentCanvasRect() : docRect(element);
+        const rect = paintsDocumentCanvas ? visualRect : coordinateSpace === "viewport" ? viewportRect(element) : rectInsideScrollPath(element, layerScrollPath);
         const layer = {
           el: element,
           z: zIndex(element),
           dom: dom++,
           rect
         };
-        if (!nativeBounds.some((native) => intersects(visualRect, native.rect) && above(layer, native)))
+        const layerViewport = scrollPathViewport(layerScrollPath);
+        if (!nativeBounds.some((native) => canMoveIntoIntersection({
+          rect,
+          visualRect,
+          coordinateSpace,
+          scrollPath: layerScrollPath
+        }, native) || layerViewport !== null && intersects(layerViewport, native.visualRect))) {
           continue;
+        }
         const style = getComputedStyle(element);
-        const radius = uniformCssCornerRadius([
+        const radius = paintsDocumentCanvas ? 0 : uniformCssCornerRadius([
           style.borderTopLeftRadius,
           style.borderTopRightRadius,
           style.borderBottomRightRadius,
@@ -1813,17 +2461,40 @@
           ...layer,
           rect: { ...rect, r: radius ?? 0 },
           visualRect: { ...visualRect, r: radius ?? 0 },
-          scrollContainer,
-          cutoutIssue: scrollContainers.length > 1 ? {
-            reason: "web surfaces inside nested independent scroll containers cannot be tracked safely",
-            mayMoveWithoutRefresh: true
-          } : radius === null ? {
+          coordinateSpace,
+          scrollPath: layerScrollPath,
+          backgroundPaint,
+          cutoutIssue: radius === null ? {
             reason: "automatically detected web surfaces require a uniform pixel border-radius",
             mayMoveWithoutRefresh: false
-          } : issue
+          } : issue,
+          overlayCutoutIssue
         });
       }
       return layers;
+    }
+    detectBackgroundPaintConflicts(natives, layers) {
+      for (const layer of layers) {
+        if (!layer.backgroundPaint)
+          continue;
+        const style = getComputedStyle(layer.el);
+        const backgroundClips = style.backgroundClip.split(",").map((value) => value.trim()).filter(Boolean);
+        const backgroundClip = backgroundClips[backgroundClips.length - 1] ?? "border-box";
+        for (const native of natives) {
+          if (!native.active || native.plane !== "underlay" || !native.visualRect || !above(native, layer) || !intersects(native.visualRect, layer.visualRect)) {
+            continue;
+          }
+          if (canClipLayerAsUnit(layer.el, native.handle.el))
+            continue;
+          const unsafe = backgroundClip !== "border-box" || directTextIntersects(layer.el, native.visualRect) || hasVisiblePseudoElement(layer.el) || /\binset\b/i.test(style.boxShadow) || !borderContains(layer.el, native.visualRect);
+          if (!unsafe)
+            continue;
+          native.fallbackReason = "overlapping web paint cannot be separated from its background";
+          native.active = false;
+          native.rect = null;
+          native.visualRect = null;
+        }
+      }
     }
     detectLayerCoordinateConflicts(natives, layers) {
       if (!this.compositionEnabled)
@@ -1836,7 +2507,7 @@
         if (!issue)
           continue;
         for (const native of natives) {
-          if (!native.active || !native.rect || !native.visualRect || !issue.mayMoveWithoutRefresh && !intersects(native.visualRect, layer.visualRect)) {
+          if (!native.active || native.plane !== "underlay" || !native.rect || !native.visualRect || !above(native, layer) || !issue.mayMoveWithoutRefresh && !intersects(native.visualRect, layer.visualRect)) {
             continue;
           }
           const covered = layers.some((cover) => cover !== layer && cover.cutoutIssue === null && isElementVisible(cover.el) && above(cover, native) && opaqueContainsRect(cover.visualRect, layer.visualRect));
@@ -1851,13 +2522,15 @@
       for (const native of natives) {
         if (!native.active || !native.visualRect)
           continue;
-        const scrollViewport = native.scrollContainer ? scrollContainerRect(native.scrollContainer) : null;
+        const nativeScrollViewport = scrollPathViewport(native.scrollPath);
         for (const layer of layers) {
-          if (layer.cutoutIssue !== null || layer.el === native.scrollContainer || layer.scrollContainer === native.scrollContainer || !above(layer, native) || !isElementVisible(layer.el)) {
+          if (layer.cutoutIssue !== null || native.scrollPath.includes(layer.el) || sameScrollPath(layer.scrollPath, native.scrollPath) || !above(layer, native) || !isElementVisible(layer.el)) {
             continue;
           }
-          const layerScrollViewport = layer.scrollContainer ? scrollContainerRect(layer.scrollContainer) : null;
-          const canCross = intersects(layer.visualRect, native.visualRect) || scrollViewport !== null && intersects(layer.visualRect, scrollViewport) || layerScrollViewport !== null && intersects(layerScrollViewport, native.visualRect);
+          if (usesMotionPresentation(this.innerScrollMode))
+            continue;
+          const layerScrollViewport = scrollPathViewport(layer.scrollPath);
+          const canCross = intersects(layer.visualRect, native.visualRect) || nativeScrollViewport !== null && intersects(layer.visualRect, nativeScrollViewport) || layerScrollViewport !== null && intersects(layerScrollViewport, native.visualRect);
           if (!canCross)
             continue;
           native.fallbackReason = "web layers from a different scroll container use the web fallback";
@@ -1866,23 +2539,6 @@
           native.visualRect = null;
           break;
         }
-      }
-    }
-    degradeOverlappingRoundedCutouts(natives, layers) {
-      for (const native of natives) {
-        if (!native.active || !native.rect)
-          continue;
-        const nativeRect = native.visualRect;
-        if (!nativeRect)
-          continue;
-        const cutouts = layers.filter((layer) => layer.cutoutIssue === null && isElementVisible(layer.el) && above(layer, native) && layer.scrollContainer === native.scrollContainer && intersects(layer.visualRect, nativeRect));
-        const unsupported = cutouts.some((left, index) => cutouts.slice(index + 1).some((right) => intersects(left.visualRect, right.visualRect) && ((left.rect.r ?? 0) > 0 || (right.rect.r ?? 0) > 0)));
-        if (!unsupported)
-          continue;
-        native.fallbackReason = "overlapping rounded web layers require native path union support";
-        native.active = false;
-        native.rect = null;
-        native.visualRect = null;
       }
     }
     enforceUnobscuredSurfaces(natives, layers) {
@@ -1902,9 +2558,288 @@
         native.visualRect = null;
       }
     }
+    resolveMotionDependencies(natives, layers) {
+      for (const native of natives) {
+        native.motionDependencies = new Set(native.scrollPath);
+        if (!native.active || !native.visualRect)
+          continue;
+        for (const layer of layers) {
+          if (sameCoordinatePath(layer, native) || !pathsMayCross(native.visualRect, native.scrollPath, layer.visualRect, layer.scrollPath)) {
+            continue;
+          }
+          addSymmetricPathDifference(native.motionDependencies, native.scrollPath, layer.scrollPath);
+        }
+        for (const other of natives) {
+          if (other === native || !other.active || !other.visualRect || sameCoordinatePath(other, native) || !pathsMayCross(native.visualRect, native.scrollPath, other.visualRect, other.scrollPath)) {
+            continue;
+          }
+          addSymmetricPathDifference(native.motionDependencies, native.scrollPath, other.scrollPath);
+        }
+        if (native.motionDependencies.size <= MAX_MOTION_DEPENDENCIES)
+          continue;
+        native.fallbackReason = "scroll composition dependencies exceed the native host safety limit";
+        native.active = false;
+        native.rect = null;
+        native.visualRect = null;
+        native.scrollPath = [];
+        native.motionDependencies.clear();
+      }
+    }
+    enforceRegionCapacity(natives, layers) {
+      for (const native of natives) {
+        if (!native.active || !native.rect || !native.visualRect)
+          continue;
+        const crossingLayers = layers.filter((layer) => isElementVisible(layer.el) && above(layer, native) && canMoveIntoIntersection(layer, native));
+        const cutoutCount = native.plane === "overlay" ? crossingLayers.filter((layer) => layer.cutoutIssue === null && layer.overlayCutoutIssue === null).length : 0;
+        const exclusionCount = crossingLayers.filter((layer) => {
+          const style = getComputedStyle(layer.el);
+          return style.visibility === "visible" && style.pointerEvents !== "none" && inertAncestor(layer.el) === null;
+        }).length + natives.filter((other) => other !== native && other.active && other.rect !== null && other.visualRect !== null && above(other, native) && intersects(other.visualRect, native.visualRect)).length;
+        if (cutoutCount <= MAX_REGIONS_PER_COMPONENT && exclusionCount <= MAX_REGIONS_PER_COMPONENT)
+          continue;
+        native.fallbackReason = "overlapping composition regions exceed the native host safety limit";
+        native.active = false;
+        native.rect = null;
+        native.visualRect = null;
+        native.scrollPath = [];
+        native.motionDependencies.clear();
+      }
+    }
     syncCompositionFallbacks(natives) {
       for (const native of natives)
         native.handle.setCompositionFallback(native.fallbackReason);
+    }
+    releaseRuntimeClip(element) {
+      const state = this.runtimeClips.get(element);
+      if (!state)
+        return;
+      if (element.style.getPropertyValue("clip-path") === state.appliedValue) {
+        if (state.originalValue) {
+          element.style.setProperty("clip-path", state.originalValue, state.originalPriority);
+        } else {
+          element.style.removeProperty("clip-path");
+        }
+      }
+      element.removeAttribute("data-ni-runtime-clip");
+      this.runtimeClips.delete(element);
+    }
+    releaseRuntimeBackground(element) {
+      const state = this.runtimeBackgrounds.get(element);
+      if (!state)
+        return;
+      for (const property of BACKGROUND_PROPERTIES) {
+        if (element.style.getPropertyValue(property) !== state.applied.get(property))
+          continue;
+        const original = state.original.get(property);
+        if (original?.value) {
+          element.style.setProperty(property, original.value, original.priority);
+        } else {
+          element.style.removeProperty(property);
+        }
+      }
+      element.removeAttribute("data-ni-runtime-background");
+      this.runtimeBackgrounds.delete(element);
+    }
+    applyRuntimeBackground(layer, holes) {
+      const source = layer.backgroundPaint;
+      if (!source)
+        return false;
+      let state = this.runtimeBackgrounds.get(layer.el);
+      if (!state) {
+        state = {
+          original: new Map(BACKGROUND_PROPERTIES.map((property) => [
+            property,
+            {
+              value: layer.el.style.getPropertyValue(property),
+              priority: layer.el.style.getPropertyPriority(property)
+            }
+          ])),
+          applied: /* @__PURE__ */ new Map(),
+          source
+        };
+        this.runtimeBackgrounds.set(layer.el, state);
+      }
+      const width = round2(layer.rect.w);
+      const height = round2(layer.rect.h);
+      const escapeXml = (value) => value.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      const path = escapeXml(knockoutPathData(layer.rect, holes));
+      const svg = source.image === "none" ? "" : [
+        `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}"`,
+        ` viewBox="0 0 ${width} ${height}" preserveAspectRatio="none">`,
+        `<mask id="m" maskUnits="userSpaceOnUse" x="0" y="0" width="${width}" height="${height}">`,
+        `<path fill="white" fill-rule="evenodd" d="${path}"/></mask>`,
+        `<foreignObject width="${width}" height="${height}" mask="url(#m)">`,
+        `<div xmlns="http://www.w3.org/1999/xhtml" style="${escapeXml([
+          "box-sizing:border-box",
+          `width:${width}px`,
+          `height:${height}px`,
+          `border-style:solid`,
+          `border-color:transparent`,
+          `border-width:${source.borderWidths.join(" ")}`,
+          `background-color:${source.color}`,
+          `background-image:${source.image}`,
+          `background-size:${source.size}`,
+          `background-position:${source.position}`,
+          `background-repeat:${source.repeat}`,
+          `background-origin:${source.origin}`,
+          `background-clip:${source.clip}`,
+          `background-attachment:${source.attachment}`,
+          `background-blend-mode:${source.blendMode}`
+        ].join(";"))}"></div></foreignObject></svg>`
+      ].join("");
+      const values = /* @__PURE__ */ new Map([
+        ["background-color", "transparent"],
+        ["background-repeat", "no-repeat"],
+        ["background-origin", "border-box"],
+        ["background-clip", "border-box"],
+        ["background-attachment", "scroll"],
+        ["background-blend-mode", "normal"]
+      ]);
+      if (source.image === "none") {
+        const images = [];
+        const sizes = [];
+        const positions = [];
+        for (const rect of complementRects(layer.rect, holes)) {
+          images.push(`linear-gradient(${source.color}, ${source.color})`);
+          sizes.push(`${round2(rect.w)}px ${round2(rect.h)}px`);
+          positions.push(`${round2(rect.x - layer.rect.x)}px ${round2(rect.y - layer.rect.y)}px`);
+        }
+        for (const hole of holes) {
+          const radius = Math.min(hole.r ?? 0, hole.w / 2, hole.h / 2);
+          if (radius <= 0)
+            continue;
+          const left = round2(hole.x - layer.rect.x);
+          const top = round2(hole.y - layer.rect.y);
+          const right = round2(left + hole.w - radius);
+          const bottom = round2(top + hole.h - radius);
+          const size = `${round2(radius)}px ${round2(radius)}px`;
+          const stops = `transparent ${round2(radius)}px, ${source.color} ${round2(radius)}px`;
+          for (const [center, x, y] of [
+            ["100% 100%", left, top],
+            ["0% 100%", right, top],
+            ["100% 0%", left, bottom],
+            ["0% 0%", right, bottom]
+          ]) {
+            images.push(`radial-gradient(circle at ${center}, ${stops})`);
+            sizes.push(size);
+            positions.push(`${x}px ${y}px`);
+          }
+        }
+        if (images.length > 512) {
+          this.releaseRuntimeBackground(layer.el);
+          return false;
+        }
+        values.set("background-image", images.length > 0 ? images.join(", ") : "none");
+        values.set("background-size", sizes.length > 0 ? sizes.join(", ") : "auto");
+        values.set("background-position", positions.length > 0 ? positions.join(", ") : "0px 0px");
+      } else {
+        values.set("background-image", `url("data:image/svg+xml,${encodeURIComponent(svg)}")`);
+        values.set("background-size", `${round2(layer.rect.w)}px ${round2(layer.rect.h)}px`);
+        values.set("background-position", "0px 0px");
+      }
+      for (const [property, value] of values) {
+        if (layer.el.style.getPropertyValue(property) !== value || layer.el.style.getPropertyPriority(property) !== "") {
+          layer.el.style.setProperty(property, value);
+        }
+      }
+      state.applied = new Map(BACKGROUND_PROPERTIES.map((property) => [property, layer.el.style.getPropertyValue(property)]));
+      if (!layer.el.hasAttribute("data-ni-runtime-background")) {
+        layer.el.setAttribute("data-ni-runtime-background", "");
+      }
+      const applied = getComputedStyle(layer.el);
+      const transparent = applied.backgroundColor === "transparent" || applied.backgroundColor === "rgba(0, 0, 0, 0)";
+      const expectedImage = values.get("background-image");
+      if (transparent && (expectedImage === "none" || applied.backgroundImage !== "" && applied.backgroundImage !== "none")) {
+        return true;
+      }
+      this.releaseRuntimeBackground(layer.el);
+      return false;
+    }
+    applyWebKnockouts(natives, layers) {
+      let degraded = false;
+      const currentLayers = new Set(layers.map((layer) => layer.el));
+      for (const element of this.runtimeClips.keys()) {
+        if (!currentLayers.has(element))
+          this.releaseRuntimeClip(element);
+      }
+      for (const element of this.runtimeBackgrounds.keys()) {
+        if (!currentLayers.has(element))
+          this.releaseRuntimeBackground(element);
+      }
+      for (const layer of layers) {
+        const candidates = natives.filter((native) => native.active && native.plane === "underlay" && native.rect !== null && native.visualRect !== null && layer.cutoutIssue === null && above(native, layer) && intersects(native.visualRect, layer.visualRect) && !this.relativePathIsMoving(native.scrollPath, layer.scrollPath));
+        const holeCandidates = candidates.filter((native) => {
+          if (!native.rect || !native.visualRect)
+            return false;
+          if (sameCoordinatePath(native, layer))
+            return true;
+          const fullRect = { ...docRect(native.el), r: native.rect.r };
+          if (fullyVisibleInsideScrollPath(fullRect, native.scrollPath))
+            return true;
+          native.fallbackReason = "partially clipped rounded native islands use their web presentation across scroll paths";
+          native.active = false;
+          native.rect = null;
+          native.visualRect = null;
+          degraded = true;
+          return false;
+        });
+        const holes = this.compositionEnabled ? disjointHoles(holeCandidates.map((native) => sameCoordinatePath(native, layer) ? native.rect : {
+          ...rectInScrollPathCoordinates(native.visualRect, layer.scrollPath),
+          r: native.rect.r
+        })) : [];
+        if (holes.length === 0) {
+          this.releaseRuntimeClip(layer.el);
+          this.releaseRuntimeBackground(layer.el);
+          continue;
+        }
+        const clipLayerAsUnit = layer.backgroundPaint !== null && holeCandidates.every((native) => canClipLayerAsUnit(layer.el, native.handle.el));
+        if (layer.backgroundPaint && !clipLayerAsUnit) {
+          this.releaseRuntimeClip(layer.el);
+          if (this.applyRuntimeBackground(layer, holes))
+            continue;
+          for (const native of natives) {
+            if (!native.active || !native.visualRect || !above(native, layer) || !intersects(native.visualRect, layer.visualRect)) {
+              continue;
+            }
+            native.fallbackReason = "the page background cannot be separated from its web content";
+            native.active = false;
+            native.rect = null;
+            native.visualRect = null;
+            degraded = true;
+          }
+          continue;
+        }
+        this.releaseRuntimeBackground(layer.el);
+        const clip = holes.some((hole) => opaqueContainsRect(hole, layer.rect)) ? "inset(50%)" : knockoutPath(layer.rect, holes);
+        const existing = this.runtimeClips.get(layer.el);
+        if (!existing) {
+          this.runtimeClips.set(layer.el, {
+            originalValue: layer.el.style.getPropertyValue("clip-path"),
+            originalPriority: layer.el.style.getPropertyPriority("clip-path"),
+            appliedValue: ""
+          });
+        }
+        if (layer.el.style.getPropertyValue("clip-path") !== clip || layer.el.style.getPropertyPriority("clip-path") !== "") {
+          layer.el.style.setProperty("clip-path", clip);
+        }
+        const state = existing ?? this.runtimeClips.get(layer.el);
+        if (state)
+          state.appliedValue = layer.el.style.getPropertyValue("clip-path");
+        layer.el.setAttribute("data-ni-runtime-clip", "");
+      }
+      if (degraded)
+        this.applyWebKnockouts(natives, layers);
+    }
+    relativePathIsMoving(nativePath, layerPath) {
+      if (!this.presentationActive || this.movingScrollContainers.size === 0)
+        return false;
+      const nativeSet = new Set(nativePath);
+      const layerSet = new Set(layerPath);
+      for (const container of this.movingScrollContainers) {
+        if (nativeSet.has(container) !== layerSet.has(container))
+          return true;
+      }
+      return false;
     }
     resolve() {
       this.pruneDetachedEffects();
@@ -1916,9 +2851,17 @@
       const layers = this.buildLayers();
       const motion = this.assessMotionSafety(layers);
       const natives = this.buildNatives(motion);
+      this.resolveHostPlanes(natives, layers);
+      this.detectBackgroundPaintConflicts(natives, layers);
       this.detectLayerCoordinateConflicts(natives, layers);
+      this.detectOverlayCutoutConflicts(natives, layers);
       this.enforceUnobscuredSurfaces(natives, layers);
-      this.degradeOverlappingRoundedCutouts(natives, layers);
+      this.resolveMotionDependencies(natives, layers);
+      this.enforceRegionCapacity(natives, layers);
+      this.syncScrollPresentationFaces(natives);
+      this.lastNatives = natives;
+      this.lastLayers = layers;
+      this.applyWebKnockouts(natives, layers);
       this.syncCompositionFallbacks(natives);
       const order = natives.filter((native) => native.active).slice().sort((a, b) => {
         if (above(a, b))
@@ -1931,25 +2874,39 @@
         const style = getComputedStyle(layer.el);
         return style.visibility === "visible" && style.pointerEvents !== "none" && inertAncestor(layer.el) === null;
       };
+      const region = (layer) => ({
+        rect: layer.rect,
+        coordinateSpace: layer.coordinateSpace,
+        scrollPath: layer.scrollPath.map((element) => this.idForScrollContainer(element))
+      });
+      const nativeRegion = (native) => ({
+        rect: native.rect,
+        coordinateSpace: native.coordinateSpace,
+        scrollPath: native.scrollPath.map((element) => this.idForScrollContainer(element))
+      });
       const cutouts = {};
       const exclusions = {};
       for (const native of natives) {
-        if (!native.active || !native.rect || !native.visualRect)
+        if (!native.active || !native.rect)
+          continue;
+        if (!native.visualRect)
           continue;
         const nativeRect = native.visualRect;
-        cutouts[native.handle.islandId] = layers.filter((layer) => layer.cutoutIssue === null && layer.scrollContainer === native.scrollContainer && isElementVisible(layer.el) && above(layer, native) && intersects(layer.visualRect, nativeRect)).map((layer) => layer.rect);
-        const rects = layers.filter((layer) => layer.scrollContainer === native.scrollContainer && touchable(layer) && above(layer, native) && intersects(layer.visualRect, nativeRect)).map((layer) => layer.rect);
+        cutouts[native.handle.islandId] = native.plane === "overlay" ? layers.filter((layer) => layer.cutoutIssue === null && layer.overlayCutoutIssue === null && isElementVisible(layer.el) && above(layer, native) && canMoveIntoIntersection(layer, native)).map(region) : [];
+        exclusions[native.handle.islandId] = layers.filter((layer) => touchable(layer) && above(layer, native) && canMoveIntoIntersection(layer, native)).map(region);
         for (const other of natives) {
-          if (other !== native && other.active && other.rect && other.visualRect && other.scrollContainer === native.scrollContainer && above(other, native) && intersects(other.visualRect, nativeRect)) {
-            rects.push(other.rect);
+          if (other !== native && other.active && other.rect && other.visualRect && above(other, native) && intersects(other.visualRect, nativeRect)) {
+            exclusions[native.handle.islandId].push(nativeRegion(other));
           }
         }
-        exclusions[native.handle.islandId] = rects;
       }
       const components = natives.filter((native) => !native.handle.degraded).map((native) => ({
         id: native.handle.islandId,
         type: native.handle.type,
-        ...native.scrollContainer ? { scrollContainer: this.idForScrollContainer(native.scrollContainer) } : {},
+        plane: native.plane,
+        coordinateSpace: native.coordinateSpace,
+        scrollPath: native.scrollPath.map((element) => this.idForScrollContainer(element)),
+        motionDependencies: Array.from(native.motionDependencies, (element) => this.idForScrollContainer(element)),
         rect: native.rect === null ? null : {
           x: native.rect.x,
           y: native.rect.y,
@@ -1960,18 +2917,21 @@
         interactive: native.interactive,
         active: native.active
       }));
-      const activeScrollContainers = Array.from(new Set(natives.filter((native) => native.active && native.scrollContainer).map((native) => native.scrollContainer)));
+      const activeScrollContainers = Array.from(new Set(natives.filter((native) => native.active).flatMap((native) => Array.from(native.motionDependencies))));
       this.syncScrollListeners(activeScrollContainers);
-      const referencedScrollContainers = Array.from(new Set(natives.filter((native) => !native.handle.degraded && native.scrollContainer).map((native) => native.scrollContainer)));
+      const referencedScrollContainers = Array.from(new Set(natives.filter((native) => !native.handle.degraded).flatMap((native) => Array.from(native.motionDependencies))));
       const scrollContainers = referencedScrollContainers.flatMap((element) => {
-        const rect = scrollContainerRect(element);
-        if (!rect)
+        const visualRect = scrollContainerRect(element);
+        if (!visualRect)
           return [];
+        const ancestorPath = scrollPath(element);
+        const rect = rectInScrollPathCoordinates(visualRect, ancestorPath);
         const offset = physicalScrollOffset(element);
         return [
           {
             id: this.idForScrollContainer(element),
             rect,
+            scrollPath: ancestorPath.map((ancestor) => this.idForScrollContainer(ancestor)),
             contentWidth: round2(element.scrollWidth),
             contentHeight: round2(element.scrollHeight),
             offsetX: offset.x,
@@ -2017,8 +2977,11 @@
     get available() {
       return this.transport.available;
     }
-    get usesScrollPresentation() {
+    get usesWebScrollPresentation() {
       return this.transport.innerScrollMode === "presentation";
+    }
+    get supportsScrollPresentation() {
+      return this.transport.innerScrollMode === "presentation" || this.transport.innerScrollMode === "native-presentation";
     }
     initialize(transport, options = DEFAULT_INITIALIZATION) {
       const priority = transport.available ? options.priority : NATIVE_ISLANDS_TRANSPORT_PRIORITY.unavailable;
@@ -2105,6 +3068,7 @@
       if (this.started || !document.body)
         return;
       this.started = true;
+      this.knownElements.add(document.documentElement);
       this.scan(document.body);
       this.domObserver = new MutationObserver((records) => this.handleDomMutations(records));
       this.domObserver.observe(document.body, {
@@ -2296,6 +3260,12 @@
   function initializeNativeIslands(transport, options) {
     return nativeIslandsRuntime.initialize(transport, options);
   }
+  const WEB_PRESENTATION_OVERRIDES = /* @__PURE__ */ new Map([
+    ["background-clip", "text"],
+    ["-webkit-background-clip", "text"],
+    ["border-image-source", "linear-gradient(transparent, transparent)"],
+    ["border-image-slice", "1"]
+  ]);
   const definitionState = globalSingleton("definitions/v1", () => ({
     islandSequence: 0,
     definitions: /* @__PURE__ */ new Map()
@@ -2347,6 +3317,8 @@
         this.updateScheduled = false;
         this.observedStyleSnapshot = null;
         this.presentationFace = null;
+        this.presentationPaint = null;
+        this.scrollPresentationActive = false;
         this.fallbackAttributeChanges = /* @__PURE__ */ new Map();
         this.fallbackOnClick = null;
         const properties = this;
@@ -2394,11 +3366,12 @@
           return;
         this.nativeCreated = true;
         this.restoreFallbackPresentation();
-        if (nativeIslandsRuntime.usesScrollPresentation) {
+        if (nativeIslandsRuntime.usesWebScrollPresentation) {
           this.renderPresentationFace();
         } else if ((options.accessibility ?? "web") === "web") {
           this.renderAccessibilityFace();
         }
+        this.hideWebPresentation();
         for (const [nativeEvent, domEvent] of Object.entries(options.events ?? {})) {
           this.eventDisposers.push(nativeIslandsRuntime.listen(nativeEvent, (event) => {
             if (event.island !== this.islandId)
@@ -2427,6 +3400,8 @@
           this.nativeCreated = false;
           this.compositionFallbackReason = null;
           this.observedStyleSnapshot = null;
+          this.scrollPresentationActive = false;
+          this.restoreWebPresentation();
           for (const dispose of this.eventDisposers.splice(0))
             dispose();
           nativeIslandsRuntime.unregister(this);
@@ -2453,6 +3428,8 @@
         this.accessibilityFace?.remove();
         this.accessibilityFace = null;
         this.presentationFace = null;
+        this.scrollPresentationActive = false;
+        this.restoreWebPresentation();
         this.setAttribute("data-native-islands-fallback", "");
         this.renderFallback();
         nativeIslandsRuntime.refresh();
@@ -2468,16 +3445,18 @@
         const wasFallback = this.compositionFallbackReason !== null;
         this.compositionFallbackReason = reason;
         if (reason !== null) {
+          this.restoreWebPresentation();
           if (!wasFallback)
             this.renderFallback();
           this.setAttribute("data-native-islands-composition-fallback", "");
         } else {
           this.restoreFallbackPresentation();
-          if (nativeIslandsRuntime.usesScrollPresentation) {
+          if (nativeIslandsRuntime.usesWebScrollPresentation) {
             this.renderPresentationFace();
           } else if ((options.accessibility ?? "web") === "web") {
             this.renderAccessibilityFace();
           }
+          this.hideWebPresentation();
           if (this.nativeCreated)
             this.scheduleUpdate(false);
         }
@@ -2498,6 +3477,15 @@
         } else {
           this.renderFallback();
         }
+      }
+      setScrollPresentation(active) {
+        this.scrollPresentationActive = active;
+        if (!nativeIslandsRuntime.supportsScrollPresentation)
+          return;
+        if (!this.presentationFace && this.nativeCreated && !this.degraded && this.compositionFallbackReason === null) {
+          this.renderPresentationFace();
+        }
+        this.presentationFace?.style.setProperty("visibility", active ? "visible" : "hidden", "important");
       }
       readObservedStyleSnapshot() {
         const style = getComputedStyle(this);
@@ -2527,7 +3515,7 @@
           this.updateScheduled = false;
           if (!this.connected || this.degraded || !nativeIslandsRuntime.available)
             return;
-          if (nativeIslandsRuntime.usesScrollPresentation && refreshPresentation) {
+          if (nativeIslandsRuntime.usesWebScrollPresentation && refreshPresentation) {
             this.renderPresentationFace();
           } else if ((options.accessibility ?? "web") === "web") {
             this.renderAccessibilityFace();
@@ -2536,6 +3524,7 @@
         });
       }
       renderFallback() {
+        this.restoreWebPresentation();
         this.restoreFallbackPresentation();
         this.accessibilityFace = null;
         this.presentationFace = null;
@@ -2556,6 +3545,38 @@
           this.fallbackOnClick = { before: beforeOnClick, after: this.onclick };
         }
         this.setAttribute("data-native-islands-fallback", "");
+      }
+      hideWebPresentation() {
+        if (this.presentationPaint || typeof this.style.getPropertyValue !== "function")
+          return;
+        this.presentationPaint = new Map(Array.from(WEB_PRESENTATION_OVERRIDES.keys(), (property) => [
+          property,
+          {
+            value: this.style.getPropertyValue(property),
+            priority: this.style.getPropertyPriority(property)
+          }
+        ]));
+        for (const [property, value] of WEB_PRESENTATION_OVERRIDES) {
+          this.style.setProperty(property, value, "important");
+        }
+        this.setAttribute("data-native-islands-presentation-hidden", "");
+      }
+      restoreWebPresentation() {
+        const original = this.presentationPaint;
+        if (!original)
+          return;
+        for (const [property, value] of WEB_PRESENTATION_OVERRIDES) {
+          if (this.style.getPropertyValue(property) !== value || this.style.getPropertyPriority(property) !== "important") {
+            continue;
+          }
+          const previous = original.get(property);
+          if (previous?.value)
+            this.style.setProperty(property, previous.value, previous.priority);
+          else
+            this.style.removeProperty(property);
+        }
+        this.removeAttribute("data-native-islands-presentation-hidden");
+        this.presentationPaint = null;
       }
       restoreFallbackPresentation() {
         this.removeAttribute("data-native-islands-fallback");
@@ -2591,6 +3612,7 @@
         }
         face.setAttribute("data-native-islands-presentation-face", "");
         options.renderFallback(face);
+        const hostStyle = typeof getComputedStyle === "function" ? getComputedStyle(this) : null;
         face.style.setProperty("box-sizing", "border-box", "important");
         face.style.setProperty("width", "100%", "important");
         face.style.setProperty("height", "100%", "important");
@@ -2600,17 +3622,25 @@
         face.style.setProperty("min-height", "0", "important");
         face.style.setProperty("border-radius", "inherit", "important");
         face.style.setProperty("overflow", "hidden", "important");
-        face.style.setProperty("pointer-events", "none", "important");
-        if ((options.accessibility ?? "web") === "web") {
-          face.setAttribute("data-native-islands-accessibility-face", "");
-          this.accessibilityFace = face;
-        } else {
-          face.setAttribute("aria-hidden", "true");
-          face.inert = true;
-          this.accessibilityFace = null;
+        if (hostStyle) {
+          face.style.setProperty("background-color", hostStyle.backgroundColor, "important");
+          face.style.setProperty("background-image", hostStyle.backgroundImage, "important");
+          face.style.setProperty("background-size", hostStyle.backgroundSize, "important");
+          face.style.setProperty("background-position", hostStyle.backgroundPosition, "important");
+          face.style.setProperty("background-repeat", hostStyle.backgroundRepeat, "important");
+          face.style.setProperty("border-color", hostStyle.borderColor, "important");
+          face.style.setProperty("border-style", hostStyle.borderStyle, "important");
+          face.style.setProperty("border-width", hostStyle.borderWidth, "important");
+          face.style.setProperty("color", hostStyle.color, "important");
         }
+        face.style.setProperty("pointer-events", "none", "important");
+        face.style.setProperty("visibility", this.scrollPresentationActive ? "visible" : "hidden", "important");
+        face.setAttribute("aria-hidden", "true");
+        face.inert = true;
         this.append(face);
         this.presentationFace = face;
+        if ((options.accessibility ?? "web") === "web")
+          this.renderAccessibilityFace();
       }
       renderAccessibilityFace() {
         this.accessibilityFace?.remove();
@@ -2750,6 +3780,22 @@
       }
     };
   }
+  function requiresUnobscuredSurface() {
+    const exec = cordovaWindow()?.cordova?.exec;
+    if (!exec) return Promise.resolve(true);
+    return new Promise((resolve) => {
+      exec(
+        (value) => {
+          const capabilities = value;
+          resolve(capabilities?.requiresUnobscuredSurface !== false);
+        },
+        () => resolve(true),
+        SERVICE,
+        "capabilities",
+        []
+      );
+    });
+  }
   function initializeCordovaRuntime() {
     if (runtimeInitialized || platform() !== "android") return;
     const transport = createCordovaTransport();
@@ -2773,7 +3819,9 @@
     textColor: "color",
     iconTint: "--os-location-button-icon-color",
     strokeColor: "border-top-color",
-    strokeWidth: "border-top-width"
+    strokeWidth: "border-top-width",
+    pressedCornerRadius: "--os-location-button-pressed-corner-radius",
+    clickablePadding: "--os-location-button-clickable-padding"
   };
   const OBSERVED_ATTRIBUTES = ["text-type"];
   const OBSERVED_STYLES = [
@@ -2782,6 +3830,8 @@
     STYLE_PROPERTIES.iconTint,
     STYLE_PROPERTIES.strokeColor,
     STYLE_PROPERTIES.strokeWidth,
+    STYLE_PROPERTIES.pressedCornerRadius,
+    STYLE_PROPERTIES.clickablePadding,
     "border-top-left-radius"
   ];
   const HEX_COLOR = /^#[0-9A-Fa-f]{6}$/;
@@ -2807,6 +3857,12 @@
     if (!value.endsWith("px")) return fallback;
     const number = Number.parseFloat(value);
     return Number.isFinite(number) && number >= minimum && number <= maximum ? number : fallback;
+  }
+  function clampedPixelStyle(style, name, minimum, maximum, fallback) {
+    const value = style.getPropertyValue(name).trim();
+    if (!value.endsWith("px")) return fallback;
+    const number = Number.parseFloat(value);
+    return Number.isFinite(number) ? Math.min(maximum, Math.max(minimum, number)) : fallback;
   }
   function dispatch(element, type, detail) {
     element.dispatchEvent(new CustomEvent(type, { bubbles: true, composed: true, detail }));
@@ -2857,15 +3913,22 @@
     );
   }
   function renderFallback(element) {
+    element.dataset.osLocationButtonFallbackFace = "";
     const button = document.createElement("button");
     button.type = "button";
     button.className = "os-location-button-fallback";
     const normalizedTextType = textType(element);
     const label2 = TEXT_LABELS[normalizedTextType];
-    const icon = document.createElement("span");
-    icon.className = "os-location-button-fallback__icon";
+    const icon = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    icon.classList.add("os-location-button-fallback__icon");
+    icon.setAttribute("viewBox", "0 0 960 960");
     icon.setAttribute("aria-hidden", "true");
-    icon.textContent = "⌖";
+    const iconPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    iconPath.setAttribute(
+      "d",
+      "M440 918v-80q-125-14-214.5-103.5T122 520H42v-80h80q14-125 103.5-214.5T440 122V42h80v80q125 14 214.5 103.5T838 440h80v80h-80q-14 125-103.5 214.5T520 838v80h-80Zm40-158q116 0 198-82t82-198q0-116-82-198t-198-82q-116 0-198 82t-82 198q0 116 82 198t198 82Zm0-120q-66 0-113-47t-47-113q0-66 47-113t113-47q66 0 113 47t47 113q0 66-47 113t-113 47Zm0-80q33 0 56.5-23.5T560 480q0-33-23.5-56.5T480 400q-33 0-56.5 23.5T400 480q0 33 23.5 56.5T480 560Z"
+    );
+    icon.append(iconPath);
     const text = document.createElement("span");
     text.className = normalizedTextType === "none" ? "os-location-button-fallback__visually-hidden" : "";
     text.textContent = label2;
@@ -2925,7 +3988,15 @@
       color: #ffffff;
     }
 
+    :where([data-os-location-button-fallback-face]) {
+      background-clip: text !important;
+      border-image-source: linear-gradient(transparent, transparent) !important;
+      border-image-slice: 1 !important;
+    }
+
     .os-location-button-fallback {
+      position: relative;
+      isolation: isolate;
       display: inline-flex;
       align-items: center;
       justify-content: center;
@@ -2934,18 +4005,46 @@
       block-size: 100%;
       min-inline-size: 3rem;
       min-block-size: 3rem;
-      padding-inline: 1rem;
-      border: 0;
+      padding-inline: calc(1rem + clamp(4px, var(--os-location-button-clickable-padding, 6px), 8px));
+      border: inherit;
+      border-image-source: linear-gradient(transparent, transparent);
+      border-image-slice: 1;
       border-radius: inherit;
-      background: transparent;
+      background-color: inherit;
+      background-clip: text;
       color: inherit;
-      font: 600 1rem/1 system-ui, sans-serif;
+      font: 500 0.875rem/1.25rem Roboto, system-ui, sans-serif;
+      letter-spacing: 0.007142857em;
+    }
+
+    .os-location-button-fallback::before {
+      content: '';
+      position: absolute;
+      inset: clamp(4px, var(--os-location-button-clickable-padding, 6px), 8px);
+      z-index: 0;
+      box-sizing: border-box;
+      border-width: inherit;
+      border-style: inherit;
+      border-color: inherit;
+      border-radius: inherit;
+      background-color: inherit;
+    }
+
+    .os-location-button-fallback:active::before {
+      border-radius: clamp(0px, var(--os-location-button-pressed-corner-radius, 12px), 68px);
+    }
+
+    .os-location-button-fallback > * {
+      position: relative;
+      z-index: 1;
     }
 
     .os-location-button-fallback__icon {
       color: var(--os-location-button-icon-color, currentColor);
-      font-size: 1.25rem;
-      line-height: 1;
+      inline-size: 1.25rem;
+      block-size: 1.25rem;
+      flex: 0 0 auto;
+      fill: currentColor;
     }
 
     .os-location-button-fallback__visually-hidden {
@@ -2962,7 +4061,7 @@
   `;
     document.head.append(style);
   }
-  function registerLocationButton() {
+  function registerLocationButton(protectedSurface) {
     if (typeof document === "undefined" || typeof HTMLElement === "undefined" || typeof customElements === "undefined" || customElements.get("os-location-button")) {
       return;
     }
@@ -2993,7 +4092,7 @@
       nativeComponent: "os.locationButton",
       isInteractive: true,
       accessibility: "native",
-      requiresUnobscuredSurface: true,
+      requiresUnobscuredSurface: protectedSurface,
       observedAttributes: OBSERVED_ATTRIBUTES,
       observedStyles: OBSERVED_STYLES,
       getProperties: (element) => {
@@ -3007,8 +4106,9 @@
           iconTint: colorStyle(style, STYLE_PROPERTIES.iconTint, textColor),
           strokeColor: colorStyle(style, STYLE_PROPERTIES.strokeColor, "#000000"),
           cornerRadius,
-          pressedCornerRadius: Math.min(cornerRadius, 12),
-          strokeWidth: pixelStyle(style, STYLE_PROPERTIES.strokeWidth, 0, 3, 0)
+          pressedCornerRadius: pixelStyle(style, STYLE_PROPERTIES.pressedCornerRadius, 0, 68, 12),
+          strokeWidth: pixelStyle(style, STYLE_PROPERTIES.strokeWidth, 0, 3, 0),
+          clickablePadding: clampedPixelStyle(style, STYLE_PROPERTIES.clickablePadding, 4, 8, 6)
         };
       },
       renderFallback,
@@ -3021,7 +4121,12 @@
   }
   function boot() {
     initializeCordovaRuntime();
-    registerLocationButton();
+    if (platform() === "android") {
+      installFallbackStyles();
+      void requiresUnobscuredSurface().then(registerLocationButton);
+      return;
+    }
+    registerLocationButton(false);
   }
   if (cordovaWindow()?.cordova && !cordovaWindow()?.cordova?.platformId) {
     document.addEventListener("deviceready", boot, { once: true });

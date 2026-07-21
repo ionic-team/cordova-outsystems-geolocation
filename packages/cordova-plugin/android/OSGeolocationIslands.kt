@@ -54,6 +54,15 @@ class OSGeolocationIslands : CordovaPlugin() {
 
     override fun execute(action: String, args: JSONArray, callback: CallbackContext): Boolean {
         if (action !in SUPPORTED_ACTIONS) return false
+        if (action == "capabilities") {
+            callback.success(
+                JSONObject().put(
+                    "requiresUnobscuredSurface",
+                    IONGLOCLocationButtonRegistry.requiresUnobscuredSurface(),
+                ),
+            )
+            return true
+        }
         val envelope = args.opt(0) as? JSONObject
         if (envelope == null) {
             reject(callback, "invalid_request", "operation envelope must be an object")
@@ -269,6 +278,6 @@ class OSGeolocationIslands : CordovaPlugin() {
     companion object {
         private const val LOCATION_BUTTON_PERMISSION_REQUEST_CODE = 22333
         private val SUPPORTED_ACTIONS =
-            setOf("applyLayout", "applyScrollOffsets", "command", "reset", "events")
+            setOf("applyLayout", "applyScrollOffsets", "command", "reset", "events", "capabilities")
     }
 }

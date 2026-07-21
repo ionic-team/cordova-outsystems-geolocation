@@ -378,7 +378,9 @@ export interface LocationButtonProperties {
     iconColor?: string
     borderColor?: string
     cornerRadius?: number
+    pressedCornerRadius?: number
     borderWidth?: number
+    clickablePadding?: number
 }
 
 export interface LocationButtonPosition {
@@ -408,7 +410,9 @@ const locationButtonStyles: ReadonlyArray<[
     ["iconColor", "--os-location-button-icon-color", ""],
     ["borderColor", "border-color", ""],
     ["cornerRadius", "border-radius", "px"],
+    ["pressedCornerRadius", "--os-location-button-pressed-corner-radius", "px"],
     ["borderWidth", "border-width", "px"],
+    ["clickablePadding", "--os-location-button-clickable-padding", "px"],
 ]
 
 function applyLocationButtonProperties(

@@ -339,7 +339,9 @@ var __privateMethod = (obj, member, method) => (__accessCheck(obj, member, "acce
     ["iconColor", "--os-location-button-icon-color", ""],
     ["borderColor", "border-color", ""],
     ["cornerRadius", "border-radius", "px"],
-    ["borderWidth", "border-width", "px"]
+    ["pressedCornerRadius", "--os-location-button-pressed-corner-radius", "px"],
+    ["borderWidth", "border-width", "px"],
+    ["clickablePadding", "--os-location-button-clickable-padding", "px"]
   ];
   function applyLocationButtonProperties(element, properties) {
     if (Object.prototype.hasOwnProperty.call(properties, "textType")) {

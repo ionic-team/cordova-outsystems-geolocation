@@ -18,7 +18,9 @@ export interface LocationButtonProperties {
     iconColor?: string;
     borderColor?: string;
     cornerRadius?: number;
+    pressedCornerRadius?: number;
     borderWidth?: number;
+    clickablePadding?: number;
 }
 export interface LocationButtonPosition {
     latitude: number;
