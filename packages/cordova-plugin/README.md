@@ -49,6 +49,7 @@ padding is clamped to the Android-supported range of `4px` through `8px`.
 * [`watchPosition(...)`](#watchposition)
 * [`clearWatch(...)`](#clearwatch)
 * [`hasNativeTimeoutHandling(...)`](#hasnativetimeouthandling)
+* [Interfaces](#interfaces)
 * [Type Aliases](#type-aliases)
 
 </docgen-index>
@@ -130,6 +131,17 @@ Returns true if the plugin version supports native timeout handling.
 **Since:** 1.2.0
 
 --------------------
+
+
+### Interfaces
+
+
+#### Position
+
+| Prop         | Type                | Description |
+| ------------ | ------------------- | ----------- |
+| **`line`**   | <code>number</code> | &gt;= 1     |
+| **`column`** | <code>number</code> | &gt;= 0     |
 
 
 ### Type Aliases

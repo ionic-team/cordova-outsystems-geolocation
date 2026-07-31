@@ -1,0 +1,64 @@
+name: (re-usable) Continuous Integration Checks
+
+on:
+  workflow_call:
+    secrets:
+      THE_GH_RELEASE_TOKEN:
+        required: false
+
+jobs:
+  build-plugin:
+    runs-on: 'ubuntu-latest'
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.THE_GH_RELEASE_TOKEN || github.token }}
+
+      - name: 'Setup Tools'
+        uses: ./.github/actions/setup-tools
+
+      - name: 'Copy README.md with plugin API'
+        working-directory: ./packages/cordova-plugin
+        run: cp README.md README.md.original
+
+      - name: 'Build Packages'
+        working-directory: ./packages/cordova-plugin
+        run: npm run build
+
+      - name: 'Check README.md changes'
+        working-directory: ./packages/cordova-plugin
+        run: |
+          if ! cmp --silent README.md README.md.original; then
+            echo "Detected README.md changes; Do 'npm run build' in 'packages/cordova-plugin' to update the docs."
+            exit 1
+          fi
+
+  build-outsystems-wrapper:
+    runs-on: 'ubuntu-latest'
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.THE_GH_RELEASE_TOKEN || github.token }}
+
+      - name: 'Setup Tools'
+        uses: ./.github/actions/setup-tools
+      
+      - name: 'Copy existing generated JS file'
+        working-directory: ./packages/outsystems-wrapper
+        run: cp dist/outsystems.js outsystems.js.original
+
+      - name: 'Build OutSystems JS Wrapper'
+        working-directory: ./packages/outsystems-wrapper
+        run: npm run build
+
+      - name: 'Check generated JS file changes'
+        working-directory: ./packages/outsystems-wrapper
+        run: |
+          if ! cmp --silent dist/outsystems.js outsystems.js.original; then
+            echo "Detected dist/outsystems.js changes; Do 'npm run build' in 'packages/outsystems-wrapper' to update the generated JS files."
+            exit 1
+          fi

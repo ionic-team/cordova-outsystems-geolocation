@@ -1,8 +1,15 @@
-# Changelog
-All notable changes to this project will be documented in this file.
+## [1.3.0](https://github.com/ionic-team/cordova-outsystems-geolocation/compare/1.2.0...1.3.0) (2026-07-14)
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+### Bug Fixes
+
+* **android:** Return error when user rejects request to turn on location with `enableLocationManagerFallback=true` ([#24](https://github.com/ionic-team/cordova-outsystems-geolocation/issues/24)) ([9544119](https://github.com/ionic-team/cordova-outsystems-geolocation/commit/95441198ec507b6783bc4077d894bc13a28c0ae2))
+* **android:** Remove kapt and custom maven repo ([#25](https://github.com/ionic-team/cordova-outsystems-geolocation/issues/25)) ([87c6d64](https://github.com/ionic-team/cordova-outsystems-geolocation/commit/61da66f5c127c53614c0a2949df7dc17e11b77b6))
+
+
+### Features
+
+* **android:** Allow removal of location permissions from manifest ([#23](https://github.com/ionic-team/cordova-outsystems-geolocation/issues/23)) ([435758c](https://github.com/ionic-team/cordova-outsystems-geolocation/commit/435758cee6edc8064a6a997b4e718bf14583ecf2))
 
 ## [Unreleased]
 
