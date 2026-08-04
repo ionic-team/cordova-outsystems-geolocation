@@ -10,12 +10,7 @@ buildscript {
 }
 
 dependencies {
-    // RMET-5383: local build of ion-android-geolocation 2.2.2 until it is published to Maven.
-    // Swap back to implementation("io.ionic.libs:iongeolocation-android:2.2.2") after release.
     implementation files("$projectDir/src/main/libs/iongeolocation-android-2.2.2.aar")
-    implementation("androidx.core:core-ktx:1.13.1")
-    implementation("com.google.android.gms:play-services-base:18.5.0")
-    implementation("androidx.activity:activity-ktx:1.9.3")
     implementation("androidx.browser:browser:1.8.0")
     implementation("com.google.android.gms:play-services-auth:21.2.0")
     implementation("com.google.android.gms:play-services-location:21.3.0")
