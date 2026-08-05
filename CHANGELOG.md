@@ -1,3 +1,10 @@
+## [1.3.2](https://github.com/ionic-team/cordova-outsystems-geolocation/compare/1.3.1...1.3.2) (2026-08-05)
+
+
+### Bug Fixes
+
+* stop losing location results when calls overlap ([#26](https://github.com/ionic-team/cordova-outsystems-geolocation/issues/26)) ([5fc1a60](https://github.com/ionic-team/cordova-outsystems-geolocation/commit/5fc1a60090f9ade5a2c1acfaa94c450494ae3ce2))
+
 ## [1.3.1](https://github.com/ionic-team/cordova-outsystems-geolocation/compare/1.3.0...1.3.1) (2026-08-05)
 
 
