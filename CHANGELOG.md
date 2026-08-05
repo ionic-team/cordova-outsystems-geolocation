@@ -1,3 +1,10 @@
+## [1.3.1](https://github.com/ionic-team/cordova-outsystems-geolocation/compare/1.3.0...1.3.1) (2026-08-05)
+
+
+### Bug Fixes
+
+* **ios:** Correct error when location services are off ([#27](https://github.com/ionic-team/cordova-outsystems-geolocation/issues/27)) ([f603879](https://github.com/ionic-team/cordova-outsystems-geolocation/commit/f603879c98334e6cd587fff85bc6ee6b8fc73af1))
+
 ## [1.3.0](https://github.com/ionic-team/cordova-outsystems-geolocation/compare/1.2.0...1.3.0) (2026-07-14)
 
 
