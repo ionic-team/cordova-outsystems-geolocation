@@ -110,7 +110,11 @@ private extension OSGeolocation {
 
                 switch status {
                 case .denied:
-                    self.callbackManager?.sendError(.permissionDenied)
+                    if self.locationService?.areLocationServicesEnabled() == false {
+                        self.callbackManager?.sendError(.locationServicesDisabled)
+                    } else {
+                        self.callbackManager?.sendError(.permissionDenied)
+                    }
                 case .notDetermined:
                     self.requestLocationAuthorisation(type: .whenInUse)
                 case .restricted:
@@ -201,7 +205,12 @@ private extension OSGeolocation {
 
         switch locationService?.authorisationStatus {
         case .authorisedAlways, .authorisedWhenInUse: requestLocation()
-        case .denied: callbackManager?.sendError(.permissionDenied)
+        case .denied:
+            if locationService?.areLocationServicesEnabled() == false {
+                callbackManager?.sendError(.locationServicesDisabled)
+            } else {
+                callbackManager?.sendError(.permissionDenied)
+            }
         case .restricted: callbackManager?.sendError(.permissionRestricted)
         default: break
         }
