@@ -13,6 +13,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import org.apache.cordova.CallbackContext
 import org.apache.cordova.CordovaPlugin
@@ -30,7 +31,8 @@ class OSGeolocation : CordovaPlugin() {
     private val gson by lazy { Gson() }
 
     // for permissions
-    private lateinit var permissionsFlow: MutableSharedFlow<OSGeolocationPermissionEvents>
+    private val permissionsFlow = MutableSharedFlow<OSGeolocationPermissionEvents>()
+    private var isRequestingPermissions = false
     private lateinit var coroutineScope: CoroutineScope
 
     companion object {
@@ -287,8 +289,6 @@ class OSGeolocation : CordovaPlugin() {
         enableHighAccuracy: Boolean,
         onLocationGranted: suspend () -> Unit
     ) {
-        permissionsFlow = MutableSharedFlow(replay = 1)
-
         // first, we request permissions if necessary
         val permissions = getDeclaredPermissions(enableHighAccuracy)
         if (permissions.isEmpty()) {
@@ -296,18 +296,21 @@ class OSGeolocation : CordovaPlugin() {
             return
         }
         if (hasLocationPermissions(permissions)) {
-            permissionsFlow.emit(OSGeolocationPermissionEvents.Granted)
-        } else { // request necessary permissions
+            onLocationGranted()
+            return
+        }
+        // Android denies a request made while another is in flight, so only ask once and let
+        // the other calls wait for the same answer.
+        if (!isRequestingPermissions) {
+            isRequestingPermissions = true
             requestLocationPermissions(permissions)
         }
 
-        // collect the flow to handle permission request result
-        permissionsFlow.collect { permissionEvent ->
-            if (permissionEvent == OSGeolocationPermissionEvents.Granted) {
-                onLocationGranted()
-            } else {
-                callbackContext.sendError(OSGeolocationErrors.LOCATION_PERMISSIONS_DENIED)
-            }
+        // await this request's result; the shared flow notifies every waiting call
+        if (permissionsFlow.first() == OSGeolocationPermissionEvents.Granted) {
+            onLocationGranted()
+        } else {
+            callbackContext.sendError(OSGeolocationErrors.LOCATION_PERMISSIONS_DENIED)
         }
     }
 
@@ -387,6 +390,7 @@ class OSGeolocation : CordovaPlugin() {
         grantResults: IntArray
     ) {
         if (requestCode == LOCATION_PERMISSIONS_REQUEST_CODE) {
+            isRequestingPermissions = false
             coroutineScope.launch {
                 permissionsFlow.emit(
                     if (grantResults.contains(PackageManager.PERMISSION_GRANTED)) {
