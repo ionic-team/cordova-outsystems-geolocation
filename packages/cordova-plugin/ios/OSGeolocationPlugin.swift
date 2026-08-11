@@ -110,7 +110,11 @@ private extension OSGeolocation {
 
                 switch status {
                 case .denied:
-                    self.callbackManager?.sendError(.permissionDenied)
+                    if self.locationService?.areLocationServicesEnabled() == false {
+                        self.callbackManager?.sendError(.locationServicesDisabled)
+                    } else {
+                        self.callbackManager?.sendError(.permissionDenied)
+                    }
                 case .notDetermined:
                     self.requestLocationAuthorisation(type: .whenInUse)
                 case .restricted:
@@ -129,6 +133,9 @@ private extension OSGeolocation {
         locationCancellable = locationService?.currentLocationPublisher
             .catch { [weak self] error -> AnyPublisher<IONGLOCPositionModel, Never> in
                 print("An error was found while retrieving the location: \(error)")
+                // A failure terminates this subscription; re-bind or later callbacks are dropped. RMET-5383
+                self?.locationInitialized = false
+                self?.bindLocationPublisher()
                 
                 if case IONGLOCLocationError.locationUnavailable = error {
                     print("Location unavailable (likely due to backgrounding). Keeping watch callbacks alive.")
@@ -201,7 +208,12 @@ private extension OSGeolocation {
 
         switch locationService?.authorisationStatus {
         case .authorisedAlways, .authorisedWhenInUse: requestLocation()
-        case .denied: callbackManager?.sendError(.permissionDenied)
+        case .denied:
+            if locationService?.areLocationServicesEnabled() == false {
+                callbackManager?.sendError(.locationServicesDisabled)
+            } else {
+                callbackManager?.sendError(.permissionDenied)
+            }
         case .restricted: callbackManager?.sendError(.permissionRestricted)
         default: break
         }
