@@ -1,11 +1,14 @@
-
 export interface IGeolocationPlugin {
   /**
    * Get the current GPS location of the device
    *
    * @since 1.0.0
    */
-  getCurrentPosition(options: CurrentPositionOptions, success: (output: Position) => void, error: (error: PluginError) => void): void;
+  getCurrentPosition(
+    options: CurrentPositionOptions,
+    success: (output: Position) => void,
+    error: (error: PluginError) => void,
+  ): void;
 
   /**
    * Set up a watch for location changes. Note that watching for location changes
@@ -13,7 +16,11 @@ export interface IGeolocationPlugin {
    *
    * @since 1.0.0
    */
-  watchPosition(options: WatchPositionOptions, success: (output: Position) => void, error: (error: PluginError) => void): void;
+  watchPosition(
+    options: WatchPositionOptions,
+    success: (output: Position) => void,
+    error: (error: PluginError) => void,
+  ): void;
 
   /**
    * Clear a given watch
@@ -28,19 +35,17 @@ export interface IGeolocationPlugin {
    * @since 1.2.0
    */
   hasNativeTimeoutHandling(success: (value: boolean) => void, error: (error: PluginError) => void): void;
-
 }
 
 export type PluginError = {
-  code: string,
-  message: string
-}
+  code: string;
+  message: string;
+};
 
 const SpeedProp = {
   speed: null,
-  velocity: null
-
-}
+  velocity: null,
+};
 
 export type OSGLOCPosition = {
   timestamp: number;
@@ -56,7 +61,7 @@ export type OSGLOCPosition = {
   course?: number | null;
 } & {
   [Prop in keyof typeof SpeedProp]: number | null;
-}
+};
 
 export type CurrentPositionOptions = {
   /**
@@ -103,25 +108,25 @@ export type CurrentPositionOptions = {
 
   /**
    * This option applies to Android only.
-   * 
+   *
    * Whether to fall back to the Android framework's `LocationManager` in case Google Play Service's location settings checks fail.
    * This can happen for multiple reasons - e.g. device has no Play Services or device has no network connection (Airplane Mode)
    * If set to `false`, failures are propagated to the caller.
    * Note that `LocationManager` may not be as effective as Google Play Services implementation.
    * If the device's in airplane mode, only the GPS provider is used, which may take longer to return a location, depending on GPS signal.
    * This means that to receive location in such circumstances, you may need to provide a higher timeout.
-   * 
+   *
    * @default true
    * @since 1.1.0
    */
-  enableLocationFallback?: boolean
-}
+  enableLocationFallback?: boolean;
+};
 
 export type ClearWatchOptions = {
   id: string;
-}
+};
 
-export type WatchPositionOptions = CurrentPositionOptions & ClearWatchOptions
+export type WatchPositionOptions = CurrentPositionOptions & ClearWatchOptions;
 
 export type Position = {
   /**
@@ -229,6 +234,5 @@ export type Position = {
      * @since 1.2.0
      */
     course?: number | null;
-
   };
-}
+};

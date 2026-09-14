@@ -1,17 +1,18 @@
-import { ClearWatchOptions, CurrentPositionOptions, WatchPositionOptions } from "./definitions";
+import type { ClearWatchOptions, CurrentPositionOptions, WatchPositionOptions } from './definitions';
 
 export const CurrentPositionOptionsDefault: CurrentPositionOptions = {
-    enableHighAccuracy: false,
-    timeout: 1000,
-    maximumAge: 0,
-    minimumUpdateInterval: 5000,
-    enableLocationFallback: true
-}
+  enableHighAccuracy: false,
+  timeout: 1000,
+  maximumAge: 0,
+  minimumUpdateInterval: 5000,
+  enableLocationFallback: true,
+};
 
 export const ClearWatchOptionsDefault: ClearWatchOptions = {
-    id: "-1"
-}
+  id: '-1',
+};
 
 export const WatchPositionOptionsDefault: WatchPositionOptions = {
-    ...CurrentPositionOptionsDefault, ...ClearWatchOptionsDefault
-}
+  ...CurrentPositionOptionsDefault,
+  ...ClearWatchOptionsDefault,
+};

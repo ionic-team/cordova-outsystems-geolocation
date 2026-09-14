@@ -1,7 +1,5 @@
 const fs = require('fs');
 const path = require('path');
-const { ConfigParser } = require('cordova-common');
-const { DOMParser, XMLSerializer } = require('@xmldom/xmldom');
 
 const PRECISE = 'PRECISE';
 const APPROXIMATE = 'APPROXIMATE';
@@ -10,6 +8,9 @@ const FINE_LOCATION = 'android.permission.ACCESS_FINE_LOCATION';
 const COARSE_LOCATION = 'android.permission.ACCESS_COARSE_LOCATION';
 
 module.exports = function(context) {
+    const pluginRoot = context.opts.plugin ? context.opts.plugin.dir : path.join(__dirname, '..');
+    const { ConfigParser } = requireFromPlugin(pluginRoot, 'cordova-common');
+    const { DOMParser, XMLSerializer } = requireFromPlugin(pluginRoot, '@xmldom/xmldom');
     const projectRoot = context.opts.cordova.project ? context.opts.cordova.project.root : context.opts.projectRoot;
     const configXML = path.join(projectRoot, 'config.xml');
     const configParser = new ConfigParser(configXML);
@@ -41,6 +42,10 @@ module.exports = function(context) {
     const updatedManifestXmlString = serializer.serializeToString(manifestXmlDoc);
     fs.writeFileSync(manifestFilePath, updatedManifestXmlString, 'utf-8');
 };
+
+function requireFromPlugin(pluginRoot, moduleId) {
+    return require(require.resolve(moduleId, { paths: [pluginRoot] }));
+}
 
 function addPermissionToManifest(manifestXmlDoc, permission) {
     const existingPermissions = Array.from(manifestXmlDoc.getElementsByTagName('uses-permission'));

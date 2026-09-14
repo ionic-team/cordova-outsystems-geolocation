@@ -79,14 +79,14 @@ class OSGeolocationIslands : CordovaPlugin() {
                 val exclusions = envelope.opt("exclusions") as JSONObject
                 val cutouts = envelope.opt("cutouts") as JSONObject
                 val scrollContainers = envelope.opt("scrollContainers") as JSONArray
-                val motionPresentation = envelope.optBoolean("motionPresentation", false)
+                val documentRange = envelope.optDouble("documentRange", 0.0).toFloat()
                 controller.validateLayout(
                     components,
                     order,
                     exclusions,
                     cutouts,
                     scrollContainers,
-                    motionPresentation,
+                    documentRange,
                 )?.let { reason ->
                     reject(callback, "invalid_request", reason)
                     return true
@@ -97,7 +97,7 @@ class OSGeolocationIslands : CordovaPlugin() {
                     exclusions,
                     cutouts,
                     scrollContainers,
-                    motionPresentation,
+                    documentRange,
                     failure = { code, message -> reject(callback, code, message) },
                 ) { callback.success() }
                 true
@@ -118,23 +118,6 @@ class OSGeolocationIslands : CordovaPlugin() {
                     settled = envelope.optBoolean("settled", false),
                     failure = { code, message -> reject(callback, code, message) },
                 ) { callback.success() }
-                true
-            }
-
-            "prepareScrollPresentation" -> {
-                if (
-                    !validate(
-                        callback,
-                        NativeIslandsBridgeValidator.validateScrollPresentationOperation(envelope),
-                    )
-                ) {
-                    return true
-                }
-                if (controller.prepareScrollPresentation(envelope.getJSONArray("containerIds"))) {
-                    callback.success()
-                } else {
-                    reject(callback, "internal_error", "Native scroll presentation is unavailable")
-                }
                 true
             }
 
@@ -298,7 +281,6 @@ class OSGeolocationIslands : CordovaPlugin() {
             setOf(
                 "applyLayout",
                 "applyScrollOffsets",
-                "prepareScrollPresentation",
                 "command",
                 "reset",
                 "events",
