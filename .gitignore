@@ -1,1 +1,6 @@
 node_modules
+
+# Swift Package Manager
+.build/
+.swiftpm/
+Package.resolved

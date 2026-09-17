@@ -1,3 +1,7 @@
+#if canImport(Cordova)
+import Cordova
+#endif // canImport(Cordova)
+
 import IONGeolocationLib
 import Combine
 import UIKit
