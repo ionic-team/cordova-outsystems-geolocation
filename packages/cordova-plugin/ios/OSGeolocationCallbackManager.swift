@@ -86,7 +86,7 @@ private extension OSGeolocationCallbackManager {
         return result
     }
 
-    func send(_ result: CDVPluginResult?, to group: OSGeolocationCallbackGroup) {
+    func send(_ result: CDVPluginResult, to group: OSGeolocationCallbackGroup) {
         group.ids.forEach { callbackId in
             commandDelegate.send(result, callbackId: callbackId)
         }
