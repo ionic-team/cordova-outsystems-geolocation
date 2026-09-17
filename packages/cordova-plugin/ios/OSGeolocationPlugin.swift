@@ -1,6 +1,6 @@
 #if canImport(Cordova)
 import Cordova
-#endif // canImport(Cordova)
+#endif
 
 import IONGeolocationLib
 import Combine
