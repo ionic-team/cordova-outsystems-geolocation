@@ -3844,7 +3844,7 @@
     pressedCornerRadius: "--os-location-button-pressed-corner-radius",
     clickablePadding: "--os-location-button-clickable-padding"
   };
-  const OBSERVED_ATTRIBUTES = ["text-type"];
+  const OBSERVED_ATTRIBUTES = ["text-type", "maximum-age", "timeout", "enable-location-fallback"];
   const OBSERVED_STYLES = [
     STYLE_PROPERTIES.backgroundColor,
     STYLE_PROPERTIES.textColor,
@@ -3885,16 +3885,42 @@
     const number = Number.parseFloat(value);
     return Number.isFinite(number) ? Math.min(maximum, Math.max(minimum, number)) : fallback;
   }
+  function nonNegativeIntegerAttribute(element, name, fallback, minimum = 0) {
+    const value = element.getAttribute(name);
+    if (value === null) return fallback;
+    const number = Number.parseInt(value, 10);
+    return Number.isFinite(number) && number >= minimum ? number : fallback;
+  }
+  function booleanAttribute(element, name, fallback) {
+    const value = element.getAttribute(name);
+    if (value === null) return fallback;
+    if (value === "true") return true;
+    if (value === "false") return false;
+    return fallback;
+  }
   function dispatch(element, type, detail) {
     element.dispatchEvent(new CustomEvent(type, { bubbles: true, composed: true, detail }));
   }
+  function toLocationButtonPosition(position) {
+    return {
+      timestamp: position.timestamp,
+      coords: {
+        latitude: position.latitude,
+        longitude: position.longitude,
+        accuracy: position.accuracy,
+        altitude: position.altitude,
+        altitudeAccuracy: position.altitudeAccuracy,
+        heading: position.heading,
+        speed: position.speed,
+        magneticHeading: position.magneticHeading,
+        trueHeading: position.trueHeading,
+        headingAccuracy: position.headingAccuracy,
+        course: position.course
+      }
+    };
+  }
   function dispatchPosition(element, position) {
-    dispatch(element, "location-position", {
-      latitude: position.coords.latitude,
-      longitude: position.coords.longitude,
-      accuracy: position.coords.accuracy,
-      timestamp: position.timestamp
-    });
+    dispatch(element, "location-position", position);
   }
   function requestNativeFallback(element) {
     const exec = cordovaWindow()?.cordova?.exec;
@@ -3910,12 +3936,7 @@
         dispatch(element, "location-grant", {
           granted: true
         });
-        dispatch(element, "location-position", {
-          latitude: position.latitude,
-          longitude: position.longitude,
-          accuracy: position.accuracy,
-          timestamp: position.timestamp
-        });
+        dispatch(element, "location-position", toLocationButtonPosition(position));
       },
       (value) => {
         const error = value;
@@ -3925,12 +3946,20 @@
           });
         }
         dispatch(element, "location-error", {
-          reason: error?.message || "Location request failed"
+          reason: error?.message || "Location request failed",
+          code: error?.code
         });
       },
       "OSGeolocation",
       "getCurrentPosition",
-      [{ enableHighAccuracy: true }]
+      [
+        {
+          enableHighAccuracy: true,
+          timeout: nonNegativeIntegerAttribute(element, "timeout", 1e4, 1),
+          maximumAge: nonNegativeIntegerAttribute(element, "maximum-age", 0),
+          enableLocationFallback: booleanAttribute(element, "enable-location-fallback", true)
+        }
+      ]
     );
   }
   function renderFallback(element) {
@@ -3984,7 +4013,11 @@
             reason: error.message || "Browser location request failed"
           });
         },
-        { enableHighAccuracy: true }
+        {
+          enableHighAccuracy: true,
+          timeout: nonNegativeIntegerAttribute(element, "timeout", 1e4, 1),
+          maximumAge: nonNegativeIntegerAttribute(element, "maximum-age", 0)
+        }
       );
     });
     element.replaceChildren(button);
@@ -4129,7 +4162,10 @@
           cornerRadius,
           pressedCornerRadius: pixelStyle(style, STYLE_PROPERTIES.pressedCornerRadius, 0, 68, 12),
           strokeWidth: pixelStyle(style, STYLE_PROPERTIES.strokeWidth, 0, 3, 0),
-          clickablePadding: clampedPixelStyle(style, STYLE_PROPERTIES.clickablePadding, 4, 8, 6)
+          clickablePadding: clampedPixelStyle(style, STYLE_PROPERTIES.clickablePadding, 4, 8, 6),
+          maximumAge: nonNegativeIntegerAttribute(element, "maximum-age", 0),
+          timeout: nonNegativeIntegerAttribute(element, "timeout", 1e4, 1),
+          enableLocationFallback: booleanAttribute(element, "enable-location-fallback", true)
         };
       },
       renderFallback,

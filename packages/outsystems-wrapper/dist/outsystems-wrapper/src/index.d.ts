@@ -22,13 +22,7 @@ export interface LocationButtonProperties {
     borderWidth?: number;
     clickablePadding?: number;
 }
-export interface LocationButtonPosition {
-    latitude: number;
-    longitude: number;
-    accuracy: number;
-    timestamp: number;
-}
-export declare function mountLocationButton(containerId: string, properties: LocationButtonProperties, onGrant?: (granted: boolean) => void, onPosition?: (position: LocationButtonPosition) => void, onError?: (reason: string) => void): string;
+export declare function mountLocationButton(containerId: string, properties: LocationButtonProperties, onGrant?: (granted: boolean) => void, onPosition?: (position: Position) => void, onError?: (reason: string, code?: string) => void): string;
 export declare function updateLocationButton(handle: string, properties: LocationButtonProperties): void;
 export declare function updateLocationButtonInContainer(containerId: string, properties: LocationButtonProperties): void;
 export declare function destroyLocationButton(handle: string): void;

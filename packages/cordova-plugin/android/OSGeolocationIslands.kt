@@ -3,13 +3,21 @@ package com.outsystems.plugins.geolocation
 import android.Manifest
 import android.content.pm.PackageManager
 import android.webkit.WebView
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
+import io.ionic.libs.iongeolocationlib.controller.IONGLOCController
+import io.ionic.libs.iongeolocationlib.model.IONGLOCException
+import io.ionic.libs.iongeolocationlib.model.IONGLOCLocationResult
 import io.ionic.libs.iongeolocationlib.view.IONGLOCLocationButtonRegistry
 import io.ionic.libs.iongeolocationlib.view.IONGLOCLocationButtonPermissionRequester
 import io.ionic.libs.ionnativeislandslib.NativeIslandsBridgeValidationError
 import io.ionic.libs.ionnativeislandslib.NativeIslandsBridgeValidator
 import io.ionic.libs.ionnativeislandslib.NativeIslandsController
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 import org.apache.cordova.CallbackContext
 import org.apache.cordova.CordovaPlugin
 import org.apache.cordova.PermissionHelper
@@ -21,6 +29,8 @@ import org.json.JSONObject
 class OSGeolocationIslands : CordovaPlugin() {
 
     private lateinit var controller: NativeIslandsController
+    private lateinit var locationController: IONGLOCController
+    private lateinit var locationCoroutineScope: CoroutineScope
     private val pendingPermissionResults = mutableListOf<(Boolean) -> Unit>()
     private var permissionRequestInFlight = false
 
@@ -34,7 +44,26 @@ class OSGeolocationIslands : CordovaPlugin() {
     }
 
     override fun pluginInitialize() {
-        IONGLOCLocationButtonRegistry.register(cordova.activity, permissionRequester)
+        // Owns its own IONGLOCController, independent of OSGeolocation's — the two
+        // are separate CordovaPlugin instances and sharing one would depend on
+        // Cordova's plugin init ordering, which isn't a documented guarantee.
+        locationCoroutineScope = CoroutineScope(Dispatchers.Main)
+        val activityLauncher = cordova.activity.registerForActivityResult(
+            ActivityResultContracts.StartIntentSenderForResult()
+        ) { result ->
+            locationCoroutineScope.launch {
+                locationController.onResolvableExceptionResult(result.resultCode)
+            }
+        }
+        locationController = IONGLOCController(cordova.context, activityLauncher)
+
+        IONGLOCLocationButtonRegistry.register(
+            cordova.activity,
+            locationController,
+            permissionRequester,
+            ::mapButtonErrorCode,
+            ::mapButtonPosition,
+        )
         controller = NativeIslandsController { event, payload ->
             val channel = eventsChannel ?: return@NativeIslandsController
             val message = JSONObject().put("event", event).put("data", payload)
@@ -185,6 +214,47 @@ class OSGeolocationIslands : CordovaPlugin() {
         }
     }
 
+    /**
+     * Maps a Location Button `fetchPosition()` failure to the matching `OSGeolocationErrors` code.
+     * Passed to [IONGLOCLocationButtonRegistry.register] so the button's error events carry the
+     * same codes as the regular API (see `OSGeolocation`'s `handleErrors`, which shares this mapping).
+     * @param exception Throwable to map
+     */
+    private fun mapButtonErrorCode(exception: Throwable): String? =
+        (exception as? IONGLOCException)?.let { mapToErrorInfo(it).code }
+
+    /**
+     * Maps a Location Button `fetchPosition()` success into the nested `{ timestamp, coords }`
+     * shape matching the JS-facing `Position` type. `IONGLOCLocationResult` itself is flat, and
+     * this repo's regular API (`OSGeolocation.kt`) emits that same flat shape directly via Gson —
+     * there's no existing nested builder to reuse here, unlike Capacitor's `getJSObjectForLocation`.
+     * Passed to [IONGLOCLocationButtonRegistry.register].
+     *
+     * `coords` must be a real `org.json.JSONObject`, not a plain Kotlin `Map` — `NativeIslandsController`'s
+     * event-forwarding `eventSink` only does a shallow `Map<String, Any?> -> JSONObject` conversion (one
+     * `put()` per top-level key); a nested plain `Map` value falls through to `Object.toString()` when
+     * later JSON-stringified and arrives in JS as a garbled string instead of a nested object, while a
+     * nested `JSONObject` value is already a type that stringifies correctly. `JSONObject.put(key, null)`
+     * removes the key rather than storing a null, so nullable fields need an explicit `JSONObject.NULL`.
+     * @param location IONGLOCLocationResult to map
+     */
+    private fun mapButtonPosition(location: IONGLOCLocationResult): Map<String, Any?> = mapOf(
+        "timestamp" to location.timestamp,
+        "coords" to JSONObject().apply {
+            put("latitude", location.latitude)
+            put("longitude", location.longitude)
+            put("altitude", location.altitude)
+            put("accuracy", location.accuracy.toDouble())
+            put("altitudeAccuracy", location.altitudeAccuracy ?: JSONObject.NULL)
+            put("heading", location.heading)
+            put("speed", location.speed)
+            put("magneticHeading", location.magneticHeading ?: JSONObject.NULL)
+            put("trueHeading", location.trueHeading ?: JSONObject.NULL)
+            put("headingAccuracy", location.headingAccuracy ?: JSONObject.NULL)
+            put("course", location.course ?: JSONObject.NULL)
+        },
+    )
+
     private fun requestPreciseLocation(callback: (Boolean) -> Unit) {
         if (PermissionHelper.hasPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)) {
             callback(true)
@@ -289,6 +359,7 @@ class OSGeolocationIslands : CordovaPlugin() {
         pendingPermissionResults.clear()
         permissionRequestInFlight = false
         controller.dispose()
+        locationCoroutineScope.cancel()
         IONGLOCLocationButtonRegistry.unregister(cordova.activity)
     }
 

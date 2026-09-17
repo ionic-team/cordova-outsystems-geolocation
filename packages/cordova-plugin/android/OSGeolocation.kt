@@ -174,39 +174,9 @@ class OSGeolocation : CordovaPlugin() {
         exception: Throwable?,
         callbackContext: CallbackContext
     ) {
-        when (exception) {
-            is IONGLOCException.IONGLOCRequestDeniedException -> {
-                callbackContext.sendError(OSGeolocationErrors.LOCATION_ENABLE_REQUEST_DENIED)
-            }
-
-            is IONGLOCException.IONGLOCSettingsException -> {
-                callbackContext.sendError(OSGeolocationErrors.LOCATION_SETTINGS_ERROR)
-            }
-
-            is IONGLOCException.IONGLOCLocationAndNetworkDisabledException -> {
-                callbackContext.sendError(OSGeolocationErrors.NETWORK_LOCATION_DISABLED_ERROR)
-            }
-
-            is IONGLOCException.IONGLOCInvalidTimeoutException -> {
-                callbackContext.sendError(OSGeolocationErrors.INVALID_TIMEOUT)
-            }
-
-            is IONGLOCException.IONGLOCGoogleServicesException -> {
-                if (exception.resolvable) {
-                    callbackContext.sendError(OSGeolocationErrors.GOOGLE_SERVICES_RESOLVABLE)
-                } else {
-                    callbackContext.sendError(OSGeolocationErrors.GOOGLE_SERVICES_ERROR)
-                }
-            }
-
-            is IONGLOCException.IONGLOCLocationRetrievalTimeoutException -> {
-                callbackContext.sendError(OSGeolocationErrors.GET_LOCATION_TIMEOUT)
-            }
-
-            else -> {
-                callbackContext.sendError(OSGeolocationErrors.POSITION_UNAVAILABLE)
-            }
-        }
+        val errorInfo = (exception as? IONGLOCException)?.let { mapToErrorInfo(it) }
+            ?: OSGeolocationErrors.POSITION_UNAVAILABLE
+        callbackContext.sendError(errorInfo)
     }
 
     /**

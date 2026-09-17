@@ -383,13 +383,6 @@ export interface LocationButtonProperties {
     clickablePadding?: number
 }
 
-export interface LocationButtonPosition {
-    latitude: number
-    longitude: number
-    accuracy: number
-    timestamp: number
-}
-
 interface LocationButtonMount {
     containerId: string
     container: HTMLElement
@@ -443,8 +436,8 @@ export function mountLocationButton(
     containerId: string,
     properties: LocationButtonProperties,
     onGrant?: (granted: boolean) => void,
-    onPosition?: (position: LocationButtonPosition) => void,
-    onError?: (reason: string) => void,
+    onPosition?: (position: Position) => void,
+    onError?: (reason: string, code?: string) => void,
 ): string {
     if (typeof document === "undefined" || typeof customElements === "undefined") {
         throw new Error("Location Button requires a browser document")
@@ -470,23 +463,22 @@ export function mountLocationButton(
         if (typeof detail?.granted === "boolean") onGrant?.(detail.granted)
     }
     const positionListener = (event: Event) => {
-        const detail = (event as CustomEvent<LocationButtonPosition>).detail
+        const detail = (event as CustomEvent<Position | undefined>).detail
         if (
-            detail &&
-            Number.isFinite(detail.latitude) &&
-            Number.isFinite(detail.longitude) &&
-            Number.isFinite(detail.accuracy) &&
+            detail?.coords &&
+            Number.isFinite(detail.coords.latitude) &&
+            Number.isFinite(detail.coords.longitude) &&
+            Number.isFinite(detail.coords.accuracy) &&
             Number.isFinite(detail.timestamp)
         ) {
             onPosition?.(detail)
         }
     }
     const errorListener = (event: Event) => {
-        const detail = (event as CustomEvent<{ reason?: unknown }>).detail
+        const detail = (event as CustomEvent<{ reason?: unknown; code?: unknown }>).detail
         onError?.(
-            typeof detail?.reason === "string"
-                ? detail.reason
-                : "Location Button failed",
+            typeof detail?.reason === "string" ? detail.reason : "Location Button failed",
+            typeof detail?.code === "string" ? detail.code : undefined,
         )
     }
 

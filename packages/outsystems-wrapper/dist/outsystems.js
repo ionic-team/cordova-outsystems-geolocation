@@ -385,14 +385,15 @@ var __privateMethod = (obj, member, method) => (__accessCheck(obj, member, "acce
     };
     const positionListener = (event) => {
       const detail = event.detail;
-      if (detail && Number.isFinite(detail.latitude) && Number.isFinite(detail.longitude) && Number.isFinite(detail.accuracy) && Number.isFinite(detail.timestamp)) {
+      if (detail?.coords && Number.isFinite(detail.coords.latitude) && Number.isFinite(detail.coords.longitude) && Number.isFinite(detail.coords.accuracy) && Number.isFinite(detail.timestamp)) {
         onPosition?.(detail);
       }
     };
     const errorListener = (event) => {
       const detail = event.detail;
       onError?.(
-        typeof detail?.reason === "string" ? detail.reason : "Location Button failed"
+        typeof detail?.reason === "string" ? detail.reason : "Location Button failed",
+        typeof detail?.code === "string" ? detail.code : void 0
       );
     };
     element.addEventListener("location-grant", grantListener);

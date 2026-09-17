@@ -1,5 +1,7 @@
 package com.outsystems.plugins.geolocation
 
+import io.ionic.libs.iongeolocationlib.model.IONGLOCException
+
 /**
  * Object with plugin errors
  */
@@ -88,4 +90,24 @@ object OSGeolocationErrors {
         code = formatErrorCode(18),
         message = "Location permissions are not declared in manifest. Make sure at least ACCESS_COARSE_LOCATION is declared in AndroidManifest.xml, and optionally ACCESS_FINE_LOCATION if you require precise location access."
     )
+}
+
+/**
+ * Maps a known [IONGLOCException] to its corresponding [OSGeolocationErrors.ErrorInfo].
+ * Shared by `OSGeolocation`'s error handling (regular API) and `OSGeolocationIslands`'s
+ * Location Button error-code mapper.
+ */
+internal fun mapToErrorInfo(exception: IONGLOCException): OSGeolocationErrors.ErrorInfo = when (exception) {
+    is IONGLOCException.IONGLOCRequestDeniedException -> OSGeolocationErrors.LOCATION_ENABLE_REQUEST_DENIED
+    is IONGLOCException.IONGLOCSettingsException -> OSGeolocationErrors.LOCATION_SETTINGS_ERROR
+    is IONGLOCException.IONGLOCLocationAndNetworkDisabledException ->
+        OSGeolocationErrors.NETWORK_LOCATION_DISABLED_ERROR
+    is IONGLOCException.IONGLOCInvalidTimeoutException -> OSGeolocationErrors.INVALID_TIMEOUT
+    is IONGLOCException.IONGLOCGoogleServicesException ->
+        if (exception.resolvable) {
+            OSGeolocationErrors.GOOGLE_SERVICES_RESOLVABLE
+        } else {
+            OSGeolocationErrors.GOOGLE_SERVICES_ERROR
+        }
+    is IONGLOCException.IONGLOCLocationRetrievalTimeoutException -> OSGeolocationErrors.GET_LOCATION_TIMEOUT
 }
