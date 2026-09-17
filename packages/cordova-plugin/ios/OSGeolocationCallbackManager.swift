@@ -74,7 +74,9 @@ final class OSGeolocationCallbackManager {
 
 private extension OSGeolocationCallbackManager {
     func createPluginResult(status: CDVCommandStatus, message: [String: Any]) {
-        let result = CDVPluginResult(status: status, messageAs: message)
+        let result: CDVPluginResult? = CDVPluginResult(status: status, messageAs: message)
+        guard let result = result else { return }
+
         allCallbackGroups.forEach { group in
             let resultToSend = configureResult(result, for: group.type)
             send(resultToSend, to: group)
