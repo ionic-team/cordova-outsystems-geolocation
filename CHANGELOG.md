@@ -1,3 +1,10 @@
+## [1.3.3](https://github.com/ionic-team/cordova-outsystems-geolocation/compare/1.3.2...1.3.3) (2026-09-18)
+
+
+### Bug Fixes
+
+* Cordova iOS 8 / MABS 13 compatibility and SPM support ([#29](https://github.com/ionic-team/cordova-outsystems-geolocation/issues/29)) ([355d4c8](https://github.com/ionic-team/cordova-outsystems-geolocation/commit/355d4c8d24a3386ce3c0aa13d75134bb30b7c6e9)), closes [#endif](https://github.com/ionic-team/cordova-outsystems-geolocation/issues/endif)
+
 ## [1.3.2](https://github.com/ionic-team/cordova-outsystems-geolocation/compare/1.3.1...1.3.2) (2026-08-05)
 
 
