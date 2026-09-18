@@ -381,6 +381,12 @@ export interface LocationButtonProperties {
     pressedCornerRadius?: number
     borderWidth?: number
     clickablePadding?: number
+    /** Maximum age (ms) of a cached position the button may reuse instead of fetching fresh. */
+    maximumAge?: number
+    /** Timeout (ms) for the underlying location fetch. */
+    timeout?: number
+    /** Whether to fall back to LocationManager if the primary provider fails. @default true */
+    enableLocationFallback?: boolean
 }
 
 interface LocationButtonMount {
@@ -408,16 +414,31 @@ const locationButtonStyles: ReadonlyArray<[
     ["clickablePadding", "--os-location-button-clickable-padding", "px"],
 ]
 
+// Properties that map to plugin-observed HTML attributes on <os-location-button>, rather than
+// CSS (see locationButtonStyles above for those). `format` turns the property's own value type
+// (string/number/boolean) into the attribute's string representation.
+const locationButtonAttributes: ReadonlyArray<[
+    keyof LocationButtonProperties,
+    string,
+    (value: NonNullable<unknown>) => string,
+]> = [
+    ["textType", "text-type", (value) => String(value)],
+    ["maximumAge", "maximum-age", (value) => String(value)],
+    ["timeout", "timeout", (value) => String(value)],
+    ["enableLocationFallback", "enable-location-fallback", (value) => (value ? "true" : "false")],
+]
+
 function applyLocationButtonProperties(
     element: HTMLElement,
     properties: LocationButtonProperties,
 ): void {
-    if (Object.prototype.hasOwnProperty.call(properties, "textType")) {
-        const value = properties.textType
-        if (!value) {
-            element.removeAttribute("text-type")
+    for (const [property, attribute, format] of locationButtonAttributes) {
+        if (!Object.prototype.hasOwnProperty.call(properties, property)) continue
+        const value = properties[property]
+        if (value === undefined || value === null || value === "") {
+            element.removeAttribute(attribute)
         } else {
-            element.setAttribute("text-type", value)
+            element.setAttribute(attribute, format(value))
         }
     }
 

@@ -341,13 +341,20 @@ const locationButtonStyles = [
   ["borderWidth", "border-width", "px"],
   ["clickablePadding", "--os-location-button-clickable-padding", "px"]
 ];
+const locationButtonAttributes = [
+  ["textType", "text-type", (value) => String(value)],
+  ["maximumAge", "maximum-age", (value) => String(value)],
+  ["timeout", "timeout", (value) => String(value)],
+  ["enableLocationFallback", "enable-location-fallback", (value) => value ? "true" : "false"]
+];
 function applyLocationButtonProperties(element, properties) {
-  if (Object.prototype.hasOwnProperty.call(properties, "textType")) {
-    const value = properties.textType;
-    if (!value) {
-      element.removeAttribute("text-type");
+  for (const [property, attribute, format] of locationButtonAttributes) {
+    if (!Object.prototype.hasOwnProperty.call(properties, property)) continue;
+    const value = properties[property];
+    if (value === void 0 || value === null || value === "") {
+      element.removeAttribute(attribute);
     } else {
-      element.setAttribute("text-type", value);
+      element.setAttribute(attribute, format(value));
     }
   }
   for (const [property, cssProperty, unit] of locationButtonStyles) {

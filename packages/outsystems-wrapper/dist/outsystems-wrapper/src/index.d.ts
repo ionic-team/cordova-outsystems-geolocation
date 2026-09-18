@@ -21,6 +21,12 @@ export interface LocationButtonProperties {
     pressedCornerRadius?: number;
     borderWidth?: number;
     clickablePadding?: number;
+    /** Maximum age (ms) of a cached position the button may reuse instead of fetching fresh. */
+    maximumAge?: number;
+    /** Timeout (ms) for the underlying location fetch. */
+    timeout?: number;
+    /** Whether to fall back to LocationManager if the primary provider fails. @default true */
+    enableLocationFallback?: boolean;
 }
 export declare function mountLocationButton(containerId: string, properties: LocationButtonProperties, onGrant?: (granted: boolean) => void, onPosition?: (position: Position) => void, onError?: (reason: string, code?: string) => void): string;
 export declare function updateLocationButton(handle: string, properties: LocationButtonProperties): void;
