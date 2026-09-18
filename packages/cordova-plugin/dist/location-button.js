@@ -2,7 +2,7 @@
   "use strict";
   function globalSingleton(name, create) {
     const key = Symbol.for(`@capacitor/native-islands/${name}`);
-    const scope = typeof window === "undefined" ? globalThis : window;
+    const scope = globalThis;
     const existing = scope[key];
     if (existing !== void 0)
       return existing;
@@ -24,7 +24,7 @@
   function islandContract(nativeComponent) {
     return contracts.get(nativeComponent);
   }
-  const PROTOCOL_VERSION = 7;
+  const PROTOCOL_VERSION = 6;
   const BRIDGE_LIMITS = {
     requestBytes: 16384,
     identifierBytes: 64,
@@ -75,33 +75,24 @@
   }
   function docRect(element) {
     const bounds = element.getBoundingClientRect();
-    const x = round2(bounds.left + window.scrollX);
-    const y = round2(bounds.top + window.scrollY);
-    const right = round2(bounds.left + bounds.width + window.scrollX);
-    const bottom = round2(bounds.top + bounds.height + window.scrollY);
     return {
-      x,
-      y,
-      w: round2(right - x),
-      h: round2(bottom - y)
+      x: round2(bounds.left + window.scrollX),
+      y: round2(bounds.top + window.scrollY),
+      w: round2(bounds.width),
+      h: round2(bounds.height)
     };
   }
   function viewportRect(element) {
     const bounds = element.getBoundingClientRect();
-    const x = round2(bounds.left);
-    const y = round2(bounds.top);
-    const right = round2(bounds.left + bounds.width);
-    const bottom = round2(bounds.top + bounds.height);
     return {
-      x,
-      y,
-      w: round2(right - x),
-      h: round2(bottom - y)
+      x: round2(bounds.left),
+      y: round2(bounds.top),
+      w: round2(bounds.width),
+      h: round2(bounds.height)
     };
   }
   function isSafeBridgeRect(rect) {
-    var _a;
-    const radius = (_a = rect.r) !== null && _a !== void 0 ? _a : 0;
+    const radius = rect.r ?? 0;
     return [rect.x, rect.y, rect.w, rect.h, radius].every(Number.isFinite) && Math.abs(rect.x) <= BRIDGE_LIMITS.coordinateMagnitudeCssPixels && Math.abs(rect.y) <= BRIDGE_LIMITS.coordinateMagnitudeCssPixels && rect.w > 0 && rect.w <= BRIDGE_LIMITS.sizeCssPixels && rect.h > 0 && rect.h <= BRIDGE_LIMITS.sizeCssPixels && radius >= 0 && radius <= BRIDGE_LIMITS.sizeCssPixels;
   }
   function intersects(left, right) {
@@ -152,21 +143,12 @@
         }
       }
       const rects = component.map((index) => survivors[index]);
-      if (rects.length === 1 || rects.some((rect) => {
-        var _a;
-        return ((_a = rect.r) !== null && _a !== void 0 ? _a : 0) > 0;
-      })) {
+      if (rects.length === 1 || rects.some((rect) => (rect.r ?? 0) > 0)) {
         output.push(...rects);
         continue;
       }
-      const xs = Array.from(new Set(rects.reduce((values, rect) => {
-        values.push(rect.x, rect.x + rect.w);
-        return values;
-      }, []))).sort((a, b) => a - b);
-      const ys = Array.from(new Set(rects.reduce((values, rect) => {
-        values.push(rect.y, rect.y + rect.h);
-        return values;
-      }, []))).sort((a, b) => a - b);
+      const xs = Array.from(new Set(rects.flatMap((rect) => [rect.x, rect.x + rect.w]))).sort((a, b) => a - b);
+      const ys = Array.from(new Set(rects.flatMap((rect) => [rect.y, rect.y + rect.h]))).sort((a, b) => a - b);
       const union = [];
       for (let yIndex = 0; yIndex < ys.length - 1; yIndex++) {
         const y = ys[yIndex];
@@ -196,22 +178,14 @@
     return output.sort((left, right) => left.y - right.y || left.x - right.x || left.w - right.w || left.h - right.h);
   }
   function complementRects(layer, holes) {
-    const clipped = holes.reduce((values, hole) => {
+    const clipped = holes.flatMap((hole) => {
       const value = intersection(layer, hole);
-      if (value)
-        values.push(value);
-      return values;
-    }, []);
+      return value ? [value] : [];
+    });
     if (clipped.length === 0)
-      return [Object.assign(Object.assign({}, layer), { r: 0 })];
-    const xs = Array.from(new Set(clipped.reduce((values, rect) => {
-      values.push(rect.x, rect.x + rect.w);
-      return values;
-    }, [layer.x, layer.x + layer.w]))).sort((a, b) => a - b);
-    const ys = Array.from(new Set(clipped.reduce((values, rect) => {
-      values.push(rect.y, rect.y + rect.h);
-      return values;
-    }, [layer.y, layer.y + layer.h]))).sort((a, b) => a - b);
+      return [{ ...layer, r: 0 }];
+    const xs = Array.from(/* @__PURE__ */ new Set([layer.x, layer.x + layer.w, ...clipped.flatMap((rect) => [rect.x, rect.x + rect.w])])).sort((a, b) => a - b);
+    const ys = Array.from(/* @__PURE__ */ new Set([layer.y, layer.y + layer.h, ...clipped.flatMap((rect) => [rect.y, rect.y + rect.h])])).sort((a, b) => a - b);
     const output = [];
     for (let yIndex = 0; yIndex < ys.length - 1; yIndex++) {
       const y = ys[yIndex];
@@ -239,13 +213,12 @@
     return output;
   }
   function opaqueContainsRect(outer, inner) {
-    var _a, _b, _c;
     if (!contains(outer, inner))
       return false;
-    if (Math.abs(outer.x - inner.x) <= CONTAINMENT_EPSILON && Math.abs(outer.y - inner.y) <= CONTAINMENT_EPSILON && Math.abs(outer.w - inner.w) <= CONTAINMENT_EPSILON && Math.abs(outer.h - inner.h) <= CONTAINMENT_EPSILON && Math.abs(((_a = outer.r) !== null && _a !== void 0 ? _a : 0) - ((_b = inner.r) !== null && _b !== void 0 ? _b : 0)) <= CONTAINMENT_EPSILON) {
+    if (Math.abs(outer.x - inner.x) <= CONTAINMENT_EPSILON && Math.abs(outer.y - inner.y) <= CONTAINMENT_EPSILON && Math.abs(outer.w - inner.w) <= CONTAINMENT_EPSILON && Math.abs(outer.h - inner.h) <= CONTAINMENT_EPSILON && Math.abs((outer.r ?? 0) - (inner.r ?? 0)) <= CONTAINMENT_EPSILON) {
       return true;
     }
-    const radius = Math.min((_c = outer.r) !== null && _c !== void 0 ? _c : 0, outer.w / 2, outer.h / 2);
+    const radius = Math.min(outer.r ?? 0, outer.w / 2, outer.h / 2);
     if (radius <= 0)
       return true;
     const corners = [
@@ -267,37 +240,19 @@
     return Boolean(rect.r && rect.r > 0);
   }
   function knockoutPathData(layer, holes) {
-    var _a;
     const width = round2(layer.w);
     const height = round2(layer.h);
     let path = `M0 0 H${width} V${height} H0 Z`;
     for (const hole of holes) {
       const x = round2(hole.x - layer.x);
       const y = round2(hole.y - layer.y);
-      const radius = Math.min((_a = hole.r) !== null && _a !== void 0 ? _a : 0, hole.w / 2, hole.h / 2);
+      const radius = Math.min(hole.r ?? 0, hole.w / 2, hole.h / 2);
       path += ` M${round2(x + radius)} ${y} A${radius} ${radius} 0 0 0 ${x} ${round2(y + radius)} L${x} ${round2(y + hole.h - radius)} A${radius} ${radius} 0 0 0 ${round2(x + radius)} ${round2(y + hole.h)} L${round2(x + hole.w - radius)} ${round2(y + hole.h)} A${radius} ${radius} 0 0 0 ${round2(x + hole.w)} ${round2(y + hole.h - radius)} L${round2(x + hole.w)} ${round2(y + radius)} A${radius} ${radius} 0 0 0 ${round2(x + hole.w - radius)} ${y} Z`;
     }
     return path;
   }
   function knockoutPath(layer, holes) {
     return `path("${knockoutPathData(layer, holes)}")`;
-  }
-  function knockoutMaskDefinition(layer, holes) {
-    const width = round2(layer.w);
-    const height = round2(layer.h);
-    const removed = holes.map((hole) => {
-      var _a;
-      const x = round2(hole.x - layer.x);
-      const y = round2(hole.y - layer.y);
-      const radius = Math.max(0, Math.min((_a = hole.r) !== null && _a !== void 0 ? _a : 0, hole.w / 2, hole.h / 2));
-      return `<rect x="${x}" y="${y}" width="${round2(hole.w)}" height="${round2(hole.h)}" rx="${radius}" fill="black"/>`;
-    }).join("");
-    return `<mask id="ni-knockout" maskUnits="userSpaceOnUse" maskContentUnits="userSpaceOnUse" x="0" y="0" width="${width}" height="${height}" style="mask-type:luminance"><rect width="${width}" height="${height}" fill="white"/>${removed}</mask>`;
-  }
-  function knockoutMaskSvg(layer, holes) {
-    const width = round2(layer.w);
-    const height = round2(layer.h);
-    return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><defs>${knockoutMaskDefinition(layer, holes)}</defs><rect width="${width}" height="${height}" fill="white" mask="url(#ni-knockout)"/></svg>`;
   }
   function isAxisAlignedTransform(transform) {
     if (!transform || transform === "none")
@@ -335,26 +290,13 @@
     const inline = el.style.getPropertyValue("clip-path");
     return inline !== "" && el.style.getPropertyPriority("clip-path") === "" && style.clipPath === inline;
   }
-  const MASK_PROPERTIES = [
-    "mask-image",
-    "mask-size",
-    "mask-position",
-    "mask-repeat",
-    "mask-mode",
-    "mask-composite",
-    "mask-clip",
-    "mask-origin"
-  ];
-  function runtimeOwnsMask(el, style) {
-    return el.hasAttribute("data-ni-runtime-clip") && MASK_PROPERTIES.every((property) => el.style.getPropertyValue(property) !== "" && el.style.getPropertyPriority(property) === "" && style.getPropertyValue(property) === el.style.getPropertyValue(property));
-  }
   function independentScrollContainers(element) {
     const containers = [];
     let node = composedParentElement(element);
     while (node) {
       if (node !== document.body && node !== document.documentElement) {
         const style = getComputedStyle(node);
-        if (node.hasAttribute("data-ni-root-scroll-owner") || scrolls(node, style))
+        if (scrolls(node, style))
           containers.push(node);
       }
       node = composedParentElement(node);
@@ -433,16 +375,15 @@
     return propertyIsActive(style, "offset-path") || !defaultOffsetRotate;
   }
   function colorAlpha(value) {
-    var _a, _b;
     const color = value.trim().toLowerCase();
     if (color === "transparent")
       return 0;
-    const body = (_a = color.match(/^[a-z]+\((.*)\)$/)) === null || _a === void 0 ? void 0 : _a[1];
+    const body = color.match(/^[a-z]+\((.*)\)$/)?.[1];
     if (!body)
       return null;
-    const slashAlpha = (_b = body.match(/\/\s*([+-]?(?:\d+\.?\d*|\.\d+)%?)(?:\s|$)/)) === null || _b === void 0 ? void 0 : _b[1];
+    const slashAlpha = body.match(/\/\s*([+-]?(?:\d+\.?\d*|\.\d+)%?)(?:\s|$)/)?.[1];
     const commaParts = body.split(",").map((part) => part.trim());
-    const alpha = slashAlpha !== null && slashAlpha !== void 0 ? slashAlpha : commaParts.length === 4 ? commaParts[3] : null;
+    const alpha = slashAlpha ?? (commaParts.length === 4 ? commaParts[3] : null);
     if (alpha === null)
       return 1;
     const parsed = Number.parseFloat(alpha);
@@ -477,19 +418,14 @@
     };
   }
   function backgroundColorClip(style) {
-    var _a;
     const clips2 = style.backgroundClip.split(",").map((value) => value.trim()).filter(Boolean);
-    return (_a = clips2[clips2.length - 1]) !== null && _a !== void 0 ? _a : "border-box";
+    return clips2[clips2.length - 1] ?? "border-box";
   }
   function hasSparsePaint(el, style) {
-    var _a;
     const paintedElementNames = /* @__PURE__ */ new Set(["BUTTON", "CANVAS", "IFRAME", "IMG", "INPUT", "SELECT", "TEXTAREA", "VIDEO"]);
     if (paintedElementNames.has(el.tagName))
       return true;
-    if (Array.from(el.childNodes).some((node) => {
-      var _a2, _b;
-      return node.nodeType === Node.TEXT_NODE && ((_b = (_a2 = node.textContent) === null || _a2 === void 0 ? void 0 : _a2.trim().length) !== null && _b !== void 0 ? _b : 0) > 0;
-    }) && ((_a = colorAlpha(style.color)) !== null && _a !== void 0 ? _a : 0) > 0) {
+    if (Array.from(el.childNodes).some((node) => node.nodeType === Node.TEXT_NODE && (node.textContent?.trim().length ?? 0) > 0) && (colorAlpha(style.color) ?? 0) > 0) {
       return true;
     }
     if (Array.from(el.children).some((child) => ["CANVAS", "IFRAME", "IMG", "SVG", "VIDEO"].includes(child.tagName))) {
@@ -500,17 +436,13 @@
       [style.borderRightWidth, style.borderRightColor],
       [style.borderBottomWidth, style.borderBottomColor],
       [style.borderLeftWidth, style.borderLeftColor]
-    ].some(([width, color]) => {
-      var _a2;
-      return Number.parseFloat(width) > 0 && ((_a2 = colorAlpha(color)) !== null && _a2 !== void 0 ? _a2 : 0) > 0;
-    });
+    ].some(([width, color]) => Number.parseFloat(width) > 0 && (colorAlpha(color) ?? 0) > 0);
     return hasBorder || style.boxShadow !== "" && style.boxShadow !== "none" || style.textShadow !== "" && style.textShadow !== "none" || style.outlineStyle !== "" && style.outlineStyle !== "none" && Number.parseFloat(style.outlineWidth) > 0;
   }
   function hasPaintOutsideBorderBox(el, style) {
     const hasVisiblePseudo = (pseudo) => {
-      var _a;
       const pseudoStyle = getComputedStyle(el, pseudo);
-      const content = ((_a = pseudoStyle.content) !== null && _a !== void 0 ? _a : "").trim();
+      const content = (pseudoStyle.content ?? "").trim();
       if (content === "" || content === "none" || content === "normal")
         return false;
       return pseudoStyle.display !== "none" && pseudoStyle.visibility !== "hidden" && Number.parseFloat(pseudoStyle.opacity) !== 0;
@@ -542,7 +474,7 @@
     }
     return auditWebLayerCutoutComposition(el, modeledScrollContainer, false, allowViewportPosition);
   }
-  function auditWebLayerCutoutComposition(el, modeledScrollContainers = null, backgroundOnly = false, allowViewportPosition = false, aboveNativeUnderlay = false) {
+  function auditWebLayerCutoutComposition(el, modeledScrollContainers = null, backgroundOnly = false, allowViewportPosition = false) {
     const modeledScrollContainerSet = new Set(modeledScrollContainers === null ? [] : Array.isArray(modeledScrollContainers) ? modeledScrollContainers : [modeledScrollContainers]);
     const layerRect = el.getBoundingClientRect();
     let node = el;
@@ -557,7 +489,7 @@
           mayMoveWithoutRefresh: true
         };
       }
-      if (!aboveNativeUnderlay && Number.parseFloat(style.opacity) !== 1 || propertyIsActive(style, "filter") || propertyIsActive(style, "backdrop-filter") || propertyIsActive(style, "-webkit-backdrop-filter") || (style.getPropertyValue("mix-blend-mode").trim() || "normal") !== "normal" || !runtimeClip && propertyIsActive(style, "clip-path") || !runtimeOwnsMask(node, style) && (propertyIsActive(style, "mask-image") || propertyIsActive(style, "-webkit-mask-image"))) {
+      if (Number.parseFloat(style.opacity) !== 1 || propertyIsActive(style, "filter") || propertyIsActive(style, "backdrop-filter") || propertyIsActive(style, "-webkit-backdrop-filter") || (style.getPropertyValue("mix-blend-mode").trim() || "normal") !== "normal" || !runtimeClip && propertyIsActive(style, "clip-path") || propertyIsActive(style, "mask-image") || propertyIsActive(style, "-webkit-mask-image")) {
         return {
           reason: "translucent, filtered, blended, clipped, or masked web layers cannot use box-shaped native cutouts",
           mayMoveWithoutRefresh: false
@@ -578,7 +510,7 @@
       const overflowClips = clips(style);
       const paintContains = clipsThroughPaintContainment(style);
       const modeledScrollClip = modeledScrollContainerSet.has(node) && overflowClips && !paintContains && ["", "0", "0px"].includes(style.getPropertyValue("overflow-clip-margin").trim());
-      if (node !== el && !isViewportRoot && !node.hasAttribute("data-ni-root-scroll-owner") && (overflowClips || paintContains) && !modeledScrollClip && (hasUnsupportedClipEdge(style) || !clipOpaqueShapeContains(node, style, layerRect))) {
+      if (node !== el && !isViewportRoot && (overflowClips || paintContains) && !modeledScrollClip && (hasUnsupportedClipEdge(style) || !clipOpaqueShapeContains(node, style, layerRect))) {
         return {
           reason: `opaque web surface coordinates are unsafe under a partially clipping ${paintContains ? "paint-containment" : "overflow"} ancestor`,
           mayMoveWithoutRefresh: false
@@ -664,7 +596,7 @@
         break;
       }
       const mask = style.maskImage || style.getPropertyValue("-webkit-mask-image");
-      if (!runtimeClip && style.clipPath !== "none" || !runtimeOwnsMask(node, style) && mask && mask !== "none") {
+      if (!runtimeClip && style.clipPath !== "none" || mask && mask !== "none") {
         issues.push({
           code: "css_clip_or_mask",
           island,
@@ -676,7 +608,7 @@
       const overflowClips = clips(style);
       const paintContains = clipsThroughPaintContainment(style);
       const modeledScrollClip = modeledScrollContainerSet.has(node) && overflowClips && !paintContains && ["", "0", "0px"].includes(style.getPropertyValue("overflow-clip-margin").trim());
-      if (node !== el && !isViewportRoot && !node.hasAttribute("data-ni-root-router-prototype") && (overflowClips || paintContains) && !modeledScrollClip && (hasUnsupportedClipEdge(style) || !clipOpaqueShapeContains(node, style, islandRect))) {
+      if (node !== el && !isViewportRoot && (overflowClips || paintContains) && !modeledScrollClip && (hasUnsupportedClipEdge(style) || !clipOpaqueShapeContains(node, style, islandRect))) {
         issues.push({
           code: "overflow_clip",
           island,
@@ -737,7 +669,7 @@
     try {
       json = JSON.stringify(properties);
       wireValue = json === void 0 ? void 0 : JSON.parse(json);
-    } catch (_a) {
+    } catch {
       throw new NativeIslandError("invalid_request", "Native island properties must be JSON-compatible.");
     }
     if (json === void 0 || !hasSupportedDepth(wireValue)) {
@@ -883,207 +815,6 @@
       });
     }
   }
-  function rootScrollAdmission(input) {
-    if (input.optedOut)
-      return { routed: false, reason: "root scrolling is disabled by the author" };
-    if (input.horizontal)
-      return { routed: false, reason: "horizontal root scrolling is not supported" };
-    return { routed: true };
-  }
-  const OWNER_ATTRIBUTE = "data-ni-root-scroll-owner";
-  const OPTOUT_ATTRIBUTE = "data-native-islands-scroll";
-  const RUNWAY = 1e7;
-  const ORIGIN = RUNWAY / 2;
-  const OWNER_STYLE = `
-[${OWNER_ATTRIBUTE}] {
-  overflow-y: hidden !important;
-  overscroll-behavior-y: auto !important;
-  scroll-behavior: auto !important;
-}
-`;
-  const CARRIER_STYLE = `
-html[data-ni-root-scroll] {
-  height: calc(100vh + ${RUNWAY}px) !important;
-  min-height: 0 !important;
-  overflow-y: auto !important;
-}
-html[data-ni-root-scroll] body {
-  position: fixed !important;
-  inset: calc(-1 * var(--ni-document-scroll-offset, 0px)) 0 auto 0 !important;
-  width: 100% !important;
-  margin: 0 !important;
-}
-`;
-  function rootScrollAdmissionFor(element) {
-    const style = getComputedStyle(element);
-    return rootScrollAdmission({
-      optedOut: element.getAttribute(OPTOUT_ATTRIBUTE) === "off",
-      horizontal: element.scrollWidth > element.clientWidth && (style.overflowX === "auto" || style.overflowX === "scroll")
-    });
-  }
-  class RootScrollRuntime {
-    constructor() {
-      this.owners = /* @__PURE__ */ new Map();
-      this.issues = /* @__PURE__ */ new Map();
-      this.active = null;
-      this.documentOffset = 0;
-      this.documentRange = 0;
-      this.rootOffset = ORIGIN;
-      this.ownerStyle = null;
-      this.carrierStyle = null;
-      this.carrierActive = false;
-      this.enabled = false;
-      this.onPointerDown = (event) => {
-        var _a;
-        const active = (_a = event.composedPath().filter((target) => target instanceof HTMLElement).map((target) => this.owners.get(target)).find((candidate) => candidate !== void 0)) !== null && _a !== void 0 ? _a : null;
-        if (this.carrierActive)
-          this.commitRootOffset();
-        if (active === this.active)
-          return;
-        this.active = active;
-        if (active === null) {
-          this.deactivateCarrier();
-        } else if (this.carrierActive) {
-          document.documentElement.dataset.niRootScrollActive = active.id;
-        } else {
-          this.activateCarrier(active.id);
-        }
-      };
-      this.onRootScroll = () => this.commitRootOffset();
-    }
-    setEnabled(enabled) {
-      var _a;
-      if (enabled === this.enabled)
-        return;
-      this.enabled = enabled;
-      if (enabled) {
-        this.documentOffset = window.scrollY;
-        this.documentRange = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
-        this.ownerStyle = document.createElement("style");
-        this.ownerStyle.dataset.niRootScrollOwners = "";
-        this.ownerStyle.textContent = OWNER_STYLE;
-        document.head.append(this.ownerStyle);
-        document.documentElement.dataset.niRootScrollActive = "document";
-        document.addEventListener("pointerdown", this.onPointerDown, true);
-      } else {
-        document.removeEventListener("pointerdown", this.onPointerDown, true);
-        this.clear();
-        delete document.documentElement.dataset.niRootScrollActive;
-        (_a = this.ownerStyle) === null || _a === void 0 ? void 0 : _a.remove();
-        this.ownerStyle = null;
-      }
-    }
-    reconcile(candidates) {
-      var _a;
-      if (!this.enabled)
-        return;
-      if (this.carrierActive)
-        this.commitRootOffset();
-      const retained = /* @__PURE__ */ new Set();
-      let restoreDocument = false;
-      this.issues.clear();
-      for (const candidate of candidates) {
-        const admission = rootScrollAdmissionFor(candidate.element);
-        if (!admission.routed) {
-          this.issues.set(candidate.element, admission.reason);
-          continue;
-        }
-        retained.add(candidate.element);
-        const owner = (_a = this.owners.get(candidate.element)) !== null && _a !== void 0 ? _a : Object.assign({}, candidate);
-        owner.id = candidate.id;
-        this.owners.set(candidate.element, owner);
-        if (candidate.element.getAttribute(OWNER_ATTRIBUTE) !== candidate.id) {
-          candidate.element.setAttribute(OWNER_ATTRIBUTE, candidate.id);
-        }
-      }
-      for (const [element, owner] of this.owners) {
-        if (retained.has(element))
-          continue;
-        if (this.active === owner) {
-          this.active = null;
-          restoreDocument = true;
-        }
-        element.removeAttribute(OWNER_ATTRIBUTE);
-        this.owners.delete(element);
-      }
-      this.documentRange = Math.max(0, (this.carrierActive ? document.body.scrollHeight : document.documentElement.scrollHeight) - window.innerHeight);
-      if (!this.carrierActive)
-        this.documentOffset = window.scrollY;
-      const documentOffset = Math.min(this.documentOffset, this.documentRange);
-      this.documentOffset = documentOffset;
-      if (this.carrierActive) {
-        document.documentElement.style.setProperty("--ni-document-scroll-offset", `${this.documentOffset}px`);
-      }
-      if (restoreDocument)
-        this.deactivateCarrier();
-    }
-    issueFor(element) {
-      var _a;
-      return (_a = this.issues.get(element)) !== null && _a !== void 0 ? _a : null;
-    }
-    isRouted(element) {
-      return this.owners.has(element);
-    }
-    offsetFor(element) {
-      return element.scrollTop;
-    }
-    pageOffset() {
-      return this.carrierActive ? this.documentOffset : window.scrollY;
-    }
-    pageRange() {
-      return this.documentRange;
-    }
-    clear() {
-      this.deactivateCarrier();
-      for (const element of this.owners.keys())
-        element.removeAttribute(OWNER_ATTRIBUTE);
-      this.owners.clear();
-      this.issues.clear();
-      this.active = null;
-    }
-    commitRootOffset() {
-      const active = this.active;
-      if (!this.carrierActive || active === null)
-        return;
-      const nextRootOffset = window.scrollY;
-      const delta = nextRootOffset - this.rootOffset;
-      this.rootOffset = nextRootOffset;
-      if (delta === 0)
-        return;
-      active.element.scrollTop += delta;
-    }
-    activateCarrier(owner) {
-      this.documentOffset = window.scrollY;
-      this.documentRange = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
-      this.carrierStyle = document.createElement("style");
-      this.carrierStyle.dataset.niRootScrollCarrier = "";
-      this.carrierStyle.textContent = CARRIER_STYLE;
-      document.head.append(this.carrierStyle);
-      document.documentElement.style.setProperty("--ni-document-scroll-offset", `${this.documentOffset}px`);
-      document.documentElement.dataset.niRootScroll = "";
-      document.documentElement.dataset.niRootScrollActive = owner;
-      this.carrierActive = true;
-      window.scrollTo(0, ORIGIN);
-      this.rootOffset = window.scrollY;
-      window.addEventListener("scroll", this.onRootScroll, { passive: true });
-    }
-    deactivateCarrier() {
-      var _a;
-      if (!this.carrierActive)
-        return;
-      this.commitRootOffset();
-      window.removeEventListener("scroll", this.onRootScroll);
-      window.scrollTo(0, this.documentOffset);
-      this.carrierActive = false;
-      delete document.documentElement.dataset.niRootScroll;
-      document.documentElement.style.removeProperty("--ni-document-scroll-offset");
-      (_a = this.carrierStyle) === null || _a === void 0 ? void 0 : _a.remove();
-      this.carrierStyle = null;
-      this.rootOffset = window.scrollY;
-      this.documentRange = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
-      document.documentElement.dataset.niRootScrollActive = "document";
-    }
-  }
   let contextMemo = /* @__PURE__ */ new WeakMap();
   let nscMemo = /* @__PURE__ */ new WeakMap();
   let topLayerSequence = 0;
@@ -1091,7 +822,7 @@ html[data-ni-root-scroll] body {
   function matchesState(element, selector) {
     try {
       return element.matches(selector);
-    } catch (_a) {
+    } catch {
       return false;
     }
   }
@@ -1136,7 +867,7 @@ html[data-ni-root-scroll] body {
       result = true;
     } else {
       const cs = getComputedStyle(el);
-      result = hasEffectiveZIndex(el, cs) || cs.position === "fixed" || cs.position === "sticky" || parseFloat(cs.opacity) < 1 || cs.transform !== "none" || cs.translate !== void 0 && cs.translate !== "none" && cs.translate !== "" || cs.perspective !== "none" || cs.filter !== "none" || cs.backdropFilter !== void 0 && cs.backdropFilter !== "none" && cs.backdropFilter !== "" || cs.mixBlendMode !== "normal" || cs.isolation === "isolate" || cs.clipPath !== void 0 && cs.clipPath !== "none" && cs.clipPath !== "" || cs.maskImage !== void 0 && cs.maskImage !== "none" && cs.maskImage !== "" || /transform|opacity|filter|perspective|clip-path/.test(cs.willChange || "") || /paint|layout|strict|content/.test(cs.contain || "") || cs.containerType === "size" || cs.containerType === "inline-size";
+      result = hasEffectiveZIndex(el, cs) || cs.position === "fixed" || cs.position === "sticky" || parseFloat(cs.opacity) < 1 || cs.transform !== "none" || cs.translate !== void 0 && cs.translate !== "none" && cs.translate !== "" || cs.perspective !== "none" || cs.filter !== "none" || cs.backdropFilter !== void 0 && cs.backdropFilter !== "none" && cs.backdropFilter !== "" || cs.mixBlendMode !== "normal" || cs.isolation === "isolate" || cs.clipPath !== void 0 && cs.clipPath !== "none" && cs.clipPath !== "" || /transform|opacity|filter|perspective|clip-path/.test(cs.willChange || "") || /paint|layout|strict|content/.test(cs.contain || "") || cs.containerType === "size" || cs.containerType === "inline-size";
     }
     contextMemo.set(el, result);
     return result;
@@ -1228,7 +959,6 @@ html[data-ni-root-scroll] body {
     return 0;
   }
   function comparePaintOrder(a, b) {
-    var _a, _b;
     if (a === b)
       return 0;
     const topA = activeTopLayerAncestor(a);
@@ -1239,8 +969,8 @@ html[data-ni-root-scroll] body {
       if (topB && !topA)
         return -1;
       if (topA && topB) {
-        const orderA = (_a = topLayerOrder.get(topA)) !== null && _a !== void 0 ? _a : 0;
-        const orderB = (_b = topLayerOrder.get(topB)) !== null && _b !== void 0 ? _b : 0;
+        const orderA = topLayerOrder.get(topA) ?? 0;
+        const orderB = topLayerOrder.get(topB) ?? 0;
         if (orderA !== orderB)
           return orderA - orderB;
         return compareComposedTreeOrder(topA, topB);
@@ -1276,6 +1006,23 @@ html[data-ni-root-scroll] body {
       return phaseA - phaseB;
     return compareComposedTreeOrder(repA, repB);
   }
+  function usesMotionPresentation(mode) {
+    return mode === "presentation" || mode === "native-presentation";
+  }
+  const SCROLL_PRESENTATION_PREPARE = "__CAPACITOR_NATIVE_ISLANDS_SCROLL_PREPARE__";
+  const scrollPreflightState = globalSingleton("scroll-preflight/v1", () => ({
+    containers: /* @__PURE__ */ new Map(),
+    dispose: null
+  }));
+  function invokeScrollPresentationPrepare(containers, sequence) {
+    try {
+      const topWindow = window.top ?? window;
+      const helper = topWindow[SCROLL_PRESENTATION_PREPARE];
+      return typeof helper === "function" && helper(containers, sequence) === true;
+    } catch {
+      return false;
+    }
+  }
   const BACKGROUND_PROPERTIES = [
     "background-color",
     "background-image",
@@ -1297,9 +1044,8 @@ html[data-ni-root-scroll] body {
     return a.z !== b.z ? a.z > b.z : a.dom > b.dom;
   };
   function directTextIntersects(element, rect) {
-    var _a;
     for (const node of element.childNodes) {
-      if (node.nodeType !== Node.TEXT_NODE || !((_a = node.textContent) === null || _a === void 0 ? void 0 : _a.trim()))
+      if (node.nodeType !== Node.TEXT_NODE || !node.textContent?.trim())
         continue;
       const range = document.createRange();
       range.selectNodeContents(node);
@@ -1371,73 +1117,6 @@ html[data-ni-root-scroll] body {
   function sameCoordinatePath(left, right) {
     return left.coordinateSpace === right.coordinateSpace && sameScrollPath(left.scrollPath, right.scrollPath);
   }
-  const CROSS_PATH_OVERLAP_REASON = "overlapping native islands from different scroll containers are unsupported";
-  const COMPLEX_OVERLAP_REASON = "partially overlapping complex opaque regions require native path boolean support";
-  function hasResolvedGeometry(state) {
-    return state.active && state.rect !== null && state.visualRect !== null;
-  }
-  function hasUnsupportedPartialOverlap(left, right) {
-    return partialOverlap(left.visualRect, right.visualRect) && (hasComplexOpaqueShape(left.rect) || hasComplexOpaqueShape(right.rect));
-  }
-  function hasUnsupportedRoundedContainment(outer, inner) {
-    return hasComplexOpaqueShape(outer.rect) && contains(outer.visualRect, inner.visualRect) && !opaqueContainsRect(outer.visualRect, inner.visualRect);
-  }
-  function samePathOverlapReason(left, right) {
-    if (hasUnsupportedPartialOverlap(left, right))
-      return COMPLEX_OVERLAP_REASON;
-    if (hasUnsupportedRoundedContainment(left, right))
-      return COMPLEX_OVERLAP_REASON;
-    if (hasUnsupportedRoundedContainment(right, left))
-      return COMPLEX_OVERLAP_REASON;
-    return null;
-  }
-  function planeSeparatedOverlap(left, right) {
-    const fixedOverlay = (state) => state.plane === "overlay" && state.coordinateSpace === "viewport";
-    const scrolledUnderlay = (state) => state.plane === "underlay" && state.coordinateSpace === "document";
-    const pair = fixedOverlay(left) && scrolledUnderlay(right) ? { overlay: left, underlay: right } : fixedOverlay(right) && scrolledUnderlay(left) ? { overlay: right, underlay: left } : null;
-    if (pair === null)
-      return false;
-    return above(pair.overlay, pair.underlay);
-  }
-  function unsupportedOverlapReason(left, right) {
-    if (left.plane === "underlay" && right.plane === "underlay" && stationaryCoordinatePaths(left, right))
-      return null;
-    if (sameCoordinatePath(left, right))
-      return samePathOverlapReason(left, right);
-    if (!intersects(left.visualRect, right.visualRect))
-      return null;
-    return planeSeparatedOverlap(left, right) ? null : CROSS_PATH_OVERLAP_REASON;
-  }
-  function stationaryCoordinatePaths(left, right) {
-    if (sameCoordinatePath(left, right))
-      return true;
-    if (left.scrollPath.length > 0 || right.scrollPath.length > 0)
-      return false;
-    const root = document.scrollingElement;
-    return root !== null && root.scrollWidth <= root.clientWidth && root.scrollHeight <= root.clientHeight;
-  }
-  function smallerNative(left, right) {
-    return left.rect.w * left.rect.h <= right.rect.w * right.rect.h ? left : right;
-  }
-  function suspendNative(state, reason) {
-    state.inactiveReason = reason;
-    state.active = false;
-    state.rect = null;
-    state.visualRect = null;
-  }
-  function knockoutCandidates(natives, layer) {
-    return natives.filter((native) => hasResolvedGeometry(native) && native.plane === "underlay" && layer.cutoutIssue === null && above(native, layer) && intersects(native.visualRect, layer.visualRect));
-  }
-  function roundedHolesOverlap(holes) {
-    return holes.some((left, index) => holes.slice(index + 1).some((right) => intersects(left, right) && (hasComplexOpaqueShape(left) || hasComplexOpaqueShape(right))));
-  }
-  function maskStyleKey(element) {
-    const style = getComputedStyle(element);
-    return JSON.stringify([
-      element.style.cssText,
-      ...MASK_PROPERTIES.map((property) => style.getPropertyValue(property))
-    ]);
-  }
   function scrollPathOffset(path) {
     return path.reduce((total, element) => {
       const offset = physicalScrollOffset(element);
@@ -1449,21 +1128,18 @@ html[data-ni-root-scroll] body {
   function rectInsideScrollPath(element, path) {
     const rect = docRect(element);
     const offset = scrollPathOffset(path);
-    return Object.assign(Object.assign({}, rect), { x: round2(rect.x + offset.x), y: round2(rect.y + offset.y) });
+    return {
+      ...rect,
+      x: round2(rect.x + offset.x),
+      y: round2(rect.y + offset.y)
+    };
   }
   function rectInScrollPathCoordinates(rect, path) {
     const offset = scrollPathOffset(path);
-    return Object.assign(Object.assign({}, rect), { x: round2(rect.x + offset.x), y: round2(rect.y + offset.y) });
-  }
-  function canonicalScrollRect(rect) {
-    var _a;
-    const tenth = (value) => Math.round(value * 10) / 10;
     return {
-      x: tenth(rect.x),
-      y: tenth(rect.y),
-      w: tenth(rect.w),
-      h: tenth(rect.h),
-      r: tenth((_a = rect.r) !== null && _a !== void 0 ? _a : 0)
+      ...rect,
+      x: round2(rect.x + offset.x),
+      y: round2(rect.y + offset.y)
     };
   }
   function visibleRectInsideScrollPath(rect, path) {
@@ -1538,14 +1214,13 @@ html[data-ni-root-scroll] body {
     };
   }
   function documentCanvasRect() {
-    var _a, _b;
     const root = document.documentElement;
     const body = document.body;
     return {
       x: 0,
       y: 0,
-      w: round2(Math.max(window.innerWidth, root.scrollWidth, (_a = body === null || body === void 0 ? void 0 : body.scrollWidth) !== null && _a !== void 0 ? _a : 0)),
-      h: round2(Math.max(window.innerHeight, root.scrollHeight, (_b = body === null || body === void 0 ? void 0 : body.scrollHeight) !== null && _b !== void 0 ? _b : 0))
+      w: round2(Math.max(window.innerWidth, root.scrollWidth, body?.scrollWidth ?? 0)),
+      h: round2(Math.max(window.innerHeight, root.scrollHeight, body?.scrollHeight ?? 0))
     };
   }
   function hasVisibleBackground(style) {
@@ -1554,19 +1229,8 @@ html[data-ni-root-scroll] body {
     return image !== "" && image !== "none" || color !== "" && color !== "transparent" && color !== "rgba(0,0,0,0)" && !color.endsWith("/0)");
   }
   function isElementVisible(el) {
-    if (!el.isConnected || el.hidden)
+    if (!el.isConnected || el.hidden || el.getClientRects().length === 0)
       return false;
-    const visibilityProbe = el.checkVisibility;
-    if (typeof visibilityProbe === "function") {
-      try {
-        if (!visibilityProbe.call(el))
-          return false;
-      } catch (_a) {
-        return false;
-      }
-    } else if (el.getClientRects().length === 0) {
-      return false;
-    }
     let hasAutomaticContentVisibility = false;
     let current = el;
     while (current) {
@@ -1581,12 +1245,13 @@ html[data-ni-root-scroll] body {
       current = composedParentElement(current);
     }
     if (hasAutomaticContentVisibility) {
-      if (typeof visibilityProbe !== "function")
+      const probe = el.checkVisibility;
+      if (typeof probe !== "function")
         return false;
       try {
-        if (!visibilityProbe.call(el, { contentVisibilityAuto: true }))
+        if (!probe.call(el, { contentVisibilityAuto: true }))
           return false;
-      } catch (_b) {
+      } catch {
         return false;
       }
     }
@@ -1617,10 +1282,6 @@ html[data-ni-root-scroll] body {
     while (current) {
       const position = getComputedStyle(current).position;
       if (position === "fixed" || position === "sticky") {
-        if (current === document.body && document.documentElement.hasAttribute("data-ni-root-scroll")) {
-          current = composedParentElement(current);
-          continue;
-        }
         return {
           element: current,
           position,
@@ -1632,11 +1293,10 @@ html[data-ni-root-scroll] body {
     return null;
   }
   function rootScrollCanCross(documentRect, viewportRect2) {
-    var _a, _b;
     const root = document.documentElement;
     const body = document.body;
-    const maxX = Math.max(0, Math.max(root.scrollWidth, (_a = body === null || body === void 0 ? void 0 : body.scrollWidth) !== null && _a !== void 0 ? _a : 0) - window.innerWidth);
-    const maxY = Math.max(0, Math.max(root.scrollHeight, (_b = body === null || body === void 0 ? void 0 : body.scrollHeight) !== null && _b !== void 0 ? _b : 0) - window.innerHeight);
+    const maxX = Math.max(0, Math.max(root.scrollWidth, body?.scrollWidth ?? 0) - window.innerWidth);
+    const maxY = Math.max(0, Math.max(root.scrollHeight, body?.scrollHeight ?? 0) - window.innerHeight);
     const axisCanCross = (documentStart, documentSize, viewportStart, viewportSize, maximumOffset) => {
       const lowerOffset = documentStart - (viewportStart + viewportSize);
       const upperOffset = documentStart + documentSize - viewportStart;
@@ -1682,7 +1342,7 @@ html[data-ni-root-scroll] body {
       return effectImpactForProperty(transitionProperty);
     }
     const effect = animation.effect;
-    if (typeof (effect === null || effect === void 0 ? void 0 : effect.getKeyframes) !== "function")
+    if (typeof effect?.getKeyframes !== "function")
       return "global-layout";
     try {
       let impact = "none";
@@ -1699,16 +1359,15 @@ html[data-ni-root-scroll] body {
         }
       }
       return impact;
-    } catch (_a) {
+    } catch {
       return "global-layout";
     }
   }
   function animationTarget(animation) {
-    var _a;
-    const target = (_a = animation.effect) === null || _a === void 0 ? void 0 : _a.target;
+    const target = animation.effect?.target;
     if (target instanceof Element)
       return target;
-    const originatingElement = target === null || target === void 0 ? void 0 : target.element;
+    const originatingElement = target?.element;
     return originatingElement instanceof Element ? originatingElement : null;
   }
   function isComposedAncestor(ancestor, element) {
@@ -1723,30 +1382,236 @@ html[data-ni-root-scroll] body {
     return false;
   }
   function canClipLayerAsUnit(layer, native) {
-    return establishesStackingContext(layer.el) && !isComposedAncestor(layer.el, native) && auditWebLayerCutoutComposition(layer.el, layer.scrollPath, false, layer.coordinateSpace === "viewport") === null;
+    return establishesStackingContext(layer) && !isComposedAncestor(layer, native);
   }
   function activeModalDialogs() {
     return Array.from(document.querySelectorAll("dialog")).filter((dialog) => {
       try {
         return dialog.matches(":modal");
-      } catch (_a) {
+      } catch {
         return false;
       }
     });
   }
+  function propertyDescriptor(target, property) {
+    let current = target;
+    while (current) {
+      const descriptor = Object.getOwnPropertyDescriptor(current, property);
+      if (descriptor)
+        return descriptor;
+      current = Object.getPrototypeOf(current);
+    }
+    return void 0;
+  }
+  function prepareForElement(element) {
+    for (const [container, callbacks] of scrollPreflightState.containers) {
+      if (!isComposedAncestor(container, element))
+        continue;
+      for (const callback of callbacks)
+        callback();
+    }
+  }
+  function installGlobalProgrammaticPreflight() {
+    const restores = [];
+    const wrap = (prototype, name, before) => {
+      const descriptor = Object.getOwnPropertyDescriptor(prototype, name);
+      if (!descriptor || typeof descriptor.value !== "function" || descriptor.configurable === false)
+        return;
+      const original = descriptor.value;
+      const wrapped = function(...args) {
+        before(this, args);
+        return Reflect.apply(original, this, args);
+      };
+      try {
+        Object.defineProperty(prototype, name, { ...descriptor, value: wrapped });
+        restores.push(() => {
+          if (Object.getOwnPropertyDescriptor(prototype, name)?.value === wrapped) {
+            Object.defineProperty(prototype, name, descriptor);
+          }
+        });
+      } catch {
+      }
+    };
+    if (typeof Element !== "undefined") {
+      wrap(Element.prototype, "scrollIntoView", (receiver) => {
+        if (receiver instanceof Element)
+          prepareForElement(receiver);
+      });
+    }
+    if (typeof HTMLElement !== "undefined") {
+      wrap(HTMLElement.prototype, "focus", (receiver) => {
+        if (receiver instanceof Element)
+          prepareForElement(receiver);
+      });
+    }
+    const onClick = (event) => {
+      if (!(event.target instanceof Element))
+        return;
+      const anchor = event.target.closest("a[href]");
+      const href = anchor?.getAttribute("href");
+      if (!href?.includes("#"))
+        return;
+      let url;
+      try {
+        url = new URL(href, document.baseURI);
+      } catch {
+        return;
+      }
+      if (url.origin !== window.location.origin || url.pathname !== window.location.pathname || url.search !== window.location.search || !url.hash) {
+        return;
+      }
+      const id = decodeURIComponent(url.hash.slice(1));
+      const target = document.getElementById(id) ?? document.getElementsByName(id)[0];
+      if (target)
+        prepareForElement(target);
+    };
+    const onInvalid = (event) => {
+      if (event.target instanceof Element)
+        prepareForElement(event.target);
+    };
+    if (typeof document !== "undefined") {
+      document.addEventListener("click", onClick, true);
+      document.addEventListener("invalid", onInvalid, true);
+      restores.push(() => {
+        document.removeEventListener("click", onClick, true);
+        document.removeEventListener("invalid", onInvalid, true);
+      });
+    }
+    return () => {
+      for (const restore of restores.reverse())
+        restore();
+    };
+  }
+  function installProgrammaticScrollPreflight(element, prepare) {
+    const restores = [];
+    const preflight = () => {
+      try {
+        prepare();
+      } catch {
+      }
+    };
+    for (const name of ["scroll", "scrollTo", "scrollBy"]) {
+      if (Object.prototype.hasOwnProperty.call(element, name))
+        continue;
+      const original = element[name];
+      if (typeof original !== "function")
+        continue;
+      const descriptor = propertyDescriptor(element, name);
+      try {
+        Object.defineProperty(element, name, {
+          configurable: true,
+          enumerable: descriptor?.enumerable ?? false,
+          writable: true,
+          value: function(...args) {
+            if (this === element)
+              preflight();
+            return Reflect.apply(original, this, args);
+          }
+        });
+        restores.push(() => {
+          delete element[name];
+        });
+      } catch {
+      }
+    }
+    for (const name of ["scrollTop", "scrollLeft"]) {
+      if (Object.prototype.hasOwnProperty.call(element, name))
+        continue;
+      const descriptor = propertyDescriptor(element, name);
+      if (typeof descriptor?.get !== "function" || typeof descriptor.set !== "function")
+        continue;
+      try {
+        Object.defineProperty(element, name, {
+          configurable: true,
+          enumerable: descriptor.enumerable ?? false,
+          get() {
+            return Reflect.apply(descriptor.get, this, []);
+          },
+          set(value) {
+            if (this === element)
+              preflight();
+            Reflect.apply(descriptor.set, this, [value]);
+          }
+        });
+        restores.push(() => {
+          delete element[name];
+        });
+      } catch {
+      }
+    }
+    let callbacks = scrollPreflightState.containers.get(element);
+    if (!callbacks) {
+      callbacks = /* @__PURE__ */ new Set();
+      scrollPreflightState.containers.set(element, callbacks);
+    }
+    callbacks.add(preflight);
+    if (!scrollPreflightState.dispose) {
+      scrollPreflightState.dispose = installGlobalProgrammaticPreflight();
+    }
+    let resizeObserver = null;
+    const mutationObserver = typeof MutationObserver === "undefined" ? null : new MutationObserver((records) => {
+      for (const record of records) {
+        for (const node of record.addedNodes) {
+          if (!(node instanceof HTMLElement))
+            continue;
+          let root = node;
+          while (root.parentElement && root.parentElement !== element) {
+            root = root.parentElement;
+          }
+          if (root.parentElement === element)
+            resizeObserver?.observe(root);
+        }
+      }
+      const relevant = records.some((record) => {
+        const target = record.target instanceof Element ? record.target : record.target.parentElement;
+        if (target?.closest("[data-native-islands-presentation-face]"))
+          return false;
+        if (record.type !== "childList")
+          return true;
+        return [...record.addedNodes, ...record.removedNodes].some((node) => !(node instanceof Element) || !node.matches("[data-native-islands-presentation-face]"));
+      });
+      if (relevant)
+        preflight();
+    });
+    mutationObserver?.observe(element, {
+      attributes: true,
+      characterData: true,
+      childList: true,
+      subtree: true
+    });
+    let resizeReady = false;
+    resizeObserver = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(() => {
+      if (!resizeReady) {
+        resizeReady = true;
+        return;
+      }
+      preflight();
+    });
+    resizeObserver?.observe(element);
+    for (const child of Array.from(element.children ?? [])) {
+      if (child instanceof HTMLElement)
+        resizeObserver?.observe(child);
+    }
+    return () => {
+      mutationObserver?.disconnect();
+      resizeObserver?.disconnect();
+      for (const restore of restores.reverse())
+        restore();
+      const current = scrollPreflightState.containers.get(element);
+      current?.delete(preflight);
+      if (current?.size === 0)
+        scrollPreflightState.containers.delete(element);
+      if (scrollPreflightState.containers.size === 0) {
+        scrollPreflightState.dispose?.();
+        scrollPreflightState.dispose = null;
+      }
+    };
+  }
   class StackingService {
-    get innerScrollMode() {
-      return this.scrollMode;
-    }
-    set innerScrollMode(mode) {
-      this.scrollMode = mode;
-      this.rootScroll.setEnabled(mode === "root");
-    }
     constructor(onOpenRoot = () => void 0, automaticLayerCandidates = () => []) {
       this.automaticLayerCandidates = automaticLayerCandidates;
       this.compositionEnabled = false;
-      this.scrollMode = "unsupported";
-      this.rootScroll = new RootScrollRuntime();
+      this.innerScrollMode = "unsupported";
       this.natives = [];
       this.layers = [];
       this.onChange = null;
@@ -1756,9 +1621,7 @@ html[data-ni-root-scroll] body {
       this.scheduled = false;
       this.acknowledgedSignature = "";
       this.pendingSignature = null;
-      this.pendingLayout = null;
       this.planGeneration = 0;
-      this.layoutWaiters = [];
       this.activeEffects = /* @__PURE__ */ new Map();
       this.watchedAnimations = /* @__PURE__ */ new WeakSet();
       this.effectRootDisposers = /* @__PURE__ */ new Map();
@@ -1768,91 +1631,71 @@ html[data-ni-root-scroll] body {
       this.scrollDisposers = /* @__PURE__ */ new Map();
       this.nextScrollId = 1;
       this.scrollSequence = 0;
+      this.scrollPresentationSequence = 0;
       this.scrollScheduled = false;
       this.scrollSettledPending = false;
       this.scrollEndTimer = null;
+      this.presentationPending = false;
+      this.presentationActive = false;
+      this.presentedScrollContainers = /* @__PURE__ */ new Set();
+      this.movingScrollContainers = /* @__PURE__ */ new Set();
+      this.lastNatives = [];
+      this.lastLayers = [];
       this.runtimeClips = /* @__PURE__ */ new Map();
       this.runtimeBackgrounds = /* @__PURE__ */ new Map();
-      this.runtimePaintStyles = /* @__PURE__ */ new WeakMap();
-      this.rejectedMasks = /* @__PURE__ */ new Map();
       this.refresh = () => {
         if (this.scheduled)
           return;
         this.scheduled = true;
         requestAnimationFrame(() => {
-          var _a, _b;
           this.scheduled = false;
-          const waiters = this.layoutWaiters.splice(0);
           const payload = this.resolve();
           const signature = JSON.stringify(payload);
           if (this.pendingSignature === null && signature === this.acknowledgedSignature) {
-            for (const waiter of waiters)
-              waiter.resolve();
             return;
           }
-          if (signature === this.pendingSignature && this.pendingLayout) {
-            void this.pendingLayout.then(() => {
-              for (const waiter of waiters)
-                waiter.resolve();
-            }, (error) => {
-              for (const waiter of waiters)
-                waiter.reject(error);
-            });
+          if (signature === this.pendingSignature)
             return;
-          }
           const generation = ++this.planGeneration;
           this.pendingSignature = signature;
-          const apply = (_b = (_a = this.onChange) === null || _a === void 0 ? void 0 : _a.call(this, payload)) !== null && _b !== void 0 ? _b : Promise.resolve();
-          this.pendingLayout = apply;
-          void apply.then(() => {
-            for (const waiter of waiters)
-              waiter.resolve();
-          }, (error) => {
-            for (const waiter of waiters)
-              waiter.reject(error);
-          });
+          const apply = this.onChange?.(payload) ?? Promise.resolve();
           void apply.then(() => {
             if (generation !== this.planGeneration)
               return;
             this.pendingSignature = null;
-            this.pendingLayout = null;
             this.acknowledgedSignature = signature;
           }).catch(() => {
-            if (generation === this.planGeneration) {
+            if (generation === this.planGeneration)
               this.pendingSignature = null;
-              this.pendingLayout = null;
-            }
           });
         });
       };
       this.compositionObserver = new CompositionObserver(() => this.refresh(), void 0, onOpenRoot);
     }
     registerNative(handle) {
-      var _a;
       if (this.natives.some((candidate) => candidate.el === handle.el))
         return;
       this.invalidatePendingPlan();
       this.natives.push(handle);
-      (_a = this.resizeObserver) === null || _a === void 0 ? void 0 : _a.observe(handle.el);
+      this.resizeObserver?.observe(handle.el);
     }
     registerLayer(handle) {
-      var _a;
       if (this.layers.some((candidate) => candidate.el === handle.el))
         return;
       this.invalidatePendingPlan();
       this.layers.push(handle);
-      (_a = this.resizeObserver) === null || _a === void 0 ? void 0 : _a.observe(handle.el);
+      this.resizeObserver?.observe(handle.el);
       this.refresh();
     }
     findNative(id) {
       return this.natives.find((native) => native.islandId === id);
     }
-    failScrollContainers(ids, reason) {
+    degradeScrollContainers(ids, reason) {
       const failed = new Set(ids);
       for (const handle of this.natives) {
         const affected = independentScrollContainers(handle.el).some((container) => failed.has(this.idForScrollContainer(container)));
         if (affected) {
-          handle.failNative(reason);
+          handle.degradeToFallback(reason);
         }
       }
     }
@@ -1860,17 +1703,9 @@ html[data-ni-root-scroll] body {
       for (const handle of this.natives)
         handle.onTransportAvailable();
     }
-    async recreateNativeViews() {
-      await Promise.all(this.natives.map((handle) => handle.recreateNative()));
-    }
-    prepareForPageHide() {
-      this.invalidatePendingPlan();
-      this.rootScroll.clear();
-    }
     invalidateAutomaticLayers(root) {
       if (!root) {
         this.automaticLayerClassifications = /* @__PURE__ */ new WeakMap();
-        this.rejectedMasks.clear();
         return;
       }
       if (root instanceof HTMLElement)
@@ -1880,8 +1715,6 @@ html[data-ni-root-scroll] body {
       }
     }
     unregister(el) {
-      var _a;
-      this.rejectedMasks.delete(el);
       const nativeIndex = this.natives.findIndex((candidate) => candidate.el === el);
       if (nativeIndex >= 0) {
         this.invalidatePendingPlan();
@@ -1894,36 +1727,25 @@ html[data-ni-root-scroll] body {
       }
       this.releaseRuntimeClip(el);
       this.releaseRuntimeBackground(el);
-      (_a = this.resizeObserver) === null || _a === void 0 ? void 0 : _a.unobserve(el);
+      this.resizeObserver?.unobserve(el);
       this.refresh();
-    }
-    /** Resolve after the current DOM composition has been acknowledged by the native transport. */
-    synchronize() {
-      return new Promise((resolve, reject) => {
-        this.layoutWaiters.push({ resolve, reject });
-        this.refresh();
-      });
     }
     start(onChange, onScroll) {
       if (this.onChange)
         return;
       this.onChange = onChange;
-      this.onScroll = onScroll !== null && onScroll !== void 0 ? onScroll : null;
+      this.onScroll = onScroll ?? null;
       this.mutationObserver = new MutationObserver((records) => {
-        var _a;
         let changed = false;
         for (const record of records) {
           const target = record.target instanceof Element ? record.target : record.target.parentElement;
           if (!target)
             continue;
-          const runtimePaint = record.type === "attributes" && target instanceof HTMLElement && (record.attributeName === "style" && this.runtimePaintStyles.get(target) === target.style.cssText || ((_a = record.attributeName) === null || _a === void 0 ? void 0 : _a.startsWith("data-ni-runtime-")) || record.attributeName === "data-native-islands-inactive");
-          if (!runtimePaint)
-            this.rejectedMasks.clear();
           if (target instanceof HTMLElement && record.type === "attributes") {
             const runtimeClip = this.runtimeClips.get(target);
             const runtimeBackground = this.runtimeBackgrounds.get(target);
             if (runtimeClip && record.attributeName === "style") {
-              const ownsClip = Array.from(runtimeClip.applied).every(([property, value]) => target.style.getPropertyValue(property) === value && target.style.getPropertyPriority(property) === "");
+              const ownsClip = target.style.getPropertyValue("clip-path") === runtimeClip.appliedValue && target.style.getPropertyPriority("clip-path") === "";
               if (!ownsClip)
                 this.releaseRuntimeClip(target);
             } else if (runtimeClip && record.attributeName === "data-ni-runtime-clip" && !target.hasAttribute("data-ni-runtime-clip")) {
@@ -1955,19 +1777,16 @@ html[data-ni-root-scroll] body {
       });
       this.mutationObserver.observe(document.documentElement, {
         attributes: true,
-        attributeOldValue: true,
         characterData: true,
         childList: true,
         subtree: true
       });
-      if (typeof ResizeObserver !== "undefined") {
-        this.resizeObserver = new ResizeObserver(() => this.refresh());
-        this.resizeObserver.observe(document.documentElement);
-        for (const native of this.natives)
-          this.resizeObserver.observe(native.el);
-        for (const layer of this.layers)
-          this.resizeObserver.observe(layer.el);
-      }
+      this.resizeObserver = new ResizeObserver(() => this.refresh());
+      this.resizeObserver.observe(document.documentElement);
+      for (const native of this.natives)
+        this.resizeObserver.observe(native.el);
+      for (const layer of this.layers)
+        this.resizeObserver.observe(layer.el);
       this.observeEffectRoot(document);
       this.refresh();
     }
@@ -1990,35 +1809,81 @@ html[data-ni-root-scroll] body {
       }
       for (const [id, element] of next) {
         this.trackedScrollContainers.set(id, element);
-        if (this.innerScrollMode !== "bridge" || this.scrollDisposers.has(id)) {
+        if (this.innerScrollMode !== "bridge" && !usesMotionPresentation(this.innerScrollMode) || this.scrollDisposers.has(id)) {
           continue;
         }
+        const restoreProgrammaticPreflight = usesMotionPresentation(this.innerScrollMode) ? installProgrammaticScrollPreflight(element, () => this.prepareInnerScroll([id])) : () => void 0;
         const onScroll = () => {
-          this.scheduleScrollOffsets(false);
-          this.scheduleScrollSettlement();
+          if (usesMotionPresentation(this.innerScrollMode))
+            this.prepareInnerScroll([id]);
+          else {
+            this.scheduleScrollOffsets(false);
+            this.scheduleScrollSettlement();
+          }
         };
         const onScrollEnd = () => {
-          if (this.scrollEndTimer !== null)
-            window.clearTimeout(this.scrollEndTimer);
-          this.scrollEndTimer = null;
-          this.scheduleScrollOffsets(true);
+          if (usesMotionPresentation(this.innerScrollMode))
+            this.scheduleScrollSettlement();
+          else {
+            if (this.scrollEndTimer !== null)
+              window.clearTimeout(this.scrollEndTimer);
+            this.scrollEndTimer = null;
+            this.scheduleScrollOffsets(true);
+          }
         };
+        const onWheel = () => this.prepareInnerScroll([id]);
+        const onInputStart = () => {
+          this.prepareInnerScroll([id]);
+        };
+        const onKeyDown = (event) => {
+          if (["ArrowDown", "ArrowLeft", "ArrowRight", "ArrowUp", "End", "Home", "PageDown", "PageUp", " "].includes(event.key)) {
+            this.prepareInnerScroll([id]);
+          }
+        };
+        const onInputTerminal = () => this.scheduleScrollSettlement();
         element.addEventListener("scroll", onScroll, { passive: true });
         element.addEventListener("scrollend", onScrollEnd, { passive: true });
+        if (usesMotionPresentation(this.innerScrollMode)) {
+          element.addEventListener("pointerdown", onInputStart, { capture: true, passive: true });
+          element.addEventListener("touchstart", onInputStart, { capture: true, passive: true });
+          element.addEventListener("wheel", onWheel, { capture: true, passive: true });
+          element.addEventListener("keydown", onKeyDown, true);
+          element.addEventListener("keyup", onInputTerminal, true);
+          window.addEventListener("pointerup", onInputTerminal, { passive: true });
+          window.addEventListener("pointercancel", onInputTerminal, { passive: true });
+          window.addEventListener("touchend", onInputTerminal, { passive: true });
+          window.addEventListener("touchcancel", onInputTerminal, { passive: true });
+        }
         this.scrollDisposers.set(id, () => {
+          restoreProgrammaticPreflight();
           element.removeEventListener("scroll", onScroll);
           element.removeEventListener("scrollend", onScrollEnd);
+          element.removeEventListener("pointerdown", onInputStart, true);
+          element.removeEventListener("touchstart", onInputStart, true);
+          element.removeEventListener("wheel", onWheel, true);
+          element.removeEventListener("keydown", onKeyDown, true);
+          element.removeEventListener("keyup", onInputTerminal, true);
+          window.removeEventListener("pointerup", onInputTerminal);
+          window.removeEventListener("pointercancel", onInputTerminal);
+          window.removeEventListener("touchend", onInputTerminal);
+          window.removeEventListener("touchcancel", onInputTerminal);
         });
       }
       if (next.size === 0) {
         if (this.scrollEndTimer !== null)
           window.clearTimeout(this.scrollEndTimer);
         this.scrollEndTimer = null;
+        this.presentationPending = false;
+        this.presentationActive = false;
+        this.presentedScrollContainers.clear();
+        this.movingScrollContainers.clear();
+        this.clearScrollPresentationFaces();
       }
     }
     scheduleScrollOffsets(settled) {
-      if (this.innerScrollMode !== "bridge" || !this.onScroll)
+      if (this.innerScrollMode !== "bridge" && this.innerScrollMode !== "presentation" || !this.onScroll || this.innerScrollMode === "presentation" && !settled) {
         return;
+      }
       if (settled) {
         if (this.scrollScheduled) {
           this.scrollSettledPending = true;
@@ -2037,19 +1902,86 @@ html[data-ni-root-scroll] body {
         this.flushScrollOffsets(finalSample);
       });
     }
+    prepareInnerScroll(containers) {
+      if (!usesMotionPresentation(this.innerScrollMode) || containers.length === 0)
+        return;
+      const unprepared = containers.filter((id) => !this.presentedScrollContainers.has(id));
+      if (unprepared.length === 0) {
+        this.scheduleScrollSettlement();
+        return;
+      }
+      const sequence = ++this.scrollPresentationSequence;
+      const prepared = this.innerScrollMode === "native-presentation" || invokeScrollPresentationPrepare(unprepared, sequence);
+      if (!prepared) {
+        this.degradeScrollContainers(unprepared, "Native scroll presentation is unavailable.");
+        return;
+      }
+      if (!this.presentationActive) {
+        this.presentationActive = true;
+      }
+      for (const id of unprepared) {
+        this.presentedScrollContainers.add(id);
+        const element = this.trackedScrollContainers.get(id);
+        if (element)
+          this.movingScrollContainers.add(element);
+      }
+      this.syncScrollPresentationFaces(this.lastNatives);
+      this.applyWebKnockouts(this.lastNatives, this.lastLayers);
+      this.presentationPending = true;
+      this.scheduleScrollSettlement();
+    }
     scheduleScrollSettlement() {
+      if (usesMotionPresentation(this.innerScrollMode) && !this.presentationPending)
+        return;
       if (this.scrollEndTimer !== null)
         window.clearTimeout(this.scrollEndTimer);
       this.scrollEndTimer = window.setTimeout(() => {
         this.scrollEndTimer = null;
-        this.scheduleScrollOffsets(true);
+        if (!usesMotionPresentation(this.innerScrollMode)) {
+          this.scheduleScrollOffsets(true);
+          return;
+        }
+        this.presentationPending = false;
+        this.presentationActive = false;
+        this.presentedScrollContainers.clear();
+        this.movingScrollContainers.clear();
+        this.refresh();
+        if (this.innerScrollMode === "presentation") {
+          requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+              void this.flushScrollOffsets(true).finally(() => {
+                requestAnimationFrame(() => this.clearScrollPresentationFaces());
+              });
+            });
+          });
+        }
       }, 120);
     }
     flushScrollOffsets(settled) {
       if (!this.onScroll || this.trackedScrollContainers.size === 0)
         return Promise.resolve();
-      const offsets = Array.from(this.trackedScrollContainers, ([id, element]) => Object.assign({ id }, physicalScrollOffset(element)));
-      return this.onScroll(Object.assign(Object.assign(Object.assign({}, createEnvelope()), { sequence: ++this.scrollSequence, offsets }), settled ? { settled: true } : {})).catch(() => void 0);
+      const offsets = Array.from(this.trackedScrollContainers, ([id, element]) => ({
+        id,
+        ...physicalScrollOffset(element)
+      }));
+      return this.onScroll({
+        ...createEnvelope(),
+        sequence: ++this.scrollSequence,
+        offsets,
+        ...settled ? { settled: true } : {}
+      }).catch(() => void 0);
+    }
+    syncScrollPresentationFaces(natives) {
+      if (!usesMotionPresentation(this.innerScrollMode))
+        return;
+      for (const native of natives) {
+        native.handle.setScrollPresentation(this.presentationActive && native.active && (native.plane === "overlay" || Array.from(native.motionDependencies).some((container) => this.movingScrollContainers.has(container))));
+      }
+    }
+    clearScrollPresentationFaces() {
+      for (const native of this.lastNatives) {
+        native.handle.setScrollPresentation(false);
+      }
     }
     observeEffectRoot(root) {
       if (this.effectRootDisposers.has(root))
@@ -2068,8 +2000,7 @@ html[data-ni-root-scroll] body {
       const onAnimationStart = (event) => {
         if (!(event instanceof AnimationEvent) || !(event.target instanceof Element))
           return;
-        const getAnimations = event.target.getAnimations;
-        const animation = typeof getAnimations === "function" ? Array.from(getAnimations.call(event.target)).find((candidate) => candidate.animationName === event.animationName && (candidate.playState === "running" || candidate.pending)) : void 0;
+        const animation = event.target.getAnimations().find((candidate) => candidate.animationName === event.animationName && (candidate.playState === "running" || candidate.pending));
         this.beginEffect(event.target, `animation:${event.animationName}`, animation ? animationImpact(animation) : "global-layout");
       };
       const onAnimationEnd = (event) => {
@@ -2083,9 +2014,7 @@ html[data-ni-root-scroll] body {
         }
         this.refresh();
       };
-      const onStyleStateChange = (event) => {
-        if (this.innerScrollMode === "root" && event.type.startsWith("pointer"))
-          return;
+      const onStyleStateChange = () => {
         this.invalidateAutomaticLayers();
         this.refresh();
       };
@@ -2145,15 +2074,13 @@ html[data-ni-root-scroll] body {
       });
     }
     unobserveEffectRoot(root) {
-      var _a;
-      (_a = this.effectRootDisposers.get(root)) === null || _a === void 0 ? void 0 : _a();
+      this.effectRootDisposers.get(root)?.();
       this.effectRootDisposers.delete(root);
     }
     beginEffect(target, key, impact) {
-      var _a;
       if (!(target instanceof Element) || impact === "none")
         return;
-      const effects = (_a = this.activeEffects.get(target)) !== null && _a !== void 0 ? _a : /* @__PURE__ */ new Map();
+      const effects = this.activeEffects.get(target) ?? /* @__PURE__ */ new Map();
       effects.set(key, impact);
       this.activeEffects.set(target, effects);
       this.refresh();
@@ -2195,11 +2122,8 @@ html[data-ni-root-scroll] body {
         this.watchAnimation(animation);
         running.push({ target, impact });
       };
-      const getDocumentAnimations = document.getAnimations;
-      if (typeof getDocumentAnimations === "function") {
-        for (const animation of Array.from(getDocumentAnimations.call(document)))
-          append(animation);
-      }
+      for (const animation of document.getAnimations())
+        append(animation);
       const roots = /* @__PURE__ */ new Set();
       for (const handle of [...this.natives, ...this.layers]) {
         let current = handle.el;
@@ -2213,7 +2137,7 @@ html[data-ni-root-scroll] body {
       for (const root of roots) {
         const getAnimations = root.getAnimations;
         if (typeof getAnimations === "function") {
-          for (const animation of Array.from(getAnimations.call(root)))
+          for (const animation of getAnimations.call(root))
             append(animation);
         }
       }
@@ -2224,16 +2148,12 @@ html[data-ni-root-scroll] body {
       return running;
     }
     assessMotionSafety(layers) {
-      var _a;
       const safety = {
         globalLayout: false,
         movingMarkedLayer: false,
         localCompositionTargets: /* @__PURE__ */ new Set()
       };
       for (const effect of this.collectRunningEffects()) {
-        if (((_a = effect.target.parentElement) === null || _a === void 0 ? void 0 : _a.hasAttribute("data-ni-root-scroll-owner")) || document.documentElement.hasAttribute("data-ni-root-scroll-active") && effect.target.parentElement === document.body) {
-          continue;
-        }
         if (effect.impact === "global-layout")
           safety.globalLayout = true;
         else
@@ -2245,7 +2165,8 @@ html[data-ni-root-scroll] body {
       return safety;
     }
     invalidatePendingPlan() {
-      this.acknowledgedSignature = "";
+      if (this.pendingSignature !== null)
+        this.acknowledgedSignature = "";
       this.planGeneration++;
       this.pendingSignature = null;
     }
@@ -2253,65 +2174,58 @@ html[data-ni-root-scroll] body {
       const modalDialogs = activeModalDialogs();
       const states = this.natives.map((handle, dom) => {
         handle.reconcileObservedStyles();
-        let inactiveReason = null;
+        let fallbackReason = null;
         let active = handle.canAttemptNative() && isElementVisible(handle.el);
         const positionedAncestor = handle.canAttemptNative() ? fixedOrStickyAncestor(handle.el) : null;
         const discoveredScrollPath = active ? scrollPath(handle.el) : [];
-        const fixedAncestorContainsScroller = (positionedAncestor === null || positionedAncestor === void 0 ? void 0 : positionedAncestor.viewportFixed) === true && discoveredScrollPath.some((container) => isComposedAncestor(positionedAncestor.element, container));
-        const coordinateSpace = (positionedAncestor === null || positionedAncestor === void 0 ? void 0 : positionedAncestor.viewportFixed) && !fixedAncestorContainsScroller ? "viewport" : "document";
+        const fixedAncestorContainsScroller = positionedAncestor?.viewportFixed === true && discoveredScrollPath.some((container) => isComposedAncestor(positionedAncestor.element, container));
+        const coordinateSpace = positionedAncestor?.viewportFixed && !fixedAncestorContainsScroller ? "viewport" : "document";
         const plane = coordinateSpace === "viewport" || handle.requiresUnobscuredSurface ? "overlay" : "underlay";
         const coordinateScrollPath = coordinateSpace === "document" ? discoveredScrollPath : [];
         const modeledScrollPath = this.innerScrollMode === "unsupported" ? [] : coordinateScrollPath;
         const composition = auditIslandComposition(handle.islandId, handle.el, modeledScrollPath);
         const externalModal = modalDialogs.find((dialog) => !isComposedAncestor(dialog, handle.el));
         if (externalModal) {
-          inactiveReason = "native islands outside an active modal cannot be composed";
+          fallbackReason = "native islands outside an active modal use their web presentation";
           active = false;
         }
         const fullscreen = document.fullscreenElement;
-        if (!inactiveReason && fullscreen && !isComposedAncestor(fullscreen, handle.el)) {
-          inactiveReason = "native islands outside the fullscreen element cannot be composed";
+        if (!fallbackReason && fullscreen && !isComposedAncestor(fullscreen, handle.el)) {
+          fallbackReason = "native islands outside the fullscreen element use their web presentation";
           active = false;
         }
-        if ((positionedAncestor === null || positionedAncestor === void 0 ? void 0 : positionedAncestor.position) === "sticky") {
-          inactiveReason = "sticky native islands are unsupported";
+        if (positionedAncestor?.position === "sticky") {
+          fallbackReason = "sticky native islands use the web presentation until sticky motion is modeled";
           active = false;
         }
         const animatedAncestor = handle.canAttemptNative() && Array.from(motion.localCompositionTargets).some((target) => isComposedAncestor(target, handle.el));
-        if (!inactiveReason && (motion.globalLayout || motion.movingMarkedLayer || animatedAncestor)) {
-          inactiveReason = motion.globalLayout ? "active layout-affecting CSS transitions and animations suspend native composition" : motion.movingMarkedLayer ? "active marked-layer CSS transitions and animations suspend native composition" : "active island composition transitions and animations suspend native composition";
+        if (!fallbackReason && (motion.globalLayout || motion.movingMarkedLayer || animatedAncestor)) {
+          fallbackReason = motion.globalLayout ? "active layout-affecting CSS transitions and animations use the web fallback until their final frame" : motion.movingMarkedLayer ? "active marked-layer CSS transitions and animations use the web fallback until their final frame" : "active island composition transitions and animations use the web fallback until their final frame";
           active = false;
         }
         const structuralIssue = composition[0];
-        if (active && (structuralIssue === null || structuralIssue === void 0 ? void 0 : structuralIssue.code) === "zero_opacity") {
+        if (active && structuralIssue?.code === "zero_opacity") {
           active = false;
         } else if (active && structuralIssue) {
-          inactiveReason = structuralIssue.message;
+          fallbackReason = structuralIssue.message;
           active = false;
         }
         let activeScrollPath = active ? coordinateScrollPath : [];
         if (active && activeScrollPath.length > MAX_SCROLL_PATH_DEPTH) {
-          inactiveReason = "nested scroll depth exceeds the native host safety limit";
+          fallbackReason = "nested scroll depth exceeds the native host safety limit";
           active = false;
           activeScrollPath = [];
         } else if (active && activeScrollPath.length > 0 && this.innerScrollMode === "unsupported") {
-          inactiveReason = "independent scroll containers are not supported by the active native transport";
+          fallbackReason = "independent scroll containers are not supported by the active native transport";
           active = false;
           activeScrollPath = [];
-        } else if (active && activeScrollPath.length > 0 && this.innerScrollMode === "root") {
-          const issue = activeScrollPath.map(rootScrollAdmissionFor).find((result) => !result.routed);
-          if (issue && !issue.routed) {
-            inactiveReason = issue.reason;
-            active = false;
-            activeScrollPath = [];
-          }
         } else if (active && activeScrollPath.length > 0) {
           const invalidScrollport = activeScrollPath.some((container) => {
             const scrollport = scrollContainerRect(container);
             return !scrollport || !isSafeBridgeRect(scrollport);
           });
           if (invalidScrollport) {
-            inactiveReason = "the scroll container geometry cannot be represented safely by the native host";
+            fallbackReason = "the scroll container geometry cannot be represented safely by the native host";
             active = false;
             activeScrollPath = [];
           }
@@ -2330,12 +2244,12 @@ html[data-ni-root-scroll] body {
             style.borderBottomLeftRadius
           ]);
           if (cssRadius === null) {
-            inactiveReason = "native islands require a uniform pixel border-radius";
+            fallbackReason = "native islands require a uniform pixel border-radius";
             active = false;
           } else {
-            rect = Object.assign(Object.assign({}, bounds), { r: cssRadius !== null && cssRadius !== void 0 ? cssRadius : 0 });
+            rect = { ...bounds, r: cssRadius ?? 0 };
             if (!isSafeBridgeRect(rect)) {
-              inactiveReason = "native island geometry exceeds the shared safe coordinate or size range";
+              fallbackReason = "native island geometry exceeds the shared safe coordinate or size range";
               active = false;
               rect = null;
               visualRect = null;
@@ -2355,30 +2269,43 @@ html[data-ni-root-scroll] body {
           coordinateSpace,
           scrollPath: activeScrollPath,
           motionDependencies: new Set(activeScrollPath),
-          inactiveReason
+          fallbackReason
         };
       });
+      this.degradeUnsupportedOverlaps(states);
       return states;
     }
-    suspendUnsupportedOverlaps(states) {
+    degradeUnsupportedOverlaps(states) {
       for (let leftIndex = 0; leftIndex < states.length; leftIndex++) {
         const left = states[leftIndex];
-        if (!hasResolvedGeometry(left))
+        if (!left.active || !left.rect || !left.visualRect)
           continue;
-        this.suspendOverlapsForLeft(left, states, leftIndex + 1);
-      }
-    }
-    suspendOverlapsForLeft(left, states, startIndex) {
-      for (let rightIndex = startIndex; rightIndex < states.length; rightIndex++) {
-        if (!hasResolvedGeometry(left))
-          break;
-        const right = states[rightIndex];
-        if (!hasResolvedGeometry(right))
-          continue;
-        const reason = unsupportedOverlapReason(left, right);
-        if (reason === null)
-          continue;
-        suspendNative(smallerNative(left, right), reason);
+        for (let rightIndex = leftIndex + 1; rightIndex < states.length; rightIndex++) {
+          const right = states[rightIndex];
+          if (!right.active || !right.rect || !right.visualRect)
+            continue;
+          if (!sameCoordinatePath(left, right)) {
+            if (!usesMotionPresentation(this.innerScrollMode) && intersects(left.visualRect, right.visualRect)) {
+              const fallback2 = left.visualRect.w * left.visualRect.h <= right.visualRect.w * right.visualRect.h ? left : right;
+              fallback2.fallbackReason = "overlapping native islands from different scroll containers use the web fallback";
+              fallback2.active = false;
+              fallback2.rect = null;
+              fallback2.visualRect = null;
+            }
+            continue;
+          }
+          const unsupportedPartialOverlap = partialOverlap(left.visualRect, right.visualRect) && (hasComplexOpaqueShape(left.rect) || hasComplexOpaqueShape(right.rect));
+          const unsupportedRoundedContainment = hasComplexOpaqueShape(left.rect) && contains(left.visualRect, right.visualRect) && !opaqueContainsRect(left.visualRect, right.visualRect) || hasComplexOpaqueShape(right.rect) && contains(right.visualRect, left.visualRect) && !opaqueContainsRect(right.visualRect, left.visualRect);
+          const unsupported = unsupportedPartialOverlap || unsupportedRoundedContainment;
+          if (!unsupported)
+            continue;
+          const area = (state) => (state.rect?.w ?? 0) * (state.rect?.h ?? 0);
+          const fallback = area(left) <= area(right) ? left : right;
+          fallback.fallbackReason = "partially overlapping complex opaque regions require native path boolean support";
+          fallback.active = false;
+          fallback.rect = null;
+          fallback.visualRect = null;
+        }
       }
     }
     resolveHostPlanes(natives, layers) {
@@ -2411,77 +2338,50 @@ html[data-ni-root-scroll] body {
       }
     }
     detectOverlayCutoutConflicts(natives, layers) {
-      var _a, _b;
       for (const native of natives) {
         if (!native.active || native.plane !== "overlay" || !native.visualRect)
           continue;
-        const unsupported = layers.find((layer) => layer.overlayCutoutIssue !== null && above(layer, native) && canMoveIntoIntersection(layer, native) && !this.opaqueWebCover(layer, native, layers));
+        const unsupported = layers.find((layer) => layer.overlayCutoutIssue !== null && above(layer, native) && canMoveIntoIntersection(layer, native));
         if (!unsupported)
           continue;
-        native.inactiveReason = (_b = (_a = unsupported.overlayCutoutIssue) === null || _a === void 0 ? void 0 : _a.reason) !== null && _b !== void 0 ? _b : "the upper web surface cannot become a native cutout";
+        native.fallbackReason = unsupported.overlayCutoutIssue?.reason ?? "the upper web surface cannot become a native cutout";
         native.active = false;
         native.rect = null;
         native.visualRect = null;
       }
     }
-    opaqueWebCover(layer, native, layers) {
-      return layers.some((cover) => cover !== layer && cover.overlayCutoutIssue === null && cover.cutoutIssue === null && above(cover, native) && isElementVisible(cover.el) && stationaryCoordinatePaths(cover, layer) && opaqueContainsRect(cover.visualRect, layer.visualRect) && // A descendant can paint outside its box. Only a clipping ancestor
-      // proves its complete paint stays inside the opaque surface.
-      (layer.cutoutIssue === null || isComposedAncestor(cover.el, layer.el) && getComputedStyle(cover.el).overflow === "hidden"));
-    }
-    resolveWebUnderlays(natives, layers) {
-      for (const native of natives) {
-        if (!hasResolvedGeometry(native) || native.plane !== "overlay")
-          continue;
-        const needsWebAbove = layers.some((layer) => layer.overlayCutoutIssue !== null && above(layer, native) && canMoveIntoIntersection(layer, native) && !this.opaqueWebCover(layer, native, layers));
-        if (!needsWebAbove)
-          continue;
-        const group = /* @__PURE__ */ new Set([native]);
-        for (const upper of group) {
-          for (const lower of natives) {
-            if (hasResolvedGeometry(lower) && lower.plane === "overlay" && above(upper, lower) && canMoveIntoIntersection(upper, lower))
-              group.add(lower);
-          }
-        }
-        const safe = Array.from(group).every((candidate) => !candidate.handle.requiresUnobscuredSurface && !candidate.scrollPath.some((element) => this.rootScroll.isRouted(element)) && layers.every((layer) => !canMoveIntoIntersection(candidate, layer) || (above(candidate, layer) ? stationaryCoordinatePaths(candidate, layer) : auditWebLayerCutoutComposition(layer.el, layer.scrollPath, true, layer.coordinateSpace === "viewport", true) === null)));
-        if (safe)
-          for (const candidate of group)
-            candidate.plane = "underlay";
-      }
-    }
     buildLayers() {
-      var _a, _b, _c;
       const explicitElements = new Set(this.layers.map((layer) => layer.el));
       const layers = this.layers.filter((layer) => layer.el.isConnected).map((layer, dom2) => {
-        var _a2, _b2, _c2;
         const style = getComputedStyle(layer.el);
         const positionedAncestor = fixedOrStickyAncestor(layer.el);
-        const coordinateSpace = (positionedAncestor === null || positionedAncestor === void 0 ? void 0 : positionedAncestor.viewportFixed) ? "viewport" : "document";
+        const coordinateSpace = positionedAncestor?.viewportFixed ? "viewport" : "document";
         const layerScrollPath = coordinateSpace === "viewport" ? [] : scrollPath(layer.el);
-        const allowFixedPosition = (positionedAncestor === null || positionedAncestor === void 0 ? void 0 : positionedAncestor.position) === "fixed";
+        const allowFixedPosition = positionedAncestor?.position === "fixed";
         const radius = uniformCssCornerRadius([
           style.borderTopLeftRadius,
           style.borderTopRightRadius,
           style.borderBottomRightRadius,
           style.borderBottomLeftRadius
         ]);
-        const wholeLayerIssue = auditWebLayerCutoutComposition(layer.el, layerScrollPath, false, allowFixedPosition);
-        const backgroundPaint = layer.el.children.length > 0 && (radius === null || wholeLayerIssue !== null) ? (_b2 = (_a2 = this.runtimeBackgrounds.get(layer.el)) === null || _a2 === void 0 ? void 0 : _a2.source) !== null && _b2 !== void 0 ? _b2 : separableBackgroundPaint(style) : null;
-        const overlayClassification = automaticWebLayerCutoutIssue(layer.el, (_c2 = layerScrollPath[layerScrollPath.length - 1]) !== null && _c2 !== void 0 ? _c2 : null, allowFixedPosition, true);
+        const overlayClassification = automaticWebLayerCutoutIssue(layer.el, layerScrollPath[layerScrollPath.length - 1] ?? null, allowFixedPosition, true);
         return {
           el: layer.el,
           z: zIndex(layer.el),
           dom: dom2,
-          rect: Object.assign(Object.assign({}, coordinateSpace === "viewport" ? viewportRect(layer.el) : rectInsideScrollPath(layer.el, layerScrollPath)), { r: radius !== null && radius !== void 0 ? radius : 0 }),
-          visualRect: Object.assign(Object.assign({}, docRect(layer.el)), { r: radius !== null && radius !== void 0 ? radius : 0 }),
+          rect: {
+            ...coordinateSpace === "viewport" ? viewportRect(layer.el) : rectInsideScrollPath(layer.el, layerScrollPath),
+            r: radius ?? 0
+          },
+          visualRect: { ...docRect(layer.el), r: radius ?? 0 },
           coordinateSpace,
           scrollPath: layerScrollPath,
-          backgroundPaint,
-          cutoutIssue: radius === null && backgroundPaint === null ? {
+          backgroundPaint: null,
+          cutoutIssue: radius === null ? {
             reason: "declared opaque surfaces require a uniform pixel border-radius",
             mayMoveWithoutRefresh: false
-          } : auditWebLayerCutoutComposition(layer.el, layerScrollPath, backgroundPaint !== null, allowFixedPosition),
-          overlayCutoutIssue: radius === null || overlayClassification === void 0 ? {
+          } : auditWebLayerCutoutComposition(layer.el, layerScrollPath, false, allowFixedPosition),
+          overlayCutoutIssue: overlayClassification === void 0 ? {
             reason: "web paint above an overlay island must be opaque across its bounded box",
             mayMoveWithoutRefresh: false
           } : overlayClassification
@@ -2494,7 +2394,7 @@ html[data-ni-root-scroll] body {
       const htmlHasBackground = htmlRuntimeBackground !== void 0 || hasVisibleBackground(getComputedStyle(document.documentElement));
       const nativeBounds = this.natives.filter((native) => native.el.isConnected).map((native) => {
         const positionedAncestor = fixedOrStickyAncestor(native.el);
-        const coordinateSpace = (positionedAncestor === null || positionedAncestor === void 0 ? void 0 : positionedAncestor.viewportFixed) ? "viewport" : "document";
+        const coordinateSpace = positionedAncestor?.viewportFixed ? "viewport" : "document";
         const nativeScrollPath = coordinateSpace === "viewport" ? [] : scrollPath(native.el);
         const rect = coordinateSpace === "viewport" ? viewportRect(native.el) : rectInsideScrollPath(native.el, nativeScrollPath);
         return {
@@ -2513,17 +2413,17 @@ html[data-ni-root-scroll] body {
           continue;
         }
         const positionedAncestor = fixedOrStickyAncestor(element);
-        const coordinateSpace = (positionedAncestor === null || positionedAncestor === void 0 ? void 0 : positionedAncestor.viewportFixed) ? "viewport" : "document";
+        const coordinateSpace = positionedAncestor?.viewportFixed ? "viewport" : "document";
         const layerScrollPath = coordinateSpace === "viewport" ? [] : scrollPath(element);
-        const allowFixedPosition = (positionedAncestor === null || positionedAncestor === void 0 ? void 0 : positionedAncestor.position) === "fixed";
+        const allowFixedPosition = positionedAncestor?.position === "fixed";
         const runtimeBackground = this.runtimeBackgrounds.get(element);
-        const sourceBackground = (_a = runtimeBackground === null || runtimeBackground === void 0 ? void 0 : runtimeBackground.source) !== null && _a !== void 0 ? _a : separableBackgroundPaint(getComputedStyle(element));
+        const sourceBackground = runtimeBackground?.source ?? separableBackgroundPaint(getComputedStyle(element));
         const isViewportRoot = element === document.body || element === document.documentElement;
         const paintsDocumentCanvas = element === document.documentElement || element === document.body && !htmlHasBackground;
         const backgroundPaint = sourceBackground !== null && (element.children.length > 0 || isViewportRoot) ? sourceBackground : null;
         const cached = layerScrollPath.length > 0 ? void 0 : this.automaticLayerClassifications.get(element);
-        const issue = backgroundPaint !== null ? auditWebLayerCutoutComposition(element, layerScrollPath, true, allowFixedPosition) : cached === void 0 ? automaticWebLayerCutoutIssue(element, (_b = layerScrollPath[layerScrollPath.length - 1]) !== null && _b !== void 0 ? _b : null, allowFixedPosition) : cached === false ? void 0 : cached;
-        const overlayClassification = automaticWebLayerCutoutIssue(element, (_c = layerScrollPath[layerScrollPath.length - 1]) !== null && _c !== void 0 ? _c : null, allowFixedPosition, true);
+        const issue = backgroundPaint !== null ? auditWebLayerCutoutComposition(element, layerScrollPath, true, allowFixedPosition) : cached === void 0 ? automaticWebLayerCutoutIssue(element, layerScrollPath[layerScrollPath.length - 1] ?? null, allowFixedPosition) : cached === false ? void 0 : cached;
+        const overlayClassification = automaticWebLayerCutoutIssue(element, layerScrollPath[layerScrollPath.length - 1] ?? null, allowFixedPosition, true);
         const overlayCutoutIssue = overlayClassification === void 0 ? {
           reason: "web paint above an overlay island must be opaque across its bounded box",
           mayMoveWithoutRefresh: false
@@ -2557,31 +2457,39 @@ html[data-ni-root-scroll] body {
           style.borderBottomRightRadius,
           style.borderBottomLeftRadius
         ]);
-        layers.push(Object.assign(Object.assign({}, layer), { rect: Object.assign(Object.assign({}, rect), { r: radius !== null && radius !== void 0 ? radius : 0 }), visualRect: Object.assign(Object.assign({}, visualRect), { r: radius !== null && radius !== void 0 ? radius : 0 }), coordinateSpace, scrollPath: layerScrollPath, backgroundPaint, cutoutIssue: radius === null ? {
-          reason: "automatically detected web surfaces require a uniform pixel border-radius",
-          mayMoveWithoutRefresh: false
-        } : issue, overlayCutoutIssue }));
+        layers.push({
+          ...layer,
+          rect: { ...rect, r: radius ?? 0 },
+          visualRect: { ...visualRect, r: radius ?? 0 },
+          coordinateSpace,
+          scrollPath: layerScrollPath,
+          backgroundPaint,
+          cutoutIssue: radius === null ? {
+            reason: "automatically detected web surfaces require a uniform pixel border-radius",
+            mayMoveWithoutRefresh: false
+          } : issue,
+          overlayCutoutIssue
+        });
       }
       return layers;
     }
     detectBackgroundPaintConflicts(natives, layers) {
-      var _a;
       for (const layer of layers) {
         if (!layer.backgroundPaint)
           continue;
         const style = getComputedStyle(layer.el);
         const backgroundClips = style.backgroundClip.split(",").map((value) => value.trim()).filter(Boolean);
-        const backgroundClip = (_a = backgroundClips[backgroundClips.length - 1]) !== null && _a !== void 0 ? _a : "border-box";
+        const backgroundClip = backgroundClips[backgroundClips.length - 1] ?? "border-box";
         for (const native of natives) {
           if (!native.active || native.plane !== "underlay" || !native.visualRect || !above(native, layer) || !intersects(native.visualRect, layer.visualRect)) {
             continue;
           }
-          if (canClipLayerAsUnit(layer, native.handle.el))
+          if (canClipLayerAsUnit(layer.el, native.handle.el))
             continue;
-          const unsafe = backgroundClip !== "border-box" || directTextIntersects(layer.el, native.visualRect) || hasVisiblePseudoElement(layer.el) || /\binset\b/i.test(style.boxShadow) || style.boxShadow !== "none" && style.boxShadow !== "" && !contains(layer.visualRect, native.visualRect) || !borderContains(layer.el, native.visualRect);
+          const unsafe = backgroundClip !== "border-box" || directTextIntersects(layer.el, native.visualRect) || hasVisiblePseudoElement(layer.el) || /\binset\b/i.test(style.boxShadow) || !borderContains(layer.el, native.visualRect);
           if (!unsafe)
             continue;
-          native.inactiveReason = "overlapping web paint cannot be separated from its background";
+          native.fallbackReason = "overlapping web paint cannot be separated from its background";
           native.active = false;
           native.rect = null;
           native.visualRect = null;
@@ -2589,14 +2497,13 @@ html[data-ni-root-scroll] body {
       }
     }
     detectLayerCoordinateConflicts(natives, layers) {
-      var _a;
       if (!this.compositionEnabled)
         return;
       for (const layer of layers) {
-        const issue = (_a = layer.cutoutIssue) !== null && _a !== void 0 ? _a : !isSafeBridgeRect(layer.rect) ? {
+        const issue = layer.cutoutIssue ?? (!isSafeBridgeRect(layer.rect) ? {
           reason: "opaque web surface geometry exceeds the shared safe coordinate or size range",
           mayMoveWithoutRefresh: false
-        } : null;
+        } : null);
         if (!issue)
           continue;
         for (const native of natives) {
@@ -2606,7 +2513,7 @@ html[data-ni-root-scroll] body {
           const covered = layers.some((cover) => cover !== layer && cover.cutoutIssue === null && isElementVisible(cover.el) && above(cover, native) && opaqueContainsRect(cover.visualRect, layer.visualRect));
           if (covered)
             continue;
-          native.inactiveReason = issue.reason;
+          native.fallbackReason = issue.reason;
           native.active = false;
           native.rect = null;
           native.visualRect = null;
@@ -2617,15 +2524,16 @@ html[data-ni-root-scroll] body {
           continue;
         const nativeScrollViewport = scrollPathViewport(native.scrollPath);
         for (const layer of layers) {
-          const routedByRoot = this.innerScrollMode === "root" && native.scrollPath.every((element) => this.rootScroll.isRouted(element)) && layer.scrollPath.every((element) => this.rootScroll.isRouted(element));
-          if (layer.cutoutIssue !== null || routedByRoot || native.scrollPath.includes(layer.el) || sameScrollPath(layer.scrollPath, native.scrollPath) || !above(layer, native) || !isElementVisible(layer.el)) {
+          if (layer.cutoutIssue !== null || native.scrollPath.includes(layer.el) || sameScrollPath(layer.scrollPath, native.scrollPath) || !above(layer, native) || !isElementVisible(layer.el)) {
             continue;
           }
+          if (usesMotionPresentation(this.innerScrollMode))
+            continue;
           const layerScrollViewport = scrollPathViewport(layer.scrollPath);
           const canCross = intersects(layer.visualRect, native.visualRect) || nativeScrollViewport !== null && intersects(layer.visualRect, nativeScrollViewport) || layerScrollViewport !== null && intersects(layerScrollViewport, native.visualRect);
           if (!canCross)
             continue;
-          native.inactiveReason = "web layers from a different scroll container cannot be composed";
+          native.fallbackReason = "web layers from a different scroll container use the web fallback";
           native.active = false;
           native.rect = null;
           native.visualRect = null;
@@ -2644,7 +2552,7 @@ html[data-ni-root-scroll] body {
         const nativeSurfaceAbove = natives.some((other) => other !== native && other.active && other.visualRect !== null && above(other, native) && intersects(other.visualRect, nativeRect));
         if (!webSurfaceAbove && !nativeSurfaceAbove)
           continue;
-        native.inactiveReason = "this protected native surface must remain completely unobscured";
+        native.fallbackReason = "this protected native surface must remain completely unobscured";
         native.active = false;
         native.rect = null;
         native.visualRect = null;
@@ -2669,7 +2577,7 @@ html[data-ni-root-scroll] body {
         }
         if (native.motionDependencies.size <= MAX_MOTION_DEPENDENCIES)
           continue;
-        native.inactiveReason = "scroll composition dependencies exceed the native host safety limit";
+        native.fallbackReason = "scroll composition dependencies exceed the native host safety limit";
         native.active = false;
         native.rect = null;
         native.visualRect = null;
@@ -2689,7 +2597,7 @@ html[data-ni-root-scroll] body {
         }).length + natives.filter((other) => other !== native && other.active && other.rect !== null && other.visualRect !== null && above(other, native) && intersects(other.visualRect, native.visualRect)).length;
         if (cutoutCount <= MAX_REGIONS_PER_COMPONENT && exclusionCount <= MAX_REGIONS_PER_COMPONENT)
           continue;
-        native.inactiveReason = "overlapping composition regions exceed the native host safety limit";
+        native.fallbackReason = "overlapping composition regions exceed the native host safety limit";
         native.active = false;
         native.rect = null;
         native.visualRect = null;
@@ -2697,21 +2605,22 @@ html[data-ni-root-scroll] body {
         native.motionDependencies.clear();
       }
     }
+    syncCompositionFallbacks(natives) {
+      for (const native of natives)
+        native.handle.setCompositionFallback(native.fallbackReason);
+    }
     releaseRuntimeClip(element) {
       const state = this.runtimeClips.get(element);
       if (!state)
         return;
-      for (const [property, value] of state.applied) {
-        if (element.style.getPropertyValue(property) !== value || element.style.getPropertyPriority(property) !== "")
-          continue;
-        const original = state.original.get(property);
-        if (original === null || original === void 0 ? void 0 : original.value)
-          element.style.setProperty(property, original.value, original.priority);
-        else
-          element.style.removeProperty(property);
+      if (element.style.getPropertyValue("clip-path") === state.appliedValue) {
+        if (state.originalValue) {
+          element.style.setProperty("clip-path", state.originalValue, state.originalPriority);
+        } else {
+          element.style.removeProperty("clip-path");
+        }
       }
       element.removeAttribute("data-ni-runtime-clip");
-      this.runtimePaintStyles.set(element, element.style.cssText);
       this.runtimeClips.delete(element);
     }
     releaseRuntimeBackground(element) {
@@ -2722,18 +2631,16 @@ html[data-ni-root-scroll] body {
         if (element.style.getPropertyValue(property) !== state.applied.get(property))
           continue;
         const original = state.original.get(property);
-        if (original === null || original === void 0 ? void 0 : original.value) {
+        if (original?.value) {
           element.style.setProperty(property, original.value, original.priority);
         } else {
           element.style.removeProperty(property);
         }
       }
       element.removeAttribute("data-ni-runtime-background");
-      this.runtimePaintStyles.set(element, element.style.cssText);
       this.runtimeBackgrounds.delete(element);
     }
-    applyRuntimeBackground(layer, holes, unionMask) {
-      var _a;
+    applyRuntimeBackground(layer, holes) {
       const source = layer.backgroundPaint;
       if (!source)
         return false;
@@ -2756,11 +2663,13 @@ html[data-ni-root-scroll] body {
       const height = round2(layer.rect.h);
       const escapeXml = (value) => value.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
       const path = escapeXml(knockoutPathData(layer.rect, holes));
-      const svg = source.image === "none" && !unionMask ? "" : [
+      const svg = source.image === "none" ? "" : [
         `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}"`,
         ` viewBox="0 0 ${width} ${height}" preserveAspectRatio="none">`,
-        unionMask ? knockoutMaskDefinition(layer.rect, holes) : `<mask id="ni-knockout" maskUnits="userSpaceOnUse" x="0" y="0" width="${width}" height="${height}"><path fill="white" fill-rule="evenodd" d="${path}"/></mask>`,
-        source.image === "none" ? `<rect width="${width}" height="${height}" fill="${escapeXml(source.color)}" mask="url(#ni-knockout)"/>` : `<foreignObject width="${width}" height="${height}" mask="url(#ni-knockout)"><div xmlns="http://www.w3.org/1999/xhtml" style="${escapeXml([
+        `<mask id="m" maskUnits="userSpaceOnUse" x="0" y="0" width="${width}" height="${height}">`,
+        `<path fill="white" fill-rule="evenodd" d="${path}"/></mask>`,
+        `<foreignObject width="${width}" height="${height}" mask="url(#m)">`,
+        `<div xmlns="http://www.w3.org/1999/xhtml" style="${escapeXml([
           "box-sizing:border-box",
           `width:${width}px`,
           `height:${height}px`,
@@ -2776,8 +2685,7 @@ html[data-ni-root-scroll] body {
           `background-clip:${source.clip}`,
           `background-attachment:${source.attachment}`,
           `background-blend-mode:${source.blendMode}`
-        ].join(";"))}"></div></foreignObject>`,
-        "</svg>"
+        ].join(";"))}"></div></foreignObject></svg>`
       ].join("");
       const values = /* @__PURE__ */ new Map([
         ["background-color", "transparent"],
@@ -2787,7 +2695,7 @@ html[data-ni-root-scroll] body {
         ["background-attachment", "scroll"],
         ["background-blend-mode", "normal"]
       ]);
-      if (source.image === "none" && !unionMask) {
+      if (source.image === "none") {
         const images = [];
         const sizes = [];
         const positions = [];
@@ -2797,7 +2705,7 @@ html[data-ni-root-scroll] body {
           positions.push(`${round2(rect.x - layer.rect.x)}px ${round2(rect.y - layer.rect.y)}px`);
         }
         for (const hole of holes) {
-          const radius = Math.min((_a = hole.r) !== null && _a !== void 0 ? _a : 0, hole.w / 2, hole.h / 2);
+          const radius = Math.min(hole.r ?? 0, hole.w / 2, hole.h / 2);
           if (radius <= 0)
             continue;
           const left = round2(hole.x - layer.rect.x);
@@ -2838,7 +2746,6 @@ html[data-ni-root-scroll] body {
       if (!layer.el.hasAttribute("data-ni-runtime-background")) {
         layer.el.setAttribute("data-ni-runtime-background", "");
       }
-      this.runtimePaintStyles.set(layer.el, layer.el.style.cssText);
       const applied = getComputedStyle(layer.el);
       const transparent = applied.backgroundColor === "transparent" || applied.backgroundColor === "rgba(0, 0, 0, 0)";
       const expectedImage = values.get("background-image");
@@ -2849,27 +2756,8 @@ html[data-ni-root-scroll] body {
       return false;
     }
     applyWebKnockouts(natives, layers) {
-      var _a;
-      let suspended = false;
+      let degraded = false;
       const currentLayers = new Set(layers.map((layer) => layer.el));
-      for (const element of this.rejectedMasks.keys()) {
-        if (!currentLayers.has(element))
-          this.rejectedMasks.delete(element);
-      }
-      for (const layer of layers) {
-        const rejected = this.rejectedMasks.get(layer.el);
-        if (rejected === void 0)
-          continue;
-        if (rejected !== maskStyleKey(layer.el)) {
-          this.rejectedMasks.delete(layer.el);
-          continue;
-        }
-        const candidates = knockoutCandidates(natives, layer);
-        if (!roundedHolesOverlap(candidates.map((native) => Object.assign(Object.assign({}, native.visualRect), { r: native.rect.r }))))
-          continue;
-        for (const native of candidates)
-          suspendNative(native, "authored mask properties override native knockout geometry");
-      }
       for (const element of this.runtimeClips.keys()) {
         if (!currentLayers.has(element))
           this.releaseRuntimeClip(element);
@@ -2879,88 +2767,79 @@ html[data-ni-root-scroll] body {
           this.releaseRuntimeBackground(element);
       }
       for (const layer of layers) {
-        const candidates = knockoutCandidates(natives, layer);
+        const candidates = natives.filter((native) => native.active && native.plane === "underlay" && native.rect !== null && native.visualRect !== null && layer.cutoutIssue === null && above(native, layer) && intersects(native.visualRect, layer.visualRect) && !this.relativePathIsMoving(native.scrollPath, layer.scrollPath));
         const holeCandidates = candidates.filter((native) => {
+          if (!native.rect || !native.visualRect)
+            return false;
           if (sameCoordinatePath(native, layer))
             return true;
-          const fullRect = Object.assign(Object.assign({}, docRect(native.el)), { r: native.rect.r });
+          const fullRect = { ...docRect(native.el), r: native.rect.r };
           if (fullyVisibleInsideScrollPath(fullRect, native.scrollPath))
             return true;
-          suspendNative(native, "partially clipped rounded native islands are unsupported across scroll paths");
-          suspended = true;
+          native.fallbackReason = "partially clipped rounded native islands use their web presentation across scroll paths";
+          native.active = false;
+          native.rect = null;
+          native.visualRect = null;
+          degraded = true;
           return false;
         });
-        const rawHoles = this.compositionEnabled ? holeCandidates.map((native) => sameCoordinatePath(native, layer) ? native.rect : Object.assign(Object.assign({}, rectInScrollPathCoordinates(native.visualRect, layer.scrollPath)), { r: native.rect.r })) : [];
-        const unionMask = roundedHolesOverlap(rawHoles);
-        const holes = unionMask ? rawHoles : disjointHoles(rawHoles);
+        const holes = this.compositionEnabled ? disjointHoles(holeCandidates.map((native) => sameCoordinatePath(native, layer) ? native.rect : {
+          ...rectInScrollPathCoordinates(native.visualRect, layer.scrollPath),
+          r: native.rect.r
+        })) : [];
         if (holes.length === 0) {
           this.releaseRuntimeClip(layer.el);
           this.releaseRuntimeBackground(layer.el);
           continue;
         }
-        const clipLayerAsUnit = layer.backgroundPaint !== null && holeCandidates.every((native) => canClipLayerAsUnit(layer, native.handle.el));
+        const clipLayerAsUnit = layer.backgroundPaint !== null && holeCandidates.every((native) => canClipLayerAsUnit(layer.el, native.handle.el));
         if (layer.backgroundPaint && !clipLayerAsUnit) {
           this.releaseRuntimeClip(layer.el);
-          if (this.applyRuntimeBackground(layer, holes, unionMask))
+          if (this.applyRuntimeBackground(layer, holes))
             continue;
           for (const native of natives) {
             if (!native.active || !native.visualRect || !above(native, layer) || !intersects(native.visualRect, layer.visualRect)) {
               continue;
             }
-            native.inactiveReason = "the page background cannot be separated from its web content";
+            native.fallbackReason = "the page background cannot be separated from its web content";
             native.active = false;
             native.rect = null;
             native.visualRect = null;
-            suspended = true;
+            degraded = true;
           }
           continue;
         }
         this.releaseRuntimeBackground(layer.el);
-        const kind = unionMask ? "mask" : "path";
         const clip = holes.some((hole) => opaqueContainsRect(hole, layer.rect)) ? "inset(50%)" : knockoutPath(layer.rect, holes);
-        const values = unionMask ? /* @__PURE__ */ new Map([
-          ["mask-image", `url("data:image/svg+xml,${encodeURIComponent(knockoutMaskSvg(layer.rect, holes))}")`],
-          ["mask-size", "100% 100%"],
-          ["mask-position", "0px 0px"],
-          ["mask-repeat", "no-repeat"],
-          ["mask-mode", "alpha"],
-          ["mask-composite", "add"],
-          ["mask-clip", "border-box"],
-          ["mask-origin", "border-box"]
-        ]) : /* @__PURE__ */ new Map([["clip-path", clip]]);
-        if (((_a = this.runtimeClips.get(layer.el)) === null || _a === void 0 ? void 0 : _a.kind) !== kind)
-          this.releaseRuntimeClip(layer.el);
         const existing = this.runtimeClips.get(layer.el);
-        const state = existing !== null && existing !== void 0 ? existing : {
-          kind,
-          original: new Map(Array.from(values.keys(), (property) => [
-            property,
-            {
-              value: layer.el.style.getPropertyValue(property),
-              priority: layer.el.style.getPropertyPriority(property)
-            }
-          ])),
-          applied: /* @__PURE__ */ new Map()
-        };
-        this.runtimeClips.set(layer.el, state);
-        for (const [property, value] of values) {
-          if (layer.el.style.getPropertyValue(property) !== value || layer.el.style.getPropertyPriority(property) !== "") {
-            layer.el.style.setProperty(property, value);
-          }
+        if (!existing) {
+          this.runtimeClips.set(layer.el, {
+            originalValue: layer.el.style.getPropertyValue("clip-path"),
+            originalPriority: layer.el.style.getPropertyPriority("clip-path"),
+            appliedValue: ""
+          });
         }
-        state.applied = new Map(Array.from(values.keys(), (property) => [property, layer.el.style.getPropertyValue(property)]));
+        if (layer.el.style.getPropertyValue("clip-path") !== clip || layer.el.style.getPropertyPriority("clip-path") !== "") {
+          layer.el.style.setProperty("clip-path", clip);
+        }
+        const state = existing ?? this.runtimeClips.get(layer.el);
+        if (state)
+          state.appliedValue = layer.el.style.getPropertyValue("clip-path");
         layer.el.setAttribute("data-ni-runtime-clip", "");
-        this.runtimePaintStyles.set(layer.el, layer.el.style.cssText);
-        if (unionMask && !runtimeOwnsMask(layer.el, getComputedStyle(layer.el))) {
-          this.releaseRuntimeClip(layer.el);
-          this.rejectedMasks.set(layer.el, maskStyleKey(layer.el));
-          for (const native of holeCandidates)
-            suspendNative(native, "authored mask properties override native knockout geometry");
-          suspended = true;
-        }
       }
-      if (suspended)
+      if (degraded)
         this.applyWebKnockouts(natives, layers);
+    }
+    relativePathIsMoving(nativePath, layerPath) {
+      if (!this.presentationActive || this.movingScrollContainers.size === 0)
+        return false;
+      const nativeSet = new Set(nativePath);
+      const layerSet = new Set(layerPath);
+      for (const container of this.movingScrollContainers) {
+        if (nativeSet.has(container) !== layerSet.has(container))
+          return true;
+      }
+      return false;
     }
     resolve() {
       this.pruneDetachedEffects();
@@ -2972,34 +2851,18 @@ html[data-ni-root-scroll] body {
       const layers = this.buildLayers();
       const motion = this.assessMotionSafety(layers);
       const natives = this.buildNatives(motion);
-      const routed = /* @__PURE__ */ new Set();
-      for (const native of natives) {
-        if (!native.active || this.innerScrollMode !== "root")
-          continue;
-        for (const element of native.scrollPath)
-          routed.add(element);
-      }
-      const routedOwners = Array.from(routed).sort((left, right) => comparePaintOrder(right, left));
-      this.rootScroll.reconcile(routedOwners.map((element) => ({
-        id: this.idForScrollContainer(element),
-        element
-      })));
-      for (const native of natives) {
-        if (native.scrollPath.some((element) => this.rootScroll.isRouted(element)))
-          native.plane = "overlay";
-      }
       this.resolveHostPlanes(natives, layers);
-      this.resolveWebUnderlays(natives, layers);
-      this.suspendUnsupportedOverlaps(natives);
       this.detectBackgroundPaintConflicts(natives, layers);
       this.detectLayerCoordinateConflicts(natives, layers);
       this.detectOverlayCutoutConflicts(natives, layers);
       this.enforceUnobscuredSurfaces(natives, layers);
       this.resolveMotionDependencies(natives, layers);
       this.enforceRegionCapacity(natives, layers);
+      this.syncScrollPresentationFaces(natives);
+      this.lastNatives = natives;
+      this.lastLayers = layers;
       this.applyWebKnockouts(natives, layers);
-      for (const native of natives)
-        native.handle.setNativeInactive(native.inactiveReason);
+      this.syncCompositionFallbacks(natives);
       const order = natives.filter((native) => native.active).slice().sort((a, b) => {
         if (above(a, b))
           return 1;
@@ -3011,14 +2874,13 @@ html[data-ni-root-scroll] body {
         const style = getComputedStyle(layer.el);
         return style.visibility === "visible" && style.pointerEvents !== "none" && inertAncestor(layer.el) === null;
       };
-      const bridgeRect = (rect, coordinateSpace) => coordinateSpace === "document" && this.innerScrollMode === "root" ? canonicalScrollRect(Object.assign(Object.assign({}, rect), { y: round2(rect.y - window.scrollY + this.rootScroll.pageOffset()) })) : rect;
       const region = (layer) => ({
-        rect: bridgeRect(layer.rect, layer.coordinateSpace),
+        rect: layer.rect,
         coordinateSpace: layer.coordinateSpace,
         scrollPath: layer.scrollPath.map((element) => this.idForScrollContainer(element))
       });
       const nativeRegion = (native) => ({
-        rect: bridgeRect(native.rect, native.coordinateSpace),
+        rect: native.rect,
         coordinateSpace: native.coordinateSpace,
         scrollPath: native.scrollPath.map((element) => this.idForScrollContainer(element))
       });
@@ -3027,14 +2889,10 @@ html[data-ni-root-scroll] body {
       for (const native of natives) {
         if (!native.active || !native.rect)
           continue;
-        cutouts[native.handle.islandId] = [];
-        exclusions[native.handle.islandId] = [];
         if (!native.visualRect)
           continue;
         const nativeRect = native.visualRect;
-        if (native.plane === "overlay") {
-          cutouts[native.handle.islandId] = layers.filter((layer) => layer.cutoutIssue === null && layer.overlayCutoutIssue === null && isElementVisible(layer.el) && above(layer, native) && canMoveIntoIntersection(layer, native)).map(region);
-        }
+        cutouts[native.handle.islandId] = native.plane === "overlay" ? layers.filter((layer) => layer.cutoutIssue === null && layer.overlayCutoutIssue === null && isElementVisible(layer.el) && above(layer, native) && canMoveIntoIntersection(layer, native)).map(region) : [];
         exclusions[native.handle.islandId] = layers.filter((layer) => touchable(layer) && above(layer, native) && canMoveIntoIntersection(layer, native)).map(region);
         for (const other of natives) {
           if (other !== native && other.active && other.rect && other.visualRect && above(other, native) && intersects(other.visualRect, nativeRect)) {
@@ -3042,63 +2900,54 @@ html[data-ni-root-scroll] body {
           }
         }
       }
-      const components = natives.filter((native) => native.handle.canAttemptNative()).map((native) => {
-        const rect = native.rect && bridgeRect(native.rect, native.coordinateSpace);
-        return {
-          id: native.handle.islandId,
-          type: native.handle.type,
-          plane: native.plane,
-          coordinateSpace: native.coordinateSpace,
-          scrollPath: native.scrollPath.map((element) => this.idForScrollContainer(element)),
-          motionDependencies: Array.from(native.motionDependencies, (element) => this.idForScrollContainer(element)),
-          rect,
-          interactive: native.interactive,
-          active: native.active
-        };
-      });
-      const motionDependencies = (include) => {
-        const dependencies = /* @__PURE__ */ new Set();
-        for (const native of natives) {
-          if (!include(native))
-            continue;
-          for (const element of native.motionDependencies)
-            dependencies.add(element);
-        }
-        return Array.from(dependencies);
-      };
-      const activeScrollContainers = motionDependencies((native) => native.active);
+      const components = natives.filter((native) => !native.handle.degraded).map((native) => ({
+        id: native.handle.islandId,
+        type: native.handle.type,
+        plane: native.plane,
+        coordinateSpace: native.coordinateSpace,
+        scrollPath: native.scrollPath.map((element) => this.idForScrollContainer(element)),
+        motionDependencies: Array.from(native.motionDependencies, (element) => this.idForScrollContainer(element)),
+        rect: native.rect === null ? null : {
+          x: native.rect.x,
+          y: native.rect.y,
+          w: native.rect.w,
+          h: native.rect.h,
+          r: native.rect.r
+        },
+        interactive: native.interactive,
+        active: native.active
+      }));
+      const activeScrollContainers = Array.from(new Set(natives.filter((native) => native.active).flatMap((native) => Array.from(native.motionDependencies))));
       this.syncScrollListeners(activeScrollContainers);
-      const referencedScrollContainers = motionDependencies((native) => native.handle.canAttemptNative()).sort((left, right) => comparePaintOrder(right, left));
-      const scrollContainers = [];
-      for (const element of referencedScrollContainers) {
+      const referencedScrollContainers = Array.from(new Set(natives.filter((native) => !native.handle.degraded).flatMap((native) => Array.from(native.motionDependencies))));
+      const scrollContainers = referencedScrollContainers.flatMap((element) => {
         const visualRect = scrollContainerRect(element);
         if (!visualRect)
-          continue;
+          return [];
         const ancestorPath = scrollPath(element);
-        const viewportFixed = this.innerScrollMode === "root" && this.rootScroll.isRouted(element);
-        let rect = rectInScrollPathCoordinates(viewportFixed ? Object.assign(Object.assign({}, visualRect), { y: round2(visualRect.y - window.scrollY + this.rootScroll.pageOffset()) }) : visualRect, ancestorPath);
-        if (viewportFixed)
-          rect = canonicalScrollRect(rect);
+        const rect = rectInScrollPathCoordinates(visualRect, ancestorPath);
         const offset = physicalScrollOffset(element);
-        scrollContainers.push({
-          id: this.idForScrollContainer(element),
-          rect,
-          scrollPath: ancestorPath.map((ancestor) => this.idForScrollContainer(ancestor)),
-          viewportFixed,
-          contentWidth: round2(element.scrollWidth),
-          contentHeight: round2(element.scrollHeight),
-          offsetX: offset.x,
-          offsetY: viewportFixed ? this.rootScroll.offsetFor(element) : offset.y
-        });
-      }
-      return Object.assign(Object.assign({}, createEnvelope()), {
+        return [
+          {
+            id: this.idForScrollContainer(element),
+            rect,
+            scrollPath: ancestorPath.map((ancestor) => this.idForScrollContainer(ancestor)),
+            contentWidth: round2(element.scrollWidth),
+            contentHeight: round2(element.scrollHeight),
+            offsetX: offset.x,
+            offsetY: offset.y
+          }
+        ];
+      });
+      return {
+        ...createEnvelope(),
+        ...this.innerScrollMode === "presentation" ? { motionPresentation: true } : {},
         components,
-        documentRange: round2(this.rootScroll.pageRange()),
         scrollContainers,
         order,
         cutouts,
         exclusions
-      });
+      };
     }
   }
   const LAYER_SELECTOR = "[data-native-islands-opaque-surface]";
@@ -3128,6 +2977,12 @@ html[data-ni-root-scroll] body {
     get available() {
       return this.transport.available;
     }
+    get usesWebScrollPresentation() {
+      return this.transport.innerScrollMode === "presentation";
+    }
+    get supportsScrollPresentation() {
+      return this.transport.innerScrollMode === "presentation" || this.transport.innerScrollMode === "native-presentation";
+    }
     initialize(transport, options = DEFAULT_INITIALIZATION) {
       const priority = transport.available ? options.priority : NATIVE_ISLANDS_TRANSPORT_PRIORITY.unavailable;
       if (this.transportIdentity !== void 0 && (options.identity === this.transportIdentity || this.transport.available || priority <= this.transportPriority)) {
@@ -3143,19 +2998,17 @@ html[data-ni-root-scroll] body {
         transport.reset(createEnvelope());
         this.transportDisposers.push(transport.on("islandError", createEnvelope(), (event) => {
           if (event.island) {
-            this.failIsland(event.island, typeof event.reason === "string" ? event.reason : "Native component failed.");
+            this.degradeIsland(event.island, typeof event.reason === "string" ? event.reason : "Native component failed.");
           }
         }));
         if (typeof window !== "undefined") {
-          const resetOnPageHide = () => {
-            this.stacking.prepareForPageHide();
-            transport.reset(createEnvelope());
-          };
-          const reconcileOnPageShow = async (event) => {
+          const resetOnPageHide = (event) => {
             if (!event.persisted)
-              return;
-            await this.stacking.recreateNativeViews();
-            this.stacking.refresh();
+              transport.reset(createEnvelope());
+          };
+          const reconcileOnPageShow = (event) => {
+            if (event.persisted)
+              this.stacking.refresh();
           };
           window.addEventListener("pagehide", resetOnPageHide);
           window.addEventListener("pageshow", reconcileOnPageShow);
@@ -3163,10 +3016,9 @@ html[data-ni-root-scroll] body {
           this.transportDisposers.push(() => window.removeEventListener("pageshow", reconcileOnPageShow));
         }
       }
-      if (transport.available) {
-        this.autostart();
+      this.autostart();
+      if (transport.available)
         this.stacking.notifyTransportAvailable();
-      }
       return true;
     }
     registerIsland(handle) {
@@ -3181,23 +3033,25 @@ html[data-ni-root-scroll] body {
     refresh() {
       this.stacking.refresh();
     }
-    synchronize() {
-      return Promise.resolve().then(() => this.stacking.synchronize());
-    }
     command(island, nativeComponent, method, properties) {
       try {
         validateCommand(island, nativeComponent, method, properties);
       } catch (error) {
         return Promise.reject(error);
       }
-      return this.transport.command(Object.assign(Object.assign({}, createEnvelope()), { island, islandType: nativeComponent, method, params: properties }));
+      return this.transport.command({
+        ...createEnvelope(),
+        island,
+        islandType: nativeComponent,
+        method,
+        params: properties
+      });
     }
     listen(eventName, listener) {
       return this.transport.on(eventName, createEnvelope(), listener);
     }
-    failIsland(id, reason) {
-      var _a;
-      (_a = this.stacking.findNative(id)) === null || _a === void 0 ? void 0 : _a.failNative(reason);
+    degradeIsland(id, reason) {
+      this.stacking.findNative(id)?.degradeToFallback(reason);
     }
     autostart() {
       if (typeof document === "undefined")
@@ -3211,7 +3065,6 @@ html[data-ni-root-scroll] body {
       }
     }
     start() {
-      var _a, _b, _c, _d;
       if (this.started || !document.body)
         return;
       this.started = true;
@@ -3226,20 +3079,16 @@ html[data-ni-root-scroll] body {
       });
       this.stacking.start((payload) => {
         this.applyingLayouts++;
-        const completeLayout = () => {
-          this.applyingLayouts--;
-          if (this.applyingLayouts === 0 && this.pendingScrollOffsets)
-            void this.flushScrollOffsets();
-        };
         return this.transport.applyLayout(payload).catch((error) => {
           const reason = error instanceof Error && error.message ? `Native layout rejected: ${error.message}` : "Native layout rejected by the platform bridge.";
           for (const component of payload.components) {
-            this.failIsland(component.id, reason);
+            this.degradeIsland(component.id, reason);
           }
           throw error;
-        }).then(() => completeLayout(), (error) => {
-          completeLayout();
-          throw error;
+        }).finally(() => {
+          this.applyingLayouts--;
+          if (this.applyingLayouts === 0 && this.pendingScrollOffsets)
+            void this.flushScrollOffsets();
         });
       }, (payload) => this.enqueueScrollOffsets(payload));
       window.addEventListener("resize", () => this.refresh(), {
@@ -3261,9 +3110,9 @@ html[data-ni-root-scroll] body {
         if (document.visibilityState === "visible")
           this.refresh();
       });
-      void ((_b = (_a = document.fonts) === null || _a === void 0 ? void 0 : _a.ready) === null || _b === void 0 ? void 0 : _b.then(() => this.refresh()).catch(() => void 0));
-      (_c = document.fonts) === null || _c === void 0 ? void 0 : _c.addEventListener("loadingdone", () => this.refresh());
-      (_d = document.fonts) === null || _d === void 0 ? void 0 : _d.addEventListener("loadingerror", () => this.refresh());
+      void document.fonts?.ready?.then(() => this.refresh()).catch(() => void 0);
+      document.fonts?.addEventListener("loadingdone", () => this.refresh());
+      document.fonts?.addEventListener("loadingerror", () => this.refresh());
       for (const query of ["(prefers-color-scheme: dark)", "(prefers-contrast: more)", "(forced-colors: active)"]) {
         window.matchMedia(query).addEventListener("change", () => {
           this.stacking.invalidateAutomaticLayers();
@@ -3289,7 +3138,7 @@ html[data-ni-root-scroll] body {
             await this.transport.applyScrollOffsets(payload);
           } catch (error) {
             const reason = error instanceof Error && error.message ? `Native scroll synchronization failed: ${error.message}` : "Native scroll synchronization failed.";
-            this.stacking.failScrollContainers(payload.offsets.map((offset) => offset.id), reason);
+            this.stacking.degradeScrollContainers(payload.offsets.map((offset) => offset.id), reason);
             this.pendingScrollOffsets = null;
           }
         }
@@ -3383,10 +3232,9 @@ html[data-ni-root-scroll] body {
     }
     disconnectShadowTrees(root) {
       this.visitOpenTree(root, (tree) => {
-        var _a;
         if (!(tree instanceof ShadowRoot))
           return;
-        (_a = this.shadowObservers.get(tree)) === null || _a === void 0 ? void 0 : _a.disconnect();
+        this.shadowObservers.get(tree)?.disconnect();
         this.shadowObservers.delete(tree);
         this.stacking.unobserveEffectRoot(tree);
       });
@@ -3419,66 +3267,19 @@ html[data-ni-root-scroll] body {
     ["border-image-slice", "1"]
   ]);
   const definitionState = globalSingleton("definitions/v1", () => ({
-    commandGeneration: 0,
-    commandsSuspended: false,
     islandSequence: 0,
-    lifecycleListenersInstalled: false,
     definitions: /* @__PURE__ */ new Map()
   }));
-  if (!Number.isSafeInteger(definitionState.commandGeneration))
-    definitionState.commandGeneration = 0;
-  if (typeof definitionState.commandsSuspended !== "boolean")
-    definitionState.commandsSuspended = false;
-  if (typeof definitionState.lifecycleListenersInstalled !== "boolean") {
-    definitionState.lifecycleListenersInstalled = false;
-  }
-  function installCommandLifecycleListeners() {
-    if (definitionState.lifecycleListenersInstalled || typeof window === "undefined")
-      return;
-    definitionState.lifecycleListenersInstalled = true;
-    window.addEventListener("pagehide", () => {
-      definitionState.commandGeneration += 1;
-      definitionState.commandsSuspended = true;
-    });
-    window.addEventListener("pageshow", () => {
-      definitionState.commandsSuspended = false;
-    });
-  }
-  const scheduleMicrotask = typeof queueMicrotask === "function" ? queueMicrotask : (callback) => {
-    void Promise.resolve().then(callback);
-  };
   function defineNativeIsland(options) {
-    var _a, _b, _c, _d, _e, _f, _g, _h;
-    installCommandLifecycleListeners();
     if (!options.tagName.includes("-")) {
       throw new TypeError("tagName must be a valid custom-element name.");
     }
     if (!options.nativeComponent.trim()) {
       throw new TypeError("nativeComponent must not be empty.");
     }
-    const observedAttributes = [...new Set((_a = options.observedAttributes) !== null && _a !== void 0 ? _a : [])];
-    const observedStyles = [
-      ...new Set(((_b = options.observedStyles) !== null && _b !== void 0 ? _b : []).map((property) => property.trim()).filter(Boolean))
-    ];
-    const structuralSignature = JSON.stringify({
-      isInteractive: (_c = options.isInteractive) !== null && _c !== void 0 ? _c : false,
-      accessibility: (_d = options.accessibility) !== null && _d !== void 0 ? _d : "web",
-      requiresUnobscuredSurface: (_e = options.requiresUnobscuredSurface) !== null && _e !== void 0 ? _e : false,
-      observedAttributes: [...observedAttributes].sort(),
-      observedStyles: [...observedStyles].sort(),
-      preserveChildren: (_f = options.preserveChildren) !== null && _f !== void 0 ? _f : false,
-      events: Object.entries((_g = options.events) !== null && _g !== void 0 ? _g : {}).sort(([left], [right]) => left < right ? -1 : left > right ? 1 : 0)
-    });
     const existingDefinition = definitionState.definitions.get(options.tagName);
     if (existingDefinition) {
       if (existingDefinition.nativeComponent === options.nativeComponent) {
-        if (existingDefinition.structuralSignature !== void 0 && existingDefinition.handlers !== void 0) {
-          if (existingDefinition.structuralSignature !== structuralSignature) {
-            throw new Error(`<${options.tagName}> is already registered with a different definition contract.`);
-          }
-          existingDefinition.handlers.getProperties = options.getProperties;
-          existingDefinition.handlers.renderFallback = options.renderFallback;
-        }
         return existingDefinition.constructor;
       }
       throw new Error(`<${options.tagName}> is already registered for "${existingDefinition.nativeComponent}".`);
@@ -3486,37 +3287,38 @@ html[data-ni-root-scroll] body {
     if (customElements.get(options.tagName)) {
       throw new Error(`<${options.tagName}> was defined outside Native Islands.`);
     }
-    const handlers = {
-      getProperties: options.getProperties,
-      renderFallback: options.renderFallback
-    };
+    const observedAttributes = [...new Set(options.observedAttributes ?? [])];
+    const observedStyles = [
+      ...new Set((options.observedStyles ?? []).map((property) => property.trim()).filter(Boolean))
+    ];
     const reflectedAttributes = /* @__PURE__ */ new Set();
     const contract = {
       tagName: options.tagName,
       commands: ["create", "update"],
       observedAttributes,
-      requiresUnobscuredSurface: (_h = options.requiresUnobscuredSurface) !== null && _h !== void 0 ? _h : false
+      requiresUnobscuredSurface: options.requiresUnobscuredSurface ?? false
     };
     registerIslandContract(options.nativeComponent, contract);
     class DefinedNativeIsland extends HTMLElement {
       constructor() {
-        var _a2, _b2;
         super();
         this.islandId = `native-island-${++definitionState.islandSequence}`;
         this.type = options.nativeComponent;
-        this.interactive = (_a2 = options.isInteractive) !== null && _a2 !== void 0 ? _a2 : false;
-        this.requiresUnobscuredSurface = (_b2 = options.requiresUnobscuredSurface) !== null && _b2 !== void 0 ? _b2 : false;
+        this.interactive = options.isInteractive ?? false;
+        this.requiresUnobscuredSurface = options.requiresUnobscuredSurface ?? false;
+        this.degraded = false;
         this.connected = false;
         this.mountGeneration = 0;
         this.nativeCreated = false;
-        this.nativeFailed = false;
-        this.nativeInactiveReason = null;
+        this.compositionFallbackReason = null;
         this.disconnectGeneration = 0;
         this.eventDisposers = [];
         this.accessibilityFace = null;
         this.updateScheduled = false;
         this.observedStyleSnapshot = null;
+        this.presentationFace = null;
         this.presentationPaint = null;
+        this.scrollPresentationActive = false;
         this.fallbackAttributeChanges = /* @__PURE__ */ new Map();
         this.fallbackOnClick = null;
         const properties = this;
@@ -3535,10 +3337,10 @@ html[data-ni-root-scroll] body {
         return this;
       }
       isActive() {
-        return this.canAttemptNative();
+        return this.canAttemptNative() && this.compositionFallbackReason === null;
       }
       canAttemptNative() {
-        return this.connected && !this.nativeFailed && nativeIslandsRuntime.available;
+        return this.connected && !this.degraded && nativeIslandsRuntime.available;
       }
       connectedCallback() {
         this.disconnectGeneration += 1;
@@ -3554,32 +3356,27 @@ html[data-ni-root-scroll] body {
         this.activateNative();
       }
       onTransportAvailable() {
-        if (!this.connected || this.nativeFailed || this.nativeCreated)
+        if (!this.connected || this.degraded || this.nativeCreated)
           return;
         this.activateNative();
         nativeIslandsRuntime.refresh();
       }
-      recreateNative() {
-        if (!this.connected || this.nativeFailed || !this.nativeCreated || !nativeIslandsRuntime.available) {
-          return Promise.resolve();
-        }
-        return this.send("create");
-      }
       activateNative() {
-        var _a2, _b2;
-        if (!this.connected || this.nativeFailed || this.nativeCreated || !nativeIslandsRuntime.available)
+        if (!this.connected || this.degraded || this.nativeCreated || !nativeIslandsRuntime.available)
           return;
         this.nativeCreated = true;
         this.restoreFallbackPresentation();
-        if (((_a2 = options.accessibility) !== null && _a2 !== void 0 ? _a2 : "web") === "web") {
+        if (nativeIslandsRuntime.usesWebScrollPresentation) {
+          this.renderPresentationFace();
+        } else if ((options.accessibility ?? "web") === "web") {
           this.renderAccessibilityFace();
         }
         this.hideWebPresentation();
-        for (const [nativeEvent, domEvent] of Object.entries((_b2 = options.events) !== null && _b2 !== void 0 ? _b2 : {})) {
+        for (const [nativeEvent, domEvent] of Object.entries(options.events ?? {})) {
           this.eventDisposers.push(nativeIslandsRuntime.listen(nativeEvent, (event) => {
             if (event.island !== this.islandId)
               return;
-            const detail = Object.assign({}, event);
+            const detail = { ...event };
             delete detail.island;
             this.dispatchEvent(new CustomEvent(domEvent, {
               bubbles: true,
@@ -3594,15 +3391,16 @@ html[data-ni-root-scroll] body {
         if (!this.connected)
           return;
         const generation = ++this.disconnectGeneration;
-        scheduleMicrotask(() => {
+        queueMicrotask(() => {
           if (generation !== this.disconnectGeneration || this.isConnected)
             return;
           this.mountGeneration += 1;
           this.connected = false;
-          this.nativeFailed = false;
-          this.nativeInactiveReason = null;
+          this.degraded = false;
           this.nativeCreated = false;
+          this.compositionFallbackReason = null;
           this.observedStyleSnapshot = null;
+          this.scrollPresentationActive = false;
           this.restoreWebPresentation();
           for (const dispose of this.eventDisposers.splice(0))
             dispose();
@@ -3613,23 +3411,27 @@ html[data-ni-root-scroll] body {
         if (!this.connected || oldValue === newValue)
           return;
         nativeIslandsRuntime.refresh();
-        if (this.nativeCreated && !this.nativeFailed) {
+        if (this.nativeCreated && !this.degraded && this.compositionFallbackReason === null) {
           this.scheduleUpdate();
-        } else if (!nativeIslandsRuntime.available) {
+        } else {
           this.renderFallback();
         }
       }
-      failNative(reason) {
-        var _a2;
-        if (this.nativeFailed)
+      degradeToFallback(reason) {
+        if (this.degraded)
           return;
-        this.nativeFailed = true;
+        this.degraded = true;
         this.nativeCreated = false;
+        this.compositionFallbackReason = null;
         for (const dispose of this.eventDisposers.splice(0))
           dispose();
-        (_a2 = this.accessibilityFace) === null || _a2 === void 0 ? void 0 : _a2.remove();
+        this.accessibilityFace?.remove();
         this.accessibilityFace = null;
-        this.setAttribute("data-native-islands-error", "");
+        this.presentationFace = null;
+        this.scrollPresentationActive = false;
+        this.restoreWebPresentation();
+        this.setAttribute("data-native-islands-fallback", "");
+        this.renderFallback();
         nativeIslandsRuntime.refresh();
         this.dispatchEvent(new CustomEvent("nativeislanderror", {
           bubbles: true,
@@ -3637,14 +3439,27 @@ html[data-ni-root-scroll] body {
           detail: { reason }
         }));
       }
-      setNativeInactive(reason) {
-        if (this.nativeInactiveReason === reason)
+      setCompositionFallback(reason) {
+        if (this.degraded || this.compositionFallbackReason === reason)
           return;
-        this.nativeInactiveReason = reason;
-        if (reason === null)
-          this.removeAttribute("data-native-islands-inactive");
-        else
-          this.setAttribute("data-native-islands-inactive", "");
+        const wasFallback = this.compositionFallbackReason !== null;
+        this.compositionFallbackReason = reason;
+        if (reason !== null) {
+          this.restoreWebPresentation();
+          if (!wasFallback)
+            this.renderFallback();
+          this.setAttribute("data-native-islands-composition-fallback", "");
+        } else {
+          this.restoreFallbackPresentation();
+          if (nativeIslandsRuntime.usesWebScrollPresentation) {
+            this.renderPresentationFace();
+          } else if ((options.accessibility ?? "web") === "web") {
+            this.renderAccessibilityFace();
+          }
+          this.hideWebPresentation();
+          if (this.nativeCreated)
+            this.scheduleUpdate(false);
+        }
       }
       reconcileObservedStyles() {
         if (!this.connected || observedStyles.length === 0)
@@ -3657,22 +3472,30 @@ html[data-ni-root-scroll] body {
         if (next === this.observedStyleSnapshot)
           return;
         this.observedStyleSnapshot = next;
-        if (this.nativeCreated && !this.nativeFailed) {
+        if (this.nativeCreated && !this.degraded && this.compositionFallbackReason === null) {
           this.scheduleUpdate();
-        } else if (!nativeIslandsRuntime.available) {
+        } else {
           this.renderFallback();
         }
+      }
+      setScrollPresentation(active) {
+        this.scrollPresentationActive = active;
+        if (!nativeIslandsRuntime.supportsScrollPresentation)
+          return;
+        if (!this.presentationFace && this.nativeCreated && !this.degraded && this.compositionFallbackReason === null) {
+          this.renderPresentationFace();
+        }
+        this.presentationFace?.style.setProperty("visibility", active ? "visible" : "hidden", "important");
       }
       readObservedStyleSnapshot() {
         const style = getComputedStyle(this);
         return JSON.stringify(observedStyles.map((property) => style.getPropertyValue(property)));
       }
       properties() {
-        var _a2;
         if (observedStyles.length > 0) {
           this.observedStyleSnapshot = this.readObservedStyleSnapshot();
         }
-        return (_a2 = handlers.getProperties) === null || _a2 === void 0 ? void 0 : _a2.call(handlers, this);
+        return options.getProperties?.(this);
       }
       async send(method) {
         const generation = this.mountGeneration;
@@ -3681,41 +3504,39 @@ html[data-ni-root-scroll] body {
         } catch (error) {
           if (!this.connected || generation !== this.mountGeneration)
             return;
-          this.failNative(error instanceof Error ? error.message : "Native command failed.");
+          this.degradeToFallback(error instanceof Error ? error.message : "Native command failed.");
         }
       }
       scheduleUpdate(refreshPresentation = true) {
         if (this.updateScheduled)
           return;
         this.updateScheduled = true;
-        const commandGeneration = definitionState.commandGeneration;
-        scheduleMicrotask(() => {
-          var _a2;
+        queueMicrotask(() => {
           this.updateScheduled = false;
-          if (!this.connected || this.nativeFailed || !nativeIslandsRuntime.available || definitionState.commandsSuspended || commandGeneration !== definitionState.commandGeneration) {
+          if (!this.connected || this.degraded || !nativeIslandsRuntime.available)
             return;
-          }
-          if (((_a2 = options.accessibility) !== null && _a2 !== void 0 ? _a2 : "web") === "web" && refreshPresentation) {
+          if (nativeIslandsRuntime.usesWebScrollPresentation && refreshPresentation) {
+            this.renderPresentationFace();
+          } else if ((options.accessibility ?? "web") === "web") {
             this.renderAccessibilityFace();
           }
           void this.send("update");
         });
       }
       renderFallback() {
-        var _a2;
         this.restoreWebPresentation();
         this.restoreFallbackPresentation();
         this.accessibilityFace = null;
-        if (!options.preserveChildren)
-          this.clearChildren();
+        this.presentationFace = null;
+        this.replaceChildren();
         const beforeAttributes = new Map(this.getAttributeNames().map((name) => [name, this.getAttribute(name)]));
         const beforeOnClick = this.onclick;
-        handlers.renderFallback(this);
+        options.renderFallback(this);
         const names = /* @__PURE__ */ new Set([...beforeAttributes.keys(), ...this.getAttributeNames()]);
         for (const name of names) {
-          if (name === "data-native-islands-fallback")
+          if (name === "data-native-islands-fallback" || name === "data-native-islands-composition-fallback")
             continue;
-          const before = (_a2 = beforeAttributes.get(name)) !== null && _a2 !== void 0 ? _a2 : null;
+          const before = beforeAttributes.get(name) ?? null;
           const after = this.getAttribute(name);
           if (before !== after)
             this.fallbackAttributeChanges.set(name, { before, after });
@@ -3749,7 +3570,7 @@ html[data-ni-root-scroll] body {
             continue;
           }
           const previous = original.get(property);
-          if (previous === null || previous === void 0 ? void 0 : previous.value)
+          if (previous?.value)
             this.style.setProperty(property, previous.value, previous.priority);
           else
             this.style.removeProperty(property);
@@ -3758,9 +3579,8 @@ html[data-ni-root-scroll] body {
         this.presentationPaint = null;
       }
       restoreFallbackPresentation() {
-        var _a2;
         this.removeAttribute("data-native-islands-fallback");
-        this.removeAttribute("data-native-islands-error");
+        this.removeAttribute("data-native-islands-composition-fallback");
         for (const [name, change] of this.fallbackAttributeChanges) {
           if (this.getAttribute(name) !== change.after)
             continue;
@@ -3774,22 +3594,56 @@ html[data-ni-root-scroll] body {
           this.onclick = this.fallbackOnClick.before;
         }
         this.fallbackOnClick = null;
-        (_a2 = this.accessibilityFace) === null || _a2 === void 0 ? void 0 : _a2.remove();
+        this.replaceChildren();
         this.accessibilityFace = null;
-        if (!options.preserveChildren)
-          this.clearChildren();
+        this.presentationFace = null;
       }
-      clearChildren() {
-        if (typeof this.replaceChildren === "function") {
-          this.replaceChildren();
-          return;
+      renderPresentationFace() {
+        this.presentationFace?.remove();
+        this.accessibilityFace?.remove();
+        const face = document.createElement("div");
+        for (const name of this.getAttributeNames()) {
+          if (name === "id" || name === "style" || name === "data-native-islands-fallback" || name === "data-native-islands-composition-fallback") {
+            continue;
+          }
+          const value = this.getAttribute(name);
+          if (value !== null)
+            face.setAttribute(name, value);
         }
-        while (this.firstChild)
-          this.removeChild(this.firstChild);
+        face.setAttribute("data-native-islands-presentation-face", "");
+        options.renderFallback(face);
+        const hostStyle = typeof getComputedStyle === "function" ? getComputedStyle(this) : null;
+        face.style.setProperty("box-sizing", "border-box", "important");
+        face.style.setProperty("width", "100%", "important");
+        face.style.setProperty("height", "100%", "important");
+        face.style.setProperty("max-width", "100%", "important");
+        face.style.setProperty("max-height", "100%", "important");
+        face.style.setProperty("min-width", "0", "important");
+        face.style.setProperty("min-height", "0", "important");
+        face.style.setProperty("border-radius", "inherit", "important");
+        face.style.setProperty("overflow", "hidden", "important");
+        if (hostStyle) {
+          face.style.setProperty("background-color", hostStyle.backgroundColor, "important");
+          face.style.setProperty("background-image", hostStyle.backgroundImage, "important");
+          face.style.setProperty("background-size", hostStyle.backgroundSize, "important");
+          face.style.setProperty("background-position", hostStyle.backgroundPosition, "important");
+          face.style.setProperty("background-repeat", hostStyle.backgroundRepeat, "important");
+          face.style.setProperty("border-color", hostStyle.borderColor, "important");
+          face.style.setProperty("border-style", hostStyle.borderStyle, "important");
+          face.style.setProperty("border-width", hostStyle.borderWidth, "important");
+          face.style.setProperty("color", hostStyle.color, "important");
+        }
+        face.style.setProperty("pointer-events", "none", "important");
+        face.style.setProperty("visibility", this.scrollPresentationActive ? "visible" : "hidden", "important");
+        face.setAttribute("aria-hidden", "true");
+        face.inert = true;
+        this.append(face);
+        this.presentationFace = face;
+        if ((options.accessibility ?? "web") === "web")
+          this.renderAccessibilityFace();
       }
       renderAccessibilityFace() {
-        var _a2;
-        (_a2 = this.accessibilityFace) === null || _a2 === void 0 ? void 0 : _a2.remove();
+        this.accessibilityFace?.remove();
         const face = document.createElement("div");
         for (const name of this.getAttributeNames()) {
           if (name === "id" || name === "style" || name === "data-native-islands-fallback")
@@ -3798,7 +3652,7 @@ html[data-ni-root-scroll] body {
           if (value !== null)
             face.setAttribute(name, value);
         }
-        handlers.renderFallback(face);
+        options.renderFallback(face);
         face.setAttribute("data-native-islands-accessibility-face", "");
         face.style.setProperty("position", "absolute", "important");
         face.style.setProperty("width", "1px", "important");
@@ -3836,9 +3690,7 @@ html[data-ni-root-scroll] body {
     customElements.define(options.tagName, DefinedNativeIsland);
     definitionState.definitions.set(options.tagName, {
       nativeComponent: options.nativeComponent,
-      constructor: DefinedNativeIsland,
-      structuralSignature,
-      handlers
+      constructor: DefinedNativeIsland
     });
     return DefinedNativeIsland;
   }
