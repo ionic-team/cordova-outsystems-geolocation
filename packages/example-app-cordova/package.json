@@ -13,13 +13,15 @@
   "author": "Apache Cordova Team",
   "license": "Apache-2.0",
   "devDependencies": {
-    "com.outsystems.cordova.plugins.osgeolocation": "file:../cordova-plugin",
-    "cordova-android": "^13.0.0",
+    "com.outsystems.plugins.geolocation": "file:../..",
+    "cordova-android": "github:OutSystems/cordova-android#15.1.0+1.1.0",
     "cordova-ios": "^7.1.1"
   },
   "cordova": {
     "plugins": {
-      "com.outsystems.cordova.plugins.osgeolocation": {}
+      "com.outsystems.plugins.geolocation": {
+        "LOCATION_PERMISSION_TYPE": "PRECISE"
+      }
     },
     "platforms": [
       "android"

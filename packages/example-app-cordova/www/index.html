@@ -38,13 +38,34 @@
     </head>
     <body>
         <div class="app">
-            <h1>Apache Cordova</h1>
+            <h1>Cordova Location Button Test</h1>
             <div id="deviceready" class="blink">
                 <p class="event listening">Connecting to Device</p>
                 <p class="event received">Device is Ready</p>
             </div>
+
+            <div id="test-ui" style="padding: 15px; text-align: left; display: none;">
+                <h2>os-location-button (raw custom element)</h2>
+                <os-location-button id="raw-button" text-type="use-precise-location" style="display: block; margin: 10px 0;"></os-location-button>
+                <button id="clear-raw-events" class="button">Clear list</button>
+                <ul id="raw-events-list"></ul>
+
+                <hr>
+
+                <h2>outsystems-wrapper mountLocationButton</h2>
+                <div id="wrapper-button-container" style="margin: 10px 0;"></div>
+                <button id="clear-wrapper-events" class="button">Clear list</button>
+                <ul id="wrapper-events-list"></ul>
+
+                <hr>
+
+                <h2>Regular API (OSGeolocationInstance.getCurrentPosition)</h2>
+                <button id="current-location" class="button">Get Current Position</button>
+                <pre id="current-location-result"></pre>
+            </div>
         </div>
         <script src="cordova.js"></script>
+        <script src="js/outsystems-wrapper.js"></script>
         <script src="js/index.js"></script>
     </body>
 </html>

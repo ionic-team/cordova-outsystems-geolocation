@@ -4022,8 +4022,15 @@
     });
     element.replaceChildren(button);
   }
-  function installFallbackStyles() {
-    if (document.querySelector("style[data-os-location-button]")) return;
+  const installedStyleRoots = /* @__PURE__ */ new WeakSet();
+  function styleRootFor(element) {
+    const root = element.getRootNode();
+    return root instanceof ShadowRoot ? root : document;
+  }
+  function installFallbackStyles(root = document) {
+    if (installedStyleRoots.has(root)) return;
+    installedStyleRoots.add(root);
+    if (root.querySelector("style[data-os-location-button]")) return;
     const style = document.createElement("style");
     style.dataset.osLocationButton = "";
     style.textContent = `
@@ -4113,6 +4120,10 @@
       border: 0;
     }
   `;
+    if (root instanceof ShadowRoot) {
+      root.append(style);
+      return;
+    }
     document.head.append(style);
   }
   function registerLocationButton(protectedSurface) {
@@ -4150,6 +4161,7 @@
       observedAttributes: OBSERVED_ATTRIBUTES,
       observedStyles: OBSERVED_STYLES,
       getProperties: (element) => {
+        installFallbackStyles(styleRootFor(element));
         const style = getComputedStyle(element);
         const cornerRadius = pixelStyle(style, "border-top-left-radius", 0, 68, 22);
         const textColor = colorStyle(style, STYLE_PROPERTIES.textColor, "#FFFFFF");
