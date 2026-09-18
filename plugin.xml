@@ -23,7 +23,7 @@
         <source-file src="packages/cordova-plugin/android/OSGeolocationErrors.kt" target-dir="app/src/main/kotlin/com/outsystems/plugins/geolocation"/>
         <framework src="packages/cordova-plugin/android/build.gradle" custom="true" type="gradleReference"/>
     </platform>
-    <platform name="ios">
+    <platform name="ios" package="swift">
         <config-file parent="/*" target="config.xml">
             <feature name="OSGeolocation">
                 <param name="ios-package" value="OSGeolocation"/>
@@ -42,7 +42,7 @@
                 <source url="https://cdn.cocoapods.org/"/>
             </config>
             <pods use-frameworks="true">
-                <pod name="IONGeolocationLib" spec="2.1.1"/>
+                <pod name="IONGeolocationLib" spec="3.0.0" nospm="true"/>
             </pods>
         </podspec>
     </platform>
