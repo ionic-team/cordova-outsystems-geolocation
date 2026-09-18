@@ -1,0 +1,8 @@
+# This repo hosts its own example/test app (packages/example-app-cordova), which depends on
+# this plugin via a self-referential "file:../.." devDependency. Without this exclusion, an
+# `npm install`/`cordova plugin add` local install would try to copy this entire repo into
+# itself (via node_modules), including the example app, which recursively contains the same
+# self-reference again — an infinite copy loop. See packages/example-app-cordova/.npmrc
+# (install-links=true) for the other half of the fix: that setting makes npm pack-and-extract
+# this dependency (respecting this ignore file) instead of symlinking it live.
+packages/example-app-cordova
