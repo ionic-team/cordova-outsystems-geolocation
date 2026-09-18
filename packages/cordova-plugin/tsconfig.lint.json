@@ -1,0 +1,8 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "moduleResolution": "bundler"
+  },
+  "files": [],
+  "include": ["src/**/*.ts", "vite*.ts"]
+}

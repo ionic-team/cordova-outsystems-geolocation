@@ -5,6 +5,7 @@
   "description": "A sample Apache Cordova application that responds to the deviceready event.",
   "main": "index.js",
   "scripts": {
+    "install:geolocation": "cordova plugin add ../.. --link --nosave",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [

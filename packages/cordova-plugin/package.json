@@ -4,11 +4,12 @@
   "version": "1.3.2",
   "description": "Geolocation plugin for Cordova",
   "scripts": {
-    "lint": "npm run eslint && npm run prettier -- --check",
-    "eslint": "eslint . --ext ts",
-    "prettier": "prettier \"**/*.{css,html,ts,js}\"",
+    "build": "rimraf ./dist && npm run docgen && vite build && vite build --config vite.location-button.config.ts",
     "docgen": "docgen --api IGeolocationPlugin --output-readme README.md --output-json ./dist/docs.json",
-    "build": "rimraf ./dist && npm run docgen && vite build && vite build --config vite.location-button.config.ts"
+    "fmt": "prettier \"{src,test}/**/*.{ts,mjs}\" \"vite*.ts\" package.json \"tsconfig*.json\" --write",
+    "lint": "tsc --noEmit -p tsconfig.lint.json && prettier \"{src,test}/**/*.{ts,mjs}\" \"vite*.ts\" package.json \"tsconfig*.json\" --check",
+    "test": "node --test test/*.test.mjs",
+    "verify": "npm run lint && npm run build && npm test"
   },
   "keywords": [
     "ecosystem:cordova",
@@ -27,20 +28,17 @@
   "dependencies": {
     "@capacitor/synapse": "^1.0.2"
   },
-  "eslintConfig": {
-    "extends": "@ionic/eslint-config/recommended"
-  },
   "prettier": "@ionic/prettier-config",
   "docs": "typedoc",
   "devDependencies": {
     "@capacitor/docgen": "^0.3.0",
     "@capacitor/native-islands": "file:vendor/capacitor-native-islands-1.0.0.tgz",
+    "@ionic/prettier-config": "4.0.0",
     "@rollup/plugin-typescript": "^11.1.6",
     "@types/cordova": "^11.0.3",
     "@types/node": "^20.14.8",
     "cordova-common": "^5.0.0",
-    "eslint": "^7.11.0",
-    "prettier": "~2.3.0",
+    "prettier": "3.6.2",
     "rimraf": "^6.0.1",
     "typescript": "~5.4.5",
     "vite": "^5.2.11",

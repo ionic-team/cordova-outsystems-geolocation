@@ -25,12 +25,9 @@ interface CordovaWindow {
 type LocationButtonPlatform = 'android' | 'ios' | 'web';
 
 const SERVICE = 'OSGeolocationIslands';
-const SCROLL_PRESENTATION_PREPARE = '__CAPACITOR_NATIVE_ISLANDS_SCROLL_PREPARE__';
-const IDENTIFIER = /^[A-Za-z_][A-Za-z0-9._:-]{0,63}$/;
 const eventListeners = new Map<string, Set<(event: NativeIslandsEvent) => void>>();
 let eventChannelOpen = false;
 let runtimeInitialized = false;
-let protocolVersion: number | undefined;
 
 function cordovaWindow(): CordovaWindow | undefined {
   return typeof window === 'undefined' ? undefined : (window as CordovaWindow);
@@ -45,9 +42,7 @@ function platform(): LocationButtonPlatform {
 function bridgeError(value: unknown): Error & { code?: string } {
   if (value instanceof Error) return value;
   const payload =
-    typeof value === 'object' && value !== null
-      ? (value as { code?: unknown; message?: unknown })
-      : undefined;
+    typeof value === 'object' && value !== null ? (value as { code?: unknown; message?: unknown }) : undefined;
   const error = new Error(
     typeof payload?.message === 'string'
       ? payload.message
@@ -60,10 +55,9 @@ function bridgeError(value: unknown): Error & { code?: string } {
 }
 
 function call(
-  action: 'applyLayout' | 'applyScrollOffsets' | 'prepareScrollPresentation' | 'command' | 'reset',
+  action: 'applyLayout' | 'applyScrollOffsets' | 'command' | 'reset',
   payload: NativeIslandsEnvelope,
 ): Promise<void> {
-  protocolVersion = payload.protocolVersion;
   const exec = cordovaWindow()?.cordova?.exec;
   if (!exec) {
     return Promise.reject(
@@ -84,38 +78,11 @@ function call(
   });
 }
 
-function installScrollPresentationPrepare(): void {
-  const exec = cordovaWindow()?.cordova?.exec;
-  if (!exec || platform() !== 'android') return;
-  const scope = window as unknown as Record<string, unknown>;
-  scope[SCROLL_PRESENTATION_PREPARE] = (containerIds: unknown, sequence: unknown): boolean => {
-    if (
-      !Array.isArray(containerIds) ||
-      containerIds.length === 0 ||
-      containerIds.length > 256 ||
-      !containerIds.every((id) => typeof id === 'string' && IDENTIFIER.test(id)) ||
-      new Set(containerIds).size !== containerIds.length ||
-      !Number.isSafeInteger(sequence) ||
-      (sequence as number) < 0 ||
-      protocolVersion === undefined
-    ) {
-      return false;
-    }
-    void call('prepareScrollPresentation', {
-      protocolVersion,
-      containerIds,
-      sequence,
-    } as NativeIslandsEnvelope).catch(() => undefined);
-    return true;
-  };
-}
-
 function createCordovaTransport(): NativeIslandsTransport {
   const exec = cordovaWindow()?.cordova?.exec;
   return {
     available: Boolean(exec),
-    innerScrollMode:
-      platform() === 'ios' ? 'native' : platform() === 'android' ? 'presentation' : 'unsupported',
+    innerScrollMode: platform() === 'ios' ? 'native' : platform() === 'android' ? 'root' : 'unsupported',
 
     applyLayout(payload) {
       return call('applyLayout', payload);
@@ -142,9 +109,7 @@ function createCordovaTransport(): NativeIslandsTransport {
         eventChannelOpen = true;
         exec(
           (value) => {
-            const message = value as
-              | { event?: string; data?: NativeIslandsEvent }
-              | undefined;
+            const message = value as { event?: string; data?: NativeIslandsEvent } | undefined;
             if (!message?.event || !message.data) return;
             for (const handler of eventListeners.get(message.event) ?? []) {
               handler(message.data);
@@ -189,7 +154,6 @@ function initializeCordovaRuntime(): void {
   const transport = createCordovaTransport();
   if (!transport.available) return;
   runtimeInitialized = true;
-  installScrollPresentationPrepare();
   initializeNativeIslands(transport, {
     identity: 'com.outsystems.plugins.geolocation/location-button',
     priority: NATIVE_ISLANDS_TRANSPORT_PRIORITY.carrier,

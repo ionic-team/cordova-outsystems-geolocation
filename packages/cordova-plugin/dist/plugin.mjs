@@ -58,11 +58,11 @@ const WatchPositionOptionsDefault = {
   ...CurrentPositionOptionsDefault,
   ...ClearWatchOptionsDefault
 };
-var exec = require2("cordova/exec");
+const exec = require2("cordova/exec");
 function getCurrentPosition(options, success, error) {
   options = { ...CurrentPositionOptionsDefault, ...options };
-  let convertOnSuccess = (position) => {
-    let convertedPosition = {
+  const convertOnSuccess = (position) => {
+    const convertedPosition = {
       coords: {
         latitude: position.latitude,
         longitude: position.longitude,
@@ -84,8 +84,8 @@ function getCurrentPosition(options, success, error) {
 }
 function watchPosition(options, success, error) {
   options = { ...WatchPositionOptionsDefault, ...options };
-  let convertOnSuccess = (position) => {
-    let convertedPosition = {
+  const convertOnSuccess = (position) => {
+    const convertedPosition = {
       coords: {
         latitude: position.latitude,
         longitude: position.longitude,

@@ -1,14 +1,26 @@
-import { require } from "cordova";
-import { ClearWatchOptions, OSGLOCPosition, PluginError, Position, CurrentPositionOptions, WatchPositionOptions } from "./definitions";
-import { ClearWatchOptionsDefault, CurrentPositionOptionsDefault, WatchPositionOptionsDefault } from "./defaults";
+import { require } from 'cordova';
 
-var exec = require('cordova/exec');
+import { ClearWatchOptionsDefault, CurrentPositionOptionsDefault, WatchPositionOptionsDefault } from './defaults';
+import type {
+  ClearWatchOptions,
+  OSGLOCPosition,
+  PluginError,
+  Position,
+  CurrentPositionOptions,
+  WatchPositionOptions,
+} from './definitions';
 
-function getCurrentPosition(options: CurrentPositionOptions, success: (output: Position) => void, error: (error: PluginError) => void): void {
+const exec = require('cordova/exec');
+
+function getCurrentPosition(
+  options: CurrentPositionOptions,
+  success: (output: Position) => void,
+  error: (error: PluginError) => void,
+): void {
   options = { ...CurrentPositionOptionsDefault, ...options };
 
-  let convertOnSuccess = (position: OSGLOCPosition) => {
-    let convertedPosition: Position = {
+  const convertOnSuccess = (position: OSGLOCPosition) => {
+    const convertedPosition: Position = {
       coords: {
         latitude: position.latitude,
         longitude: position.longitude,
@@ -20,20 +32,24 @@ function getCurrentPosition(options: CurrentPositionOptions, success: (output: P
         magneticHeading: position.magneticHeading,
         trueHeading: position.trueHeading,
         headingAccuracy: position.headingAccuracy,
-        course: position.course
+        course: position.course,
       },
       timestamp: position.timestamp,
-    }
-    success(convertedPosition)
-  }
+    };
+    success(convertedPosition);
+  };
   exec(convertOnSuccess, error, 'OSGeolocation', 'getCurrentPosition', [options]);
 }
 
-function watchPosition(options: WatchPositionOptions, success: (output: Position) => void, error: (error: PluginError) => void): void {
+function watchPosition(
+  options: WatchPositionOptions,
+  success: (output: Position) => void,
+  error: (error: PluginError) => void,
+): void {
   options = { ...WatchPositionOptionsDefault, ...options };
 
-  let convertOnSuccess = (position: OSGLOCPosition) => {
-    let convertedPosition: Position = {
+  const convertOnSuccess = (position: OSGLOCPosition) => {
+    const convertedPosition: Position = {
       coords: {
         latitude: position.latitude,
         longitude: position.longitude,
@@ -45,27 +61,27 @@ function watchPosition(options: WatchPositionOptions, success: (output: Position
         magneticHeading: position.magneticHeading,
         trueHeading: position.trueHeading,
         headingAccuracy: position.headingAccuracy,
-        course: position.course
+        course: position.course,
       },
       timestamp: position.timestamp,
-    }
-    success(convertedPosition)
-  }
+    };
+    success(convertedPosition);
+  };
   exec(convertOnSuccess, error, 'OSGeolocation', 'watchPosition', [options]);
 }
 
 function clearWatch(options: ClearWatchOptions, success: () => void, error: (error: PluginError) => void): void {
   options = { ...ClearWatchOptionsDefault, ...options };
-  exec(success, error, "OSGeolocation", "clearWatch", [options]);
+  exec(success, error, 'OSGeolocation', 'clearWatch', [options]);
 }
 
 function hasNativeTimeoutHandling(success: (value: boolean) => void, error: (error: PluginError) => void): void {
-  exec(success, error, "OSGeolocation", "hasNativeTimeoutHandling", []);
+  exec(success, error, 'OSGeolocation', 'hasNativeTimeoutHandling', []);
 }
 
 module.exports = {
   getCurrentPosition,
   watchPosition,
   clearWatch,
-  hasNativeTimeoutHandling
+  hasNativeTimeoutHandling,
 };
