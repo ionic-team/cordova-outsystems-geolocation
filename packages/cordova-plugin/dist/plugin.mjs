@@ -1,4 +1,4 @@
-import { require as require2 } from "cordova";
+import { require as require$1 } from "cordova";
 function s(t) {
   t.CapacitorUtils.Synapse = new Proxy(
     {},
@@ -58,7 +58,7 @@ const WatchPositionOptionsDefault = {
   ...CurrentPositionOptionsDefault,
   ...ClearWatchOptionsDefault
 };
-const exec = require2("cordova/exec");
+const exec = require$1("cordova/exec");
 function getCurrentPosition(options, success, error) {
   options = { ...CurrentPositionOptionsDefault, ...options };
   const convertOnSuccess = (position) => {
