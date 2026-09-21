@@ -3942,6 +3942,7 @@
     );
   }
   function renderFallback(element) {
+    installFallbackStyles(styleRootFor(element));
     element.dataset.osLocationButtonFallbackFace = "";
     const button = document.createElement("button");
     button.type = "button";
