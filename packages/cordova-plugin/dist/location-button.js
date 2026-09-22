@@ -962,7 +962,15 @@ html[data-ni-root-scroll] body {
         this.ownerStyle = document.createElement("style");
         this.ownerStyle.dataset.niRootScrollOwners = "";
         this.ownerStyle.textContent = OWNER_STYLE;
-        document.head.append(this.ownerStyle);
+        if (document.head) {
+          document.head.append(this.ownerStyle);
+        } else {
+          const ownerStyle = this.ownerStyle;
+          document.addEventListener("DOMContentLoaded", () => {
+            var _a2;
+            return (_a2 = document.head) === null || _a2 === void 0 ? void 0 : _a2.append(ownerStyle);
+          }, { once: true });
+        }
         document.documentElement.dataset.niRootScrollActive = "document";
         document.addEventListener("pointerdown", this.onPointerDown, true);
       } else {
@@ -1058,7 +1066,15 @@ html[data-ni-root-scroll] body {
       this.carrierStyle = document.createElement("style");
       this.carrierStyle.dataset.niRootScrollCarrier = "";
       this.carrierStyle.textContent = CARRIER_STYLE;
-      document.head.append(this.carrierStyle);
+      if (document.head) {
+        document.head.append(this.carrierStyle);
+      } else {
+        const carrierStyle = this.carrierStyle;
+        document.addEventListener("DOMContentLoaded", () => {
+          var _a;
+          return (_a = document.head) === null || _a === void 0 ? void 0 : _a.append(carrierStyle);
+        }, { once: true });
+      }
       document.documentElement.style.setProperty("--ni-document-scroll-offset", `${this.documentOffset}px`);
       document.documentElement.dataset.niRootScroll = "";
       document.documentElement.dataset.niRootScrollActive = owner;
