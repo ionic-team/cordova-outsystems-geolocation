@@ -388,10 +388,24 @@ function mountLocationButton(containerId, properties, onGrant, onPosition, onErr
     const detail = event.detail;
     if (typeof detail?.granted === "boolean") onGrant?.(detail.granted);
   };
+  const isNestedPosition = (value) => "coords" in value && value.coords != null;
   const positionListener = (event) => {
     const detail = event.detail;
-    if (detail?.coords && Number.isFinite(detail.coords.latitude) && Number.isFinite(detail.coords.longitude) && Number.isFinite(detail.coords.accuracy) && Number.isFinite(detail.timestamp)) {
-      onPosition?.(detail);
+    if (!detail) return;
+    const position = isNestedPosition(detail) ? detail : {
+      timestamp: detail.timestamp,
+      coords: {
+        latitude: detail.latitude,
+        longitude: detail.longitude,
+        accuracy: detail.accuracy,
+        altitude: detail.altitude,
+        altitudeAccuracy: detail.altitudeAccuracy,
+        heading: detail.heading,
+        speed: detail.speed
+      }
+    };
+    if (Number.isFinite(position.coords.latitude) && Number.isFinite(position.coords.longitude) && Number.isFinite(position.coords.accuracy) && Number.isFinite(position.timestamp)) {
+      onPosition?.(position);
     }
   };
   const errorListener = (event) => {

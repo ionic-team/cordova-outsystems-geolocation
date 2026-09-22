@@ -483,16 +483,37 @@ export function mountLocationButton(
         const detail = (event as CustomEvent<{ granted?: unknown }>).detail
         if (typeof detail?.granted === "boolean") onGrant?.(detail.granted)
     }
+    const isNestedPosition = (value: Position | OSGLOCPosition): value is Position =>
+        "coords" in value && value.coords != null
+
     const positionListener = (event: Event) => {
-        const detail = (event as CustomEvent<Position | undefined>).detail
+        // Both plugins normalize to { timestamp, coords: {...} } before dispatching this
+        // event, but a flat legacy payload (top-level latitude/longitude/accuracy, no coords)
+        // is tolerated here too so an out-of-date native build degrades to nothing rather than
+        // silently dropping the event.
+        const detail = (event as CustomEvent<Position | OSGLOCPosition | undefined>).detail
+        if (!detail) return
+        const position: Position = isNestedPosition(detail)
+            ? detail
+            : {
+                  timestamp: detail.timestamp,
+                  coords: {
+                      latitude: detail.latitude,
+                      longitude: detail.longitude,
+                      accuracy: detail.accuracy,
+                      altitude: detail.altitude,
+                      altitudeAccuracy: detail.altitudeAccuracy,
+                      heading: detail.heading,
+                      speed: detail.speed,
+                  },
+              }
         if (
-            detail?.coords &&
-            Number.isFinite(detail.coords.latitude) &&
-            Number.isFinite(detail.coords.longitude) &&
-            Number.isFinite(detail.coords.accuracy) &&
-            Number.isFinite(detail.timestamp)
+            Number.isFinite(position.coords.latitude) &&
+            Number.isFinite(position.coords.longitude) &&
+            Number.isFinite(position.coords.accuracy) &&
+            Number.isFinite(position.timestamp)
         ) {
-            onPosition?.(detail)
+            onPosition?.(position)
         }
     }
     const errorListener = (event: Event) => {
