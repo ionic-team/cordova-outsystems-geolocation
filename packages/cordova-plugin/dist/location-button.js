@@ -325,9 +325,11 @@
     const values = [style.overflowX, style.overflowY];
     return values.some((value) => value === "hidden" || value === "clip");
   }
+  function axisScrolls(overflow) {
+    return overflow === "auto" || overflow === "scroll" || overflow === "hidden";
+  }
   function scrolls(el, style) {
-    const scrollable = (value) => value === "auto" || value === "scroll";
-    return scrollable(style.overflowX) && el.scrollWidth > el.clientWidth + 1 || scrollable(style.overflowY) && el.scrollHeight > el.clientHeight + 1;
+    return axisScrolls(style.overflowX) && el.scrollWidth > el.clientWidth + 1 || axisScrolls(style.overflowY) && el.scrollHeight > el.clientHeight + 1;
   }
   function runtimeOwnsClip(el, style) {
     if (!el.hasAttribute("data-ni-runtime-clip"))
@@ -506,14 +508,28 @@
     });
     return hasBorder || style.boxShadow !== "" && style.boxShadow !== "none" || style.textShadow !== "" && style.textShadow !== "none" || style.outlineStyle !== "" && style.outlineStyle !== "none" && Number.parseFloat(style.outlineWidth) > 0;
   }
+  function paintEscapesBorderBox(el) {
+    const style = getComputedStyle(el);
+    return hasPaintOutsideBorderBox(el, style) || markedLayerPaintEscapes(el, style);
+  }
   function hasPaintOutsideBorderBox(el, style) {
     const hasVisiblePseudo = (pseudo) => {
-      var _a;
+      var _a, _b;
       const pseudoStyle = getComputedStyle(el, pseudo);
       const content = ((_a = pseudoStyle.content) !== null && _a !== void 0 ? _a : "").trim();
       if (content === "" || content === "none" || content === "normal")
         return false;
-      return pseudoStyle.display !== "none" && pseudoStyle.visibility !== "hidden" && Number.parseFloat(pseudoStyle.opacity) !== 0;
+      if (pseudoStyle.display === "none" || pseudoStyle.visibility === "hidden" || Number.parseFloat(pseudoStyle.opacity) === 0) {
+        return false;
+      }
+      if (content !== '""' && content !== "''")
+        return true;
+      return ((_b = colorAlpha(pseudoStyle.backgroundColor)) !== null && _b !== void 0 ? _b : 0) > 0 || pseudoStyle.backgroundImage !== "" && pseudoStyle.backgroundImage !== "none" || pseudoStyle.boxShadow !== "" && pseudoStyle.boxShadow !== "none" || [
+        pseudoStyle.borderTopWidth,
+        pseudoStyle.borderRightWidth,
+        pseudoStyle.borderBottomWidth,
+        pseudoStyle.borderLeftWidth
+      ].some((width) => Number.parseFloat(width) > 0);
     };
     return style.boxShadow !== "" && style.boxShadow !== "none" || style.textShadow !== "" && style.textShadow !== "none" || style.outlineStyle !== "" && style.outlineStyle !== "none" && Number.parseFloat(style.outlineWidth) > 0 || hasVisiblePseudo("::before") || hasVisiblePseudo("::after");
   }
@@ -542,8 +558,24 @@
     }
     return auditWebLayerCutoutComposition(el, modeledScrollContainer, false, allowViewportPosition);
   }
+  let successfulWebAudits = null;
+  function withCompositionReadScope(read) {
+    const previous = successfulWebAudits;
+    successfulWebAudits = /* @__PURE__ */ new WeakMap();
+    try {
+      return read();
+    } finally {
+      successfulWebAudits = previous;
+    }
+  }
   function auditWebLayerCutoutComposition(el, modeledScrollContainers = null, backgroundOnly = false, allowViewportPosition = false, aboveNativeUnderlay = false) {
-    const modeledScrollContainerSet = new Set(modeledScrollContainers === null ? [] : Array.isArray(modeledScrollContainers) ? modeledScrollContainers : [modeledScrollContainers]);
+    const containers = modeledScrollContainers === null ? [] : Array.isArray(modeledScrollContainers) ? modeledScrollContainers : [modeledScrollContainers];
+    const modes = Number(backgroundOnly) | Number(allowViewportPosition) << 1 | Number(aboveNativeUnderlay) << 2;
+    const successful = successfulWebAudits === null || successfulWebAudits === void 0 ? void 0 : successfulWebAudits.get(el);
+    if (successful === null || successful === void 0 ? void 0 : successful.some((audit) => audit.modes === modes && audit.containers.length === containers.length && audit.containers.every((container, index) => container === containers[index]))) {
+      return null;
+    }
+    const modeledScrollContainerSet = new Set(containers);
     const layerRect = el.getBoundingClientRect();
     let node = el;
     while (node) {
@@ -585,6 +617,13 @@
         };
       }
       node = composedParentElement(node);
+    }
+    if (successfulWebAudits) {
+      const entry = { containers: [...containers], modes };
+      if (successful)
+        successful.push(entry);
+      else
+        successfulWebAudits.set(el, [entry]);
     }
     return null;
   }
@@ -918,7 +957,9 @@ html[data-ni-root-scroll] body {
     const style = getComputedStyle(element);
     return rootScrollAdmission({
       optedOut: element.getAttribute(OPTOUT_ATTRIBUTE) === "off",
-      horizontal: element.scrollWidth > element.clientWidth && (style.overflowX === "auto" || style.overflowX === "scroll")
+      // Same notion of scrollable as discovery, so a pane the carrier cannot
+      // route horizontally cannot reach it by being discovered some other way.
+      horizontal: element.scrollWidth > element.clientWidth && axisScrolls(style.overflowX)
     });
   }
   class RootScrollRuntime {
@@ -1306,6 +1347,16 @@ html[data-ni-root-scroll] body {
   const MAX_SCROLL_PATH_DEPTH = 16;
   const MAX_MOTION_DEPENDENCIES = 256;
   const MAX_REGIONS_PER_COMPONENT = 256;
+  let sceneReadScope = null;
+  function withSceneReadScope(read) {
+    const previous = sceneReadScope;
+    sceneReadScope = { visibility: /* @__PURE__ */ new WeakMap(), scrollports: /* @__PURE__ */ new WeakMap() };
+    try {
+      return withCompositionReadScope(read);
+    } finally {
+      sceneReadScope = previous;
+    }
+  }
   const above = (a, b) => {
     const paintOrder = comparePaintOrder(a.el, b.el);
     if (paintOrder !== 0)
@@ -1378,11 +1429,38 @@ html[data-ni-root-scroll] body {
       y: round2(verticalReversed ? element.scrollHeight - element.clientHeight + element.scrollTop : element.scrollTop)
     };
   }
+  function coordinateBasis(element, discovered = scrollPath(element)) {
+    const positioned = fixedOrStickyAncestor(element);
+    if (!(positioned === null || positioned === void 0 ? void 0 : positioned.viewportFixed))
+      return { coordinateSpace: "document", scrollPath: discovered };
+    const boundary = positioned.element;
+    return {
+      coordinateSpace: "viewport",
+      scrollPath: discovered.filter((container) => isComposedAncestor(boundary, container))
+    };
+  }
+  function basisRect(element, basis) {
+    return basis.coordinateSpace === "viewport" ? rectInScrollPathCoordinates(viewportRect(element), basis.scrollPath) : rectInsideScrollPath(element, basis.scrollPath);
+  }
   function scrollPath(element) {
     return independentScrollContainers(element).reverse();
   }
   function sameScrollPath(left, right) {
     return left.length === right.length && left.every((element, index) => element === right[index]);
+  }
+  function commonScrollPrefixLength(left, right) {
+    const shared = Math.min(left.length, right.length);
+    let index = 0;
+    while (index < shared && left[index] === right[index])
+      index += 1;
+    return index;
+  }
+  function reachableBound(side, sharedDepth) {
+    var _a;
+    const outermostUnmatched = side.scrollPath[sharedDepth];
+    if (outermostUnmatched !== void 0)
+      return scrollContainerRect(outermostUnmatched);
+    return side.paintEscapesRect ? null : (_a = side.paintRect) !== null && _a !== void 0 ? _a : null;
   }
   function sameCoordinatePath(left, right) {
     return left.coordinateSpace === right.coordinateSpace && sameScrollPath(left.scrollPath, right.scrollPath);
@@ -1391,6 +1469,12 @@ html[data-ni-root-scroll] body {
   const COMPLEX_OVERLAP_REASON = "partially overlapping complex opaque regions require native path boolean support";
   function hasResolvedGeometry(state) {
     return state.active && state.rect !== null && state.visualRect !== null;
+  }
+  function hasPlanGeometry(state) {
+    return state.active && state.rect !== null && state.paintRect !== null;
+  }
+  function planned(natives, plane) {
+    return natives.filter((native) => hasPlanGeometry(native) && (plane === void 0 || native.plane === plane));
   }
   function hasUnsupportedPartialOverlap(left, right) {
     return partialOverlap(left.visualRect, right.visualRect) && (hasComplexOpaqueShape(left.rect) || hasComplexOpaqueShape(right.rect));
@@ -1442,7 +1526,23 @@ html[data-ni-root-scroll] body {
     state.visualRect = null;
   }
   function knockoutCandidates(natives, layer) {
-    return natives.filter((native) => hasResolvedGeometry(native) && native.plane === "underlay" && layer.cutoutIssue === null && above(native, layer) && intersects(native.visualRect, layer.visualRect));
+    if (layer.cutoutIssue !== null)
+      return [];
+    const found = [];
+    for (const native of planned(natives, "underlay")) {
+      if (!above(native, layer))
+        continue;
+      if (sameCoordinatePath(native, layer)) {
+        if (intersects(native.rect, layer.rect))
+          found.push({ native, hole: native.rect });
+        continue;
+      }
+      const visual = native.visualRect;
+      if (visual === null || !intersects(visual, layer.visualRect))
+        continue;
+      found.push({ native, hole: Object.assign(Object.assign({}, rectInScrollPathCoordinates(visual, layer.scrollPath)), { r: native.rect.r }) });
+    }
+    return found;
   }
   function roundedHolesOverlap(holes) {
     return holes.some((left, index) => holes.slice(index + 1).some((right) => intersects(left, right) && (hasComplexOpaqueShape(left) || hasComplexOpaqueShape(right))));
@@ -1530,6 +1630,17 @@ html[data-ni-root-scroll] body {
     }
   }
   function scrollContainerRect(element) {
+    const scope = sceneReadScope;
+    if (!scope)
+      return readScrollContainerRect(element);
+    const cached = scope.scrollports.get(element);
+    if (cached !== void 0)
+      return cached;
+    const rect = readScrollContainerRect(element);
+    scope.scrollports.set(element, rect);
+    return rect;
+  }
+  function readScrollContainerRect(element) {
     const bounds = element.getBoundingClientRect();
     const style = getComputedStyle(element);
     const radius = uniformCssCornerRadius([
@@ -1570,6 +1681,17 @@ html[data-ni-root-scroll] body {
     return image !== "" && image !== "none" || color !== "" && color !== "transparent" && color !== "rgba(0,0,0,0)" && !color.endsWith("/0)");
   }
   function isElementVisible(el) {
+    const scope = sceneReadScope;
+    if (!scope)
+      return readElementVisibility(el);
+    const cached = scope.visibility.get(el);
+    if (cached !== void 0)
+      return cached;
+    const visible = readElementVisibility(el);
+    scope.visibility.set(el, visible);
+    return visible;
+  }
+  function readElementVisibility(el) {
     if (!el.isConnected || el.hidden)
       return false;
     const visibilityProbe = el.checkVisibility;
@@ -1647,6 +1769,21 @@ html[data-ni-root-scroll] body {
     }
     return null;
   }
+  function viewportReachableBound(side) {
+    const pane = side.scrollPath[0];
+    if (pane !== void 0) {
+      const aperture = scrollContainerRect(pane);
+      if (!aperture)
+        return null;
+      return Object.assign(Object.assign({}, aperture), { x: round2(aperture.x - window.scrollX), y: round2(aperture.y - window.scrollY) });
+    }
+    return side.paintEscapesRect ? null : side.rect;
+  }
+  function structuralSignature(payload, mode) {
+    if (mode !== "bridge")
+      return JSON.stringify(payload);
+    return JSON.stringify(Object.assign(Object.assign({}, payload), { scrollContainers: payload.scrollContainers.map((container) => Object.assign(Object.assign({}, container), { offsetX: 0, offsetY: 0 })) }));
+  }
   function rootScrollCanCross(documentRect, viewportRect2) {
     var _a, _b;
     const root = document.documentElement;
@@ -1661,15 +1798,21 @@ html[data-ni-root-scroll] body {
     return axisCanCross(documentRect.x, documentRect.w, viewportRect2.x, viewportRect2.w, maxX) && axisCanCross(documentRect.y, documentRect.h, viewportRect2.y, viewportRect2.h, maxY);
   }
   function canMoveIntoIntersection(left, right) {
-    if (intersects(left.visualRect, right.visualRect))
+    if (left.coordinateSpace === right.coordinateSpace) {
+      const shared = commonScrollPrefixLength(left.scrollPath, right.scrollPath);
+      const leftBound = reachableBound(left, shared);
+      const rightBound = reachableBound(right, shared);
+      return !leftBound || !rightBound || intersects(leftBound, rightBound);
+    }
+    if (left.visualRect && right.visualRect && intersects(left.visualRect, right.visualRect))
       return true;
-    if (left.coordinateSpace === right.coordinateSpace)
-      return false;
     const documentSide = left.coordinateSpace === "document" ? left : right;
     const viewportSide = left.coordinateSpace === "viewport" ? left : right;
-    if (documentSide.scrollPath.length > 0 || viewportSide.scrollPath.length > 0)
-      return false;
-    return rootScrollCanCross(documentSide.rect, viewportSide.rect);
+    const documentBound = reachableBound(documentSide, 0);
+    const viewportBound = viewportReachableBound(viewportSide);
+    if (!documentBound || !viewportBound)
+      return true;
+    return rootScrollCanCross(documentBound, viewportBound);
   }
   function inertAncestor(el) {
     let current = el;
@@ -1774,7 +1917,8 @@ html[data-ni-root-scroll] body {
       this.pendingSignature = null;
       this.pendingLayout = null;
       this.planGeneration = 0;
-      this.layoutWaiters = [];
+      this.layoutWaiters = /* @__PURE__ */ new Set();
+      this.transportSession = { state: "ready" };
       this.activeEffects = /* @__PURE__ */ new Map();
       this.watchedAnimations = /* @__PURE__ */ new WeakSet();
       this.effectRootDisposers = /* @__PURE__ */ new Map();
@@ -1784,48 +1928,66 @@ html[data-ni-root-scroll] body {
       this.scrollDisposers = /* @__PURE__ */ new Map();
       this.nextScrollId = 1;
       this.scrollSequence = 0;
+      this.layoutSequence = 0;
       this.scrollScheduled = false;
       this.scrollSettledPending = false;
       this.scrollEndTimer = null;
       this.runtimeClips = /* @__PURE__ */ new Map();
       this.runtimeBackgrounds = /* @__PURE__ */ new Map();
       this.runtimePaintStyles = /* @__PURE__ */ new WeakMap();
+      this.runtimePaintAttributes = /* @__PURE__ */ new WeakMap();
       this.rejectedMasks = /* @__PURE__ */ new Map();
+      this.nativeAcceptsViewportScrollPaths = false;
       this.refresh = () => {
+        if (!this.onChange || this.transportSession.state !== "ready")
+          return;
         if (this.scheduled)
           return;
         this.scheduled = true;
         requestAnimationFrame(() => {
           var _a, _b;
           this.scheduled = false;
-          const waiters = this.layoutWaiters.splice(0);
+          if (!this.onChange || this.transportSession.state !== "ready")
+            return;
+          const session = this.transportSession;
+          const waiters = Array.from(this.layoutWaiters);
+          const finishWaiters = (succeeded, error) => {
+            if (session !== this.transportSession || session.state !== "ready")
+              return;
+            for (const waiter of waiters) {
+              if (!this.layoutWaiters.delete(waiter))
+                continue;
+              if (succeeded)
+                waiter.resolve();
+              else
+                waiter.reject(error);
+            }
+          };
           const payload = this.resolve();
-          const signature = JSON.stringify(payload);
+          const signature = structuralSignature(payload, this.scrollMode);
           if (this.pendingSignature === null && signature === this.acknowledgedSignature) {
-            for (const waiter of waiters)
-              waiter.resolve();
+            this.publishScrollOffsets();
+            finishWaiters(true);
             return;
           }
           if (signature === this.pendingSignature && this.pendingLayout) {
+            this.publishScrollOffsets();
             void this.pendingLayout.then(() => {
-              for (const waiter of waiters)
-                waiter.resolve();
+              finishWaiters(true);
             }, (error) => {
-              for (const waiter of waiters)
-                waiter.reject(error);
+              finishWaiters(false, error);
             });
             return;
           }
           const generation = ++this.planGeneration;
           this.pendingSignature = signature;
-          const apply = (_b = (_a = this.onChange) === null || _a === void 0 ? void 0 : _a.call(this, payload)) !== null && _b !== void 0 ? _b : Promise.resolve();
+          const sent = Object.assign(Object.assign({}, payload), { layoutSeq: ++this.layoutSequence, offsetSeq: ++this.scrollSequence });
+          const apply = (_b = (_a = this.onChange) === null || _a === void 0 ? void 0 : _a.call(this, sent)) !== null && _b !== void 0 ? _b : Promise.resolve();
           this.pendingLayout = apply;
           void apply.then(() => {
-            for (const waiter of waiters)
-              waiter.resolve();
+            finishWaiters(true);
           }, (error) => {
-            for (const waiter of waiters)
-              waiter.reject(error);
+            finishWaiters(false, error);
           });
           void apply.then(() => {
             if (generation !== this.planGeneration)
@@ -1850,6 +2012,9 @@ html[data-ni-root-scroll] body {
       this.invalidatePendingPlan();
       this.natives.push(handle);
       (_a = this.resizeObserver) === null || _a === void 0 ? void 0 : _a.observe(handle.el);
+      if (this.transportSession.state === "failed") {
+        handle.failNative(this.transportSession.error.message);
+      }
     }
     registerLayer(handle) {
       var _a;
@@ -1883,6 +2048,29 @@ html[data-ni-root-scroll] body {
       this.invalidatePendingPlan();
       this.rootScroll.clear();
     }
+    /** Hold every composition request until reset has established this session's capabilities. */
+    beginTransportReset() {
+      this.transportSession = { state: "pending" };
+      this.nativeAcceptsViewportScrollPaths = false;
+      this.invalidatePendingPlan();
+    }
+    completeTransportReset() {
+      if (this.transportSession.state !== "pending")
+        return;
+      this.transportSession.state = "ready";
+      this.refresh();
+    }
+    failTransportReset(error) {
+      if (this.transportSession.state === "failed")
+        return;
+      this.transportSession = { state: "failed", error };
+      this.invalidatePendingPlan();
+      for (const waiter of this.layoutWaiters)
+        waiter.reject(error);
+      this.layoutWaiters.clear();
+      for (const handle of this.natives)
+        handle.failNative(error.message);
+    }
     invalidateAutomaticLayers(root) {
       if (!root) {
         this.automaticLayerClassifications = /* @__PURE__ */ new WeakMap();
@@ -1913,62 +2101,34 @@ html[data-ni-root-scroll] body {
       (_a = this.resizeObserver) === null || _a === void 0 ? void 0 : _a.unobserve(el);
       this.refresh();
     }
-    /** Resolve after the current DOM composition has been acknowledged by the native transport. */
+    /**
+     * Resolve once native has installed the current DOM composition. Installed,
+     * not presented: the scene is in place for the next frame, and no frame is
+     * awaited.
+     */
     synchronize() {
+      if (this.transportSession.state === "failed")
+        return Promise.reject(this.transportSession.error);
       return new Promise((resolve, reject) => {
-        this.layoutWaiters.push({ resolve, reject });
+        this.layoutWaiters.add({ resolve, reject });
         this.refresh();
       });
+    }
+    /**
+     * Republishes the scene even when nothing changed, and resolves once native
+     * has applied it. Deduplication is bypassed because a repair usually follows
+     * an unchanged DOM, where the ordinary path would publish nothing.
+     */
+    republish() {
+      this.invalidatePendingPlan();
+      return this.synchronize();
     }
     start(onChange, onScroll) {
       if (this.onChange)
         return;
       this.onChange = onChange;
       this.onScroll = onScroll !== null && onScroll !== void 0 ? onScroll : null;
-      this.mutationObserver = new MutationObserver((records) => {
-        var _a;
-        let changed = false;
-        for (const record of records) {
-          const target = record.target instanceof Element ? record.target : record.target.parentElement;
-          if (!target)
-            continue;
-          const runtimePaint = record.type === "attributes" && target instanceof HTMLElement && (record.attributeName === "style" && this.runtimePaintStyles.get(target) === target.style.cssText || ((_a = record.attributeName) === null || _a === void 0 ? void 0 : _a.startsWith("data-ni-runtime-")) || record.attributeName === "data-native-islands-inactive");
-          if (!runtimePaint)
-            this.rejectedMasks.clear();
-          if (target instanceof HTMLElement && record.type === "attributes") {
-            const runtimeClip = this.runtimeClips.get(target);
-            const runtimeBackground = this.runtimeBackgrounds.get(target);
-            if (runtimeClip && record.attributeName === "style") {
-              const ownsClip = Array.from(runtimeClip.applied).every(([property, value]) => target.style.getPropertyValue(property) === value && target.style.getPropertyPriority(property) === "");
-              if (!ownsClip)
-                this.releaseRuntimeClip(target);
-            } else if (runtimeClip && record.attributeName === "data-ni-runtime-clip" && !target.hasAttribute("data-ni-runtime-clip")) {
-              this.releaseRuntimeClip(target);
-            } else if (runtimeClip && record.attributeName !== "style" && record.attributeName !== "data-ni-runtime-clip") {
-              this.releaseRuntimeClip(target);
-            }
-            if (runtimeBackground && record.attributeName === "style") {
-              const ownsBackground = Array.from(runtimeBackground.applied).every(([property, value]) => target.style.getPropertyValue(property) === value && target.style.getPropertyPriority(property) === "");
-              if (!ownsBackground)
-                this.releaseRuntimeBackground(target);
-            } else if (runtimeBackground && record.attributeName === "data-ni-runtime-background" && !target.hasAttribute("data-ni-runtime-background")) {
-              this.releaseRuntimeBackground(target);
-            } else if (runtimeBackground && record.attributeName !== "style" && record.attributeName !== "data-ni-runtime-background") {
-              this.releaseRuntimeBackground(target);
-            }
-          }
-          changed = true;
-          if (target instanceof HTMLStyleElement || target instanceof HTMLLinkElement || target.closest("style") !== null) {
-            for (const element of this.runtimeBackgrounds.keys())
-              this.releaseRuntimeBackground(element);
-            this.invalidateAutomaticLayers();
-          } else if (record.type !== "characterData") {
-            this.invalidateAutomaticLayers(target);
-          }
-        }
-        if (changed)
-          this.refresh();
-      });
+      this.mutationObserver = new MutationObserver((records) => this.handleDomMutations(records));
       this.mutationObserver.observe(document.documentElement, {
         attributes: true,
         attributeOldValue: true,
@@ -1986,6 +2146,63 @@ html[data-ni-root-scroll] body {
       }
       this.observeEffectRoot(document);
       this.refresh();
+    }
+    /** Document and shadow-root observers share the same paint-ownership rules. */
+    handleDomMutations(records) {
+      var _a, _b;
+      let changed = false;
+      for (const record of records) {
+        if (typeof ShadowRoot !== "undefined" && record.target instanceof ShadowRoot) {
+          for (const element of this.runtimeBackgrounds.keys())
+            this.releaseRuntimeBackground(element);
+          changed = true;
+          continue;
+        }
+        const target = record.target instanceof Element ? record.target : record.target.parentElement;
+        if (!target)
+          continue;
+        const ownedPaint = record.type === "attributes" && target instanceof HTMLElement && (record.attributeName === "style" ? this.runtimePaintStyles.get(target) === target.style.cssText : record.attributeName !== null && ((_a = this.runtimePaintAttributes.get(target)) === null || _a === void 0 ? void 0 : _a.has(record.attributeName)) === true && ((_b = this.runtimePaintAttributes.get(target)) === null || _b === void 0 ? void 0 : _b.get(record.attributeName)) === target.getAttribute(record.attributeName));
+        if (ownedPaint)
+          continue;
+        this.rejectedMasks.clear();
+        if (target instanceof HTMLElement && record.type === "attributes") {
+          const runtimeClip = this.runtimeClips.get(target);
+          const runtimeBackground = this.runtimeBackgrounds.get(target);
+          if (runtimeClip && record.attributeName === "style") {
+            const ownsClip = Array.from(runtimeClip.applied).every(([property, value]) => target.style.getPropertyValue(property) === value && target.style.getPropertyPriority(property) === "");
+            if (!ownsClip)
+              this.releaseRuntimeClip(target);
+          } else if (runtimeClip && record.attributeName === "data-ni-runtime-clip" && !target.hasAttribute("data-ni-runtime-clip")) {
+            this.releaseRuntimeClip(target);
+          } else if (runtimeClip && record.attributeName !== "style" && record.attributeName !== "data-ni-runtime-clip") {
+            this.releaseRuntimeClip(target);
+          }
+          if (runtimeBackground && record.attributeName === "style") {
+            const ownsBackground = Array.from(runtimeBackground.applied).every(([property, value]) => target.style.getPropertyValue(property) === value && target.style.getPropertyPriority(property) === "");
+            if (!ownsBackground)
+              this.releaseRuntimeBackground(target);
+          } else if (runtimeBackground && record.attributeName === "data-ni-runtime-background" && !target.hasAttribute("data-ni-runtime-background")) {
+            this.releaseRuntimeBackground(target);
+          } else if (runtimeBackground && record.attributeName !== "style" && record.attributeName !== "data-ni-runtime-background") {
+            this.releaseRuntimeBackground(target);
+          }
+        }
+        changed = true;
+        if (target instanceof HTMLStyleElement || target instanceof HTMLLinkElement || target.closest("style") !== null) {
+          for (const element of this.runtimeBackgrounds.keys())
+            this.releaseRuntimeBackground(element);
+        }
+      }
+      if (changed) {
+        this.invalidateAutomaticLayers();
+        this.refresh();
+      }
+    }
+    recordRuntimePaintAttribute(element, name) {
+      let attributes = this.runtimePaintAttributes.get(element);
+      if (!attributes)
+        this.runtimePaintAttributes.set(element, attributes = /* @__PURE__ */ new Map());
+      attributes.set(name, element.getAttribute(name));
     }
     idForScrollContainer(element) {
       const existing = this.scrollIds.get(element);
@@ -2061,11 +2278,36 @@ html[data-ni-root-scroll] body {
         this.scheduleScrollOffsets(true);
       }, 120);
     }
+    /**
+     * A complete offset sample against the latest emitted layout generation, or
+     * null when there is nothing to report. Separate from sending so a repair can
+     * await the transport directly instead of the queue, which resolves on
+     * enqueue. The generation may not be installed yet, in which case native
+     * holds the sample until its layout lands.
+     */
+    captureScrollOffsets(settled = false) {
+      if (this.transportSession.state !== "ready")
+        return null;
+      if (this.trackedScrollContainers.size === 0)
+        return null;
+      const payload = Object.assign(Object.assign(Object.assign({}, createEnvelope()), { sequence: ++this.scrollSequence, layoutSeq: this.layoutSequence, offsets: Array.from(this.trackedScrollContainers, ([id, element]) => Object.assign({ id }, physicalScrollOffset(element))) }), settled ? { settled: true } : {});
+      return payload;
+    }
+    /**
+     * Sends the current offsets against the installed generation. Used when a
+     * refresh finds the scene unchanged: the offsets may still have moved, and
+     * they are the only thing that needs to reach native.
+     */
+    publishScrollOffsets() {
+      if (this.scrollMode !== "bridge")
+        return;
+      void this.flushScrollOffsets(false);
+    }
     flushScrollOffsets(settled) {
-      if (!this.onScroll || this.trackedScrollContainers.size === 0)
+      const payload = this.onScroll ? this.captureScrollOffsets(settled) : null;
+      if (!payload || !this.onScroll)
         return Promise.resolve();
-      const offsets = Array.from(this.trackedScrollContainers, ([id, element]) => Object.assign({ id }, physicalScrollOffset(element)));
-      return this.onScroll(Object.assign(Object.assign(Object.assign({}, createEnvelope()), { sequence: ++this.scrollSequence, offsets }), settled ? { settled: true } : {})).catch(() => void 0);
+      return this.onScroll(payload).catch(() => void 0);
     }
     observeEffectRoot(root) {
       if (this.effectRootDisposers.has(root))
@@ -2099,9 +2341,7 @@ html[data-ni-root-scroll] body {
         }
         this.refresh();
       };
-      const onStyleStateChange = (event) => {
-        if (this.innerScrollMode === "root" && event.type.startsWith("pointer"))
-          return;
+      const onStyleStateChange = () => {
         this.invalidateAutomaticLayers();
         this.refresh();
       };
@@ -2273,12 +2513,17 @@ html[data-ni-root-scroll] body {
         let active = handle.canAttemptNative() && isElementVisible(handle.el);
         const positionedAncestor = handle.canAttemptNative() ? fixedOrStickyAncestor(handle.el) : null;
         const discoveredScrollPath = active ? scrollPath(handle.el) : [];
-        const fixedAncestorContainsScroller = (positionedAncestor === null || positionedAncestor === void 0 ? void 0 : positionedAncestor.viewportFixed) === true && discoveredScrollPath.some((container) => isComposedAncestor(positionedAncestor.element, container));
-        const coordinateSpace = (positionedAncestor === null || positionedAncestor === void 0 ? void 0 : positionedAncestor.viewportFixed) && !fixedAncestorContainsScroller ? "viewport" : "document";
+        const basis = coordinateBasis(handle.el, discoveredScrollPath);
+        const coordinateSpace = basis.coordinateSpace;
+        const needsViewportScrollPath = coordinateSpace === "viewport" && basis.scrollPath.length > 0;
         const plane = coordinateSpace === "viewport" || handle.requiresUnobscuredSurface ? "overlay" : "underlay";
-        const coordinateScrollPath = coordinateSpace === "document" ? discoveredScrollPath : [];
+        const coordinateScrollPath = basis.scrollPath;
         const modeledScrollPath = this.innerScrollMode === "unsupported" ? [] : coordinateScrollPath;
         const composition = auditIslandComposition(handle.islandId, handle.el, modeledScrollPath);
+        if (needsViewportScrollPath && !this.nativeAcceptsViewportScrollPaths) {
+          inactiveReason = "this native plugin version cannot compose an island inside a pane fixed to the viewport";
+          active = false;
+        }
         const externalModal = modalDialogs.find((dialog) => !isComposedAncestor(dialog, handle.el));
         if (externalModal) {
           inactiveReason = "native islands outside an active modal cannot be composed";
@@ -2334,9 +2579,11 @@ html[data-ni-root-scroll] body {
         }
         let rect = null;
         let visualRect = null;
+        let paintRect = null;
         if (active) {
-          const bounds = coordinateSpace === "viewport" ? viewportRect(handle.el) : rectInsideScrollPath(handle.el, activeScrollPath);
+          const bounds = basisRect(handle.el, { coordinateSpace, scrollPath: activeScrollPath });
           const viewportBounds = docRect(handle.el);
+          paintRect = viewportBounds;
           visualRect = visibleRectInsideScrollPath(viewportBounds, activeScrollPath);
           const style = getComputedStyle(handle.el);
           const cssRadius = uniformCssCornerRadius([
@@ -2355,6 +2602,7 @@ html[data-ni-root-scroll] body {
               active = false;
               rect = null;
               visualRect = null;
+              paintRect = null;
             }
           }
         }
@@ -2367,6 +2615,7 @@ html[data-ni-root-scroll] body {
           interactive: handle.interactive && getComputedStyle(handle.el).pointerEvents !== "none" && inertAncestor(handle.el) === null,
           rect,
           visualRect,
+          paintRect,
           plane,
           coordinateSpace,
           scrollPath: activeScrollPath,
@@ -2409,10 +2658,8 @@ html[data-ni-root-scroll] body {
       let changed = true;
       while (changed) {
         changed = false;
-        for (const native of natives) {
-          if (!native.active || native.plane !== "underlay" || !native.rect || !native.visualRect)
-            continue;
-          const mustCrossWebView = layers.some((layer) => layer.coordinateSpace === "viewport" && above(native, layer) && canMoveIntoIntersection(native, layer)) || natives.some((other) => other !== native && other.active && other.plane === "overlay" && other.rect !== null && other.visualRect !== null && above(native, other) && canMoveIntoIntersection(native, other));
+        for (const native of planned(natives, "underlay")) {
+          const mustCrossWebView = layers.some((layer) => layer.coordinateSpace === "viewport" && above(native, layer) && canMoveIntoIntersection(native, layer)) || natives.some((other) => other !== native && other.plane === "overlay" && hasPlanGeometry(other) && above(native, other) && canMoveIntoIntersection(native, other));
           if (!mustCrossWebView)
             continue;
           native.plane = "overlay";
@@ -2422,11 +2669,9 @@ html[data-ni-root-scroll] body {
       changed = true;
       while (changed) {
         changed = false;
-        for (const native of natives) {
-          if (!native.active || native.plane !== "underlay" || !native.rect || !native.visualRect)
-            continue;
+        for (const native of planned(natives, "underlay")) {
           const webAbove = layers.some((layer) => isElementVisible(layer.el) && above(layer, native) && canMoveIntoIntersection(layer, native));
-          const underlayNativeAbove = natives.some((other) => other !== native && other.active && other.plane === "underlay" && other.rect !== null && other.visualRect !== null && above(other, native) && canMoveIntoIntersection(other, native));
+          const underlayNativeAbove = natives.some((other) => other !== native && other.plane === "underlay" && hasPlanGeometry(other) && above(other, native) && canMoveIntoIntersection(other, native));
           if (webAbove || underlayNativeAbove)
             continue;
           native.plane = "overlay";
@@ -2436,16 +2681,11 @@ html[data-ni-root-scroll] body {
     }
     detectOverlayCutoutConflicts(natives, layers) {
       var _a, _b;
-      for (const native of natives) {
-        if (!native.active || native.plane !== "overlay" || !native.visualRect)
-          continue;
+      for (const native of planned(natives, "overlay")) {
         const unsupported = layers.find((layer) => layer.overlayCutoutIssue !== null && above(layer, native) && canMoveIntoIntersection(layer, native) && !this.opaqueWebCover(layer, native, layers));
         if (!unsupported)
           continue;
-        native.inactiveReason = (_b = (_a = unsupported.overlayCutoutIssue) === null || _a === void 0 ? void 0 : _a.reason) !== null && _b !== void 0 ? _b : "the upper web surface cannot become a native cutout";
-        native.active = false;
-        native.rect = null;
-        native.visualRect = null;
+        suspendNative(native, (_b = (_a = unsupported.overlayCutoutIssue) === null || _a === void 0 ? void 0 : _a.reason) !== null && _b !== void 0 ? _b : "the upper web surface cannot become a native cutout");
       }
     }
     opaqueWebCover(layer, native, layers) {
@@ -2454,16 +2694,14 @@ html[data-ni-root-scroll] body {
       (layer.cutoutIssue === null || isComposedAncestor(cover.el, layer.el) && getComputedStyle(cover.el).overflow === "hidden"));
     }
     resolveWebUnderlays(natives, layers) {
-      for (const native of natives) {
-        if (!hasResolvedGeometry(native) || native.plane !== "overlay")
-          continue;
+      for (const native of planned(natives, "overlay")) {
         const needsWebAbove = layers.some((layer) => layer.overlayCutoutIssue !== null && above(layer, native) && canMoveIntoIntersection(layer, native) && !this.opaqueWebCover(layer, native, layers));
         if (!needsWebAbove)
           continue;
         const group = /* @__PURE__ */ new Set([native]);
         for (const upper of group) {
           for (const lower of natives) {
-            if (hasResolvedGeometry(lower) && lower.plane === "overlay" && above(upper, lower) && canMoveIntoIntersection(upper, lower))
+            if (hasPlanGeometry(lower) && lower.plane === "overlay" && above(upper, lower) && canMoveIntoIntersection(upper, lower))
               group.add(lower);
           }
         }
@@ -2480,8 +2718,7 @@ html[data-ni-root-scroll] body {
         var _a2, _b2, _c2;
         const style = getComputedStyle(layer.el);
         const positionedAncestor = fixedOrStickyAncestor(layer.el);
-        const coordinateSpace = (positionedAncestor === null || positionedAncestor === void 0 ? void 0 : positionedAncestor.viewportFixed) ? "viewport" : "document";
-        const layerScrollPath = coordinateSpace === "viewport" ? [] : scrollPath(layer.el);
+        const { coordinateSpace, scrollPath: layerScrollPath } = coordinateBasis(layer.el);
         const allowFixedPosition = (positionedAncestor === null || positionedAncestor === void 0 ? void 0 : positionedAncestor.position) === "fixed";
         const radius = uniformCssCornerRadius([
           style.borderTopLeftRadius,
@@ -2496,8 +2733,10 @@ html[data-ni-root-scroll] body {
           el: layer.el,
           z: zIndex(layer.el),
           dom: dom2,
-          rect: Object.assign(Object.assign({}, coordinateSpace === "viewport" ? viewportRect(layer.el) : rectInsideScrollPath(layer.el, layerScrollPath)), { r: radius !== null && radius !== void 0 ? radius : 0 }),
+          rect: Object.assign(Object.assign({}, basisRect(layer.el, { coordinateSpace, scrollPath: layerScrollPath })), { r: radius !== null && radius !== void 0 ? radius : 0 }),
           visualRect: Object.assign(Object.assign({}, docRect(layer.el)), { r: radius !== null && radius !== void 0 ? radius : 0 }),
+          paintRect: docRect(layer.el),
+          paintEscapesRect: paintEscapesBorderBox(layer.el),
           coordinateSpace,
           scrollPath: layerScrollPath,
           backgroundPaint,
@@ -2517,16 +2756,17 @@ html[data-ni-root-scroll] body {
       const htmlRuntimeBackground = this.runtimeBackgrounds.get(document.documentElement);
       const htmlHasBackground = htmlRuntimeBackground !== void 0 || hasVisibleBackground(getComputedStyle(document.documentElement));
       const nativeBounds = this.natives.filter((native) => native.el.isConnected).map((native) => {
-        const positionedAncestor = fixedOrStickyAncestor(native.el);
-        const coordinateSpace = (positionedAncestor === null || positionedAncestor === void 0 ? void 0 : positionedAncestor.viewportFixed) ? "viewport" : "document";
-        const nativeScrollPath = coordinateSpace === "viewport" ? [] : scrollPath(native.el);
-        const rect = coordinateSpace === "viewport" ? viewportRect(native.el) : rectInsideScrollPath(native.el, nativeScrollPath);
+        const basis = coordinateBasis(native.el);
+        const { coordinateSpace, scrollPath: nativeScrollPath } = basis;
+        const rect = basisRect(native.el, basis);
         return {
           el: native.el,
           z: zIndex(native.el),
           dom: 0,
           rect,
           visualRect: docRect(native.el),
+          paintRect: docRect(native.el),
+          paintEscapesRect: false,
           coordinateSpace,
           scrollPath: nativeScrollPath
         };
@@ -2537,8 +2777,7 @@ html[data-ni-root-scroll] body {
           continue;
         }
         const positionedAncestor = fixedOrStickyAncestor(element);
-        const coordinateSpace = (positionedAncestor === null || positionedAncestor === void 0 ? void 0 : positionedAncestor.viewportFixed) ? "viewport" : "document";
-        const layerScrollPath = coordinateSpace === "viewport" ? [] : scrollPath(element);
+        const { coordinateSpace, scrollPath: layerScrollPath } = coordinateBasis(element);
         const allowFixedPosition = (positionedAncestor === null || positionedAncestor === void 0 ? void 0 : positionedAncestor.position) === "fixed";
         const runtimeBackground = this.runtimeBackgrounds.get(element);
         const sourceBackground = (_a = runtimeBackground === null || runtimeBackground === void 0 ? void 0 : runtimeBackground.source) !== null && _a !== void 0 ? _a : separableBackgroundPaint(getComputedStyle(element));
@@ -2547,33 +2786,30 @@ html[data-ni-root-scroll] body {
         const backgroundPaint = sourceBackground !== null && (element.children.length > 0 || isViewportRoot) ? sourceBackground : null;
         const cached = layerScrollPath.length > 0 ? void 0 : this.automaticLayerClassifications.get(element);
         const issue = backgroundPaint !== null ? auditWebLayerCutoutComposition(element, layerScrollPath, true, allowFixedPosition) : cached === void 0 ? automaticWebLayerCutoutIssue(element, (_b = layerScrollPath[layerScrollPath.length - 1]) !== null && _b !== void 0 ? _b : null, allowFixedPosition) : cached === false ? void 0 : cached;
-        const overlayClassification = automaticWebLayerCutoutIssue(element, (_c = layerScrollPath[layerScrollPath.length - 1]) !== null && _c !== void 0 ? _c : null, allowFixedPosition, true);
-        const overlayCutoutIssue = overlayClassification === void 0 ? {
-          reason: "web paint above an overlay island must be opaque across its bounded box",
-          mayMoveWithoutRefresh: false
-        } : overlayClassification;
         if (cached === void 0 && layerScrollPath.length === 0) {
           this.automaticLayerClassifications.set(element, issue === void 0 ? false : issue);
         }
         if (issue === void 0 || !isElementVisible(element))
           continue;
         const visualRect = paintsDocumentCanvas ? documentCanvasRect() : docRect(element);
-        const rect = paintsDocumentCanvas ? visualRect : coordinateSpace === "viewport" ? viewportRect(element) : rectInsideScrollPath(element, layerScrollPath);
-        const layer = {
-          el: element,
-          z: zIndex(element),
-          dom: dom++,
-          rect
-        };
-        const layerViewport = scrollPathViewport(layerScrollPath);
-        if (!nativeBounds.some((native) => canMoveIntoIntersection({
+        const rect = paintsDocumentCanvas ? visualRect : basisRect(element, { coordinateSpace, scrollPath: layerScrollPath });
+        const reach = {
           rect,
           visualRect,
+          paintRect: visualRect,
+          paintEscapesRect: paintEscapesBorderBox(element),
           coordinateSpace,
           scrollPath: layerScrollPath
-        }, native) || layerViewport !== null && intersects(layerViewport, native.visualRect))) {
+        };
+        const layerViewport = scrollPathViewport(layerScrollPath);
+        if (!nativeBounds.some((native) => canMoveIntoIntersection(reach, native) || layerViewport !== null && intersects(layerViewport, native.visualRect))) {
           continue;
         }
+        const overlayClassification = automaticWebLayerCutoutIssue(element, (_c = layerScrollPath[layerScrollPath.length - 1]) !== null && _c !== void 0 ? _c : null, allowFixedPosition, true);
+        const overlayCutoutIssue = overlayClassification === void 0 ? {
+          reason: "web paint above an overlay island must be opaque across its bounded box",
+          mayMoveWithoutRefresh: false
+        } : overlayClassification;
         const style = getComputedStyle(element);
         const radius = paintsDocumentCanvas ? 0 : uniformCssCornerRadius([
           style.borderTopLeftRadius,
@@ -2581,7 +2817,7 @@ html[data-ni-root-scroll] body {
           style.borderBottomRightRadius,
           style.borderBottomLeftRadius
         ]);
-        layers.push(Object.assign(Object.assign({}, layer), { rect: Object.assign(Object.assign({}, rect), { r: radius !== null && radius !== void 0 ? radius : 0 }), visualRect: Object.assign(Object.assign({}, visualRect), { r: radius !== null && radius !== void 0 ? radius : 0 }), coordinateSpace, scrollPath: layerScrollPath, backgroundPaint, cutoutIssue: radius === null ? {
+        layers.push(Object.assign(Object.assign({}, reach), { el: element, z: zIndex(element), dom: dom++, rect: Object.assign(Object.assign({}, rect), { r: radius !== null && radius !== void 0 ? radius : 0 }), visualRect: Object.assign(Object.assign({}, visualRect), { r: radius !== null && radius !== void 0 ? radius : 0 }), backgroundPaint, cutoutIssue: radius === null ? {
           reason: "automatically detected web surfaces require a uniform pixel border-radius",
           mayMoveWithoutRefresh: false
         } : issue, overlayCutoutIssue }));
@@ -2636,23 +2872,15 @@ html[data-ni-root-scroll] body {
           native.visualRect = null;
         }
       }
-      for (const native of natives) {
-        if (!native.active || !native.visualRect)
-          continue;
-        const nativeScrollViewport = scrollPathViewport(native.scrollPath);
+      for (const native of planned(natives)) {
         for (const layer of layers) {
           const routedByRoot = this.innerScrollMode === "root" && native.scrollPath.every((element) => this.rootScroll.isRouted(element)) && layer.scrollPath.every((element) => this.rootScroll.isRouted(element));
           if (layer.cutoutIssue !== null || routedByRoot || native.scrollPath.includes(layer.el) || sameScrollPath(layer.scrollPath, native.scrollPath) || !above(layer, native) || !isElementVisible(layer.el)) {
             continue;
           }
-          const layerScrollViewport = scrollPathViewport(layer.scrollPath);
-          const canCross = intersects(layer.visualRect, native.visualRect) || nativeScrollViewport !== null && intersects(layer.visualRect, nativeScrollViewport) || layerScrollViewport !== null && intersects(layerScrollViewport, native.visualRect);
-          if (!canCross)
+          if (!canMoveIntoIntersection(layer, native))
             continue;
-          native.inactiveReason = "web layers from a different scroll container cannot be composed";
-          native.active = false;
-          native.rect = null;
-          native.visualRect = null;
+          suspendNative(native, "web layers from a different scroll container cannot be composed");
           break;
         }
       }
@@ -2677,46 +2905,40 @@ html[data-ni-root-scroll] body {
     resolveMotionDependencies(natives, layers) {
       for (const native of natives) {
         native.motionDependencies = new Set(native.scrollPath);
-        if (!native.active || !native.visualRect)
+        if (!hasPlanGeometry(native))
           continue;
         for (const layer of layers) {
-          if (sameCoordinatePath(layer, native) || !pathsMayCross(native.visualRect, native.scrollPath, layer.visualRect, layer.scrollPath)) {
+          if (sameCoordinatePath(layer, native) || !pathsMayCross(native.paintRect, native.scrollPath, layer.paintRect, layer.scrollPath)) {
             continue;
           }
           addSymmetricPathDifference(native.motionDependencies, native.scrollPath, layer.scrollPath);
         }
         for (const other of natives) {
-          if (other === native || !other.active || !other.visualRect || sameCoordinatePath(other, native) || !pathsMayCross(native.visualRect, native.scrollPath, other.visualRect, other.scrollPath)) {
+          if (other === native || !hasPlanGeometry(other) || sameCoordinatePath(other, native) || !pathsMayCross(native.paintRect, native.scrollPath, other.paintRect, other.scrollPath)) {
             continue;
           }
           addSymmetricPathDifference(native.motionDependencies, native.scrollPath, other.scrollPath);
         }
         if (native.motionDependencies.size <= MAX_MOTION_DEPENDENCIES)
           continue;
-        native.inactiveReason = "scroll composition dependencies exceed the native host safety limit";
-        native.active = false;
-        native.rect = null;
-        native.visualRect = null;
+        suspendNative(native, "scroll composition dependencies exceed the native host safety limit");
         native.scrollPath = [];
         native.motionDependencies.clear();
       }
     }
     enforceRegionCapacity(natives, layers) {
-      for (const native of natives) {
-        if (!native.active || !native.rect || !native.visualRect)
-          continue;
+      if (layers.length + Math.max(0, natives.length - 1) <= MAX_REGIONS_PER_COMPONENT)
+        return;
+      for (const native of planned(natives)) {
         const crossingLayers = layers.filter((layer) => isElementVisible(layer.el) && above(layer, native) && canMoveIntoIntersection(layer, native));
         const cutoutCount = native.plane === "overlay" ? crossingLayers.filter((layer) => layer.cutoutIssue === null && layer.overlayCutoutIssue === null).length : 0;
         const exclusionCount = crossingLayers.filter((layer) => {
           const style = getComputedStyle(layer.el);
           return style.visibility === "visible" && style.pointerEvents !== "none" && inertAncestor(layer.el) === null;
-        }).length + natives.filter((other) => other !== native && other.active && other.rect !== null && other.visualRect !== null && above(other, native) && intersects(other.visualRect, native.visualRect)).length;
+        }).length + natives.filter((other) => other !== native && hasPlanGeometry(other) && above(other, native) && canMoveIntoIntersection(other, native)).length;
         if (cutoutCount <= MAX_REGIONS_PER_COMPONENT && exclusionCount <= MAX_REGIONS_PER_COMPONENT)
           continue;
-        native.inactiveReason = "overlapping composition regions exceed the native host safety limit";
-        native.active = false;
-        native.rect = null;
-        native.visualRect = null;
+        suspendNative(native, "overlapping composition regions exceed the native host safety limit");
         native.scrollPath = [];
         native.motionDependencies.clear();
       }
@@ -2734,7 +2956,10 @@ html[data-ni-root-scroll] body {
         else
           element.style.removeProperty(property);
       }
-      element.removeAttribute("data-ni-runtime-clip");
+      if (element.hasAttribute("data-ni-runtime-clip")) {
+        element.removeAttribute("data-ni-runtime-clip");
+        this.recordRuntimePaintAttribute(element, "data-ni-runtime-clip");
+      }
       this.runtimePaintStyles.set(element, element.style.cssText);
       this.runtimeClips.delete(element);
     }
@@ -2752,7 +2977,10 @@ html[data-ni-root-scroll] body {
           element.style.removeProperty(property);
         }
       }
-      element.removeAttribute("data-ni-runtime-background");
+      if (element.hasAttribute("data-ni-runtime-background")) {
+        element.removeAttribute("data-ni-runtime-background");
+        this.recordRuntimePaintAttribute(element, "data-ni-runtime-background");
+      }
       this.runtimePaintStyles.set(element, element.style.cssText);
       this.runtimeBackgrounds.delete(element);
     }
@@ -2861,6 +3089,7 @@ html[data-ni-root-scroll] body {
       state.applied = new Map(BACKGROUND_PROPERTIES.map((property) => [property, layer.el.style.getPropertyValue(property)]));
       if (!layer.el.hasAttribute("data-ni-runtime-background")) {
         layer.el.setAttribute("data-ni-runtime-background", "");
+        this.recordRuntimePaintAttribute(layer.el, "data-ni-runtime-background");
       }
       this.runtimePaintStyles.set(layer.el, layer.el.style.cssText);
       const applied = getComputedStyle(layer.el);
@@ -2889,9 +3118,9 @@ html[data-ni-root-scroll] body {
           continue;
         }
         const candidates = knockoutCandidates(natives, layer);
-        if (!roundedHolesOverlap(candidates.map((native) => Object.assign(Object.assign({}, native.visualRect), { r: native.rect.r }))))
+        if (!roundedHolesOverlap(candidates.map((candidate) => candidate.hole)))
           continue;
-        for (const native of candidates)
+        for (const { native } of candidates)
           suspendNative(native, "authored mask properties override native knockout geometry");
       }
       for (const element of this.runtimeClips.keys()) {
@@ -2903,8 +3132,7 @@ html[data-ni-root-scroll] body {
           this.releaseRuntimeBackground(element);
       }
       for (const layer of layers) {
-        const candidates = knockoutCandidates(natives, layer);
-        const holeCandidates = candidates.filter((native) => {
+        const holeCandidates = knockoutCandidates(natives, layer).filter(({ native }) => {
           if (sameCoordinatePath(native, layer))
             return true;
           const fullRect = Object.assign(Object.assign({}, docRect(native.el)), { r: native.rect.r });
@@ -2914,7 +3142,7 @@ html[data-ni-root-scroll] body {
           suspended = true;
           return false;
         });
-        const rawHoles = this.compositionEnabled ? holeCandidates.map((native) => sameCoordinatePath(native, layer) ? native.rect : Object.assign(Object.assign({}, rectInScrollPathCoordinates(native.visualRect, layer.scrollPath)), { r: native.rect.r })) : [];
+        const rawHoles = this.compositionEnabled ? holeCandidates.map((candidate) => candidate.hole) : [];
         const unionMask = roundedHolesOverlap(rawHoles);
         const holes = unionMask ? rawHoles : disjointHoles(rawHoles);
         if (holes.length === 0) {
@@ -2922,7 +3150,7 @@ html[data-ni-root-scroll] body {
           this.releaseRuntimeBackground(layer.el);
           continue;
         }
-        const clipLayerAsUnit = layer.backgroundPaint !== null && holeCandidates.every((native) => canClipLayerAsUnit(layer, native.handle.el));
+        const clipLayerAsUnit = layer.backgroundPaint !== null && holeCandidates.every(({ native }) => canClipLayerAsUnit(layer, native.handle.el));
         if (layer.backgroundPaint && !clipLayerAsUnit) {
           this.releaseRuntimeClip(layer.el);
           if (this.applyRuntimeBackground(layer, holes, unionMask))
@@ -2931,10 +3159,7 @@ html[data-ni-root-scroll] body {
             if (!native.active || !native.visualRect || !above(native, layer) || !intersects(native.visualRect, layer.visualRect)) {
               continue;
             }
-            native.inactiveReason = "the page background cannot be separated from its web content";
-            native.active = false;
-            native.rect = null;
-            native.visualRect = null;
+            suspendNative(native, "the page background cannot be separated from its web content");
             suspended = true;
           }
           continue;
@@ -2973,12 +3198,15 @@ html[data-ni-root-scroll] body {
           }
         }
         state.applied = new Map(Array.from(values.keys(), (property) => [property, layer.el.style.getPropertyValue(property)]));
-        layer.el.setAttribute("data-ni-runtime-clip", "");
+        if (!layer.el.hasAttribute("data-ni-runtime-clip")) {
+          layer.el.setAttribute("data-ni-runtime-clip", "");
+          this.recordRuntimePaintAttribute(layer.el, "data-ni-runtime-clip");
+        }
         this.runtimePaintStyles.set(layer.el, layer.el.style.cssText);
         if (unionMask && !runtimeOwnsMask(layer.el, getComputedStyle(layer.el))) {
           this.releaseRuntimeClip(layer.el);
           this.rejectedMasks.set(layer.el, maskStyleKey(layer.el));
-          for (const native of holeCandidates)
+          for (const { native } of holeCandidates)
             suspendNative(native, "authored mask properties override native knockout geometry");
           suspended = true;
         }
@@ -2993,7 +3221,7 @@ html[data-ni-root-scroll] body {
         ...this.natives.map((handle) => handle.el),
         ...this.layers.map((handle) => handle.el)
       ]);
-      const layers = this.buildLayers();
+      const layers = withSceneReadScope(() => this.buildLayers());
       const motion = this.assessMotionSafety(layers);
       const natives = this.buildNatives(motion);
       const routed = /* @__PURE__ */ new Set();
@@ -3012,18 +3240,25 @@ html[data-ni-root-scroll] body {
         if (native.scrollPath.some((element) => this.rootScroll.isRouted(element)))
           native.plane = "overlay";
       }
-      this.resolveHostPlanes(natives, layers);
-      this.resolveWebUnderlays(natives, layers);
-      this.suspendUnsupportedOverlaps(natives);
-      this.detectBackgroundPaintConflicts(natives, layers);
-      this.detectLayerCoordinateConflicts(natives, layers);
-      this.detectOverlayCutoutConflicts(natives, layers);
-      this.enforceUnobscuredSurfaces(natives, layers);
-      this.resolveMotionDependencies(natives, layers);
-      this.enforceRegionCapacity(natives, layers);
+      withSceneReadScope(() => {
+        this.resolveHostPlanes(natives, layers);
+        this.resolveWebUnderlays(natives, layers);
+        this.suspendUnsupportedOverlaps(natives);
+        this.detectBackgroundPaintConflicts(natives, layers);
+        this.detectLayerCoordinateConflicts(natives, layers);
+        this.detectOverlayCutoutConflicts(natives, layers);
+        this.enforceUnobscuredSurfaces(natives, layers);
+        this.resolveMotionDependencies(natives, layers);
+        this.enforceRegionCapacity(natives, layers);
+      });
       this.applyWebKnockouts(natives, layers);
-      for (const native of natives)
+      for (const native of natives) {
+        const previous = native.el.getAttribute("data-native-islands-inactive");
         native.handle.setNativeInactive(native.inactiveReason);
+        if (native.el.getAttribute("data-native-islands-inactive") !== previous) {
+          this.recordRuntimePaintAttribute(native.el, "data-native-islands-inactive");
+        }
+      }
       const order = natives.filter((native) => native.active).slice().sort((a, b) => {
         if (above(a, b))
           return 1;
@@ -3053,15 +3288,14 @@ html[data-ni-root-scroll] body {
           continue;
         cutouts[native.handle.islandId] = [];
         exclusions[native.handle.islandId] = [];
-        if (!native.visualRect)
+        if (!hasPlanGeometry(native))
           continue;
-        const nativeRect = native.visualRect;
         if (native.plane === "overlay") {
           cutouts[native.handle.islandId] = layers.filter((layer) => layer.cutoutIssue === null && layer.overlayCutoutIssue === null && isElementVisible(layer.el) && above(layer, native) && canMoveIntoIntersection(layer, native)).map(region);
         }
         exclusions[native.handle.islandId] = layers.filter((layer) => touchable(layer) && above(layer, native) && canMoveIntoIntersection(layer, native)).map(region);
         for (const other of natives) {
-          if (other !== native && other.active && other.rect && other.visualRect && above(other, native) && intersects(other.visualRect, nativeRect)) {
+          if (other !== native && hasPlanGeometry(other) && above(other, native) && canMoveIntoIntersection(other, native)) {
             exclusions[native.handle.islandId].push(nativeRegion(other));
           }
         }
@@ -3098,9 +3332,11 @@ html[data-ni-root-scroll] body {
         const visualRect = scrollContainerRect(element);
         if (!visualRect)
           continue;
-        const ancestorPath = scrollPath(element);
+        const basis = coordinateBasis(element);
+        const ancestorPath = basis.scrollPath;
         const viewportFixed = this.innerScrollMode === "root" && this.rootScroll.isRouted(element);
-        let rect = rectInScrollPathCoordinates(viewportFixed ? Object.assign(Object.assign({}, visualRect), { y: round2(visualRect.y - window.scrollY + this.rootScroll.pageOffset()) }) : visualRect, ancestorPath);
+        const originRect = basis.coordinateSpace === "viewport" ? Object.assign(Object.assign({}, visualRect), { x: round2(visualRect.x - window.scrollX), y: round2(visualRect.y - window.scrollY) }) : visualRect;
+        let rect = rectInScrollPathCoordinates(viewportFixed ? Object.assign(Object.assign({}, originRect), { y: round2(visualRect.y - window.scrollY + this.rootScroll.pageOffset()) }) : originRect, ancestorPath);
         if (viewportFixed)
           rect = canonicalScrollRect(rect);
         const offset = physicalScrollOffset(element);
@@ -3108,6 +3344,7 @@ html[data-ni-root-scroll] body {
           id: this.idForScrollContainer(element),
           rect,
           scrollPath: ancestorPath.map((ancestor) => this.idForScrollContainer(ancestor)),
+          coordinateSpace: basis.coordinateSpace,
           viewportFixed,
           contentWidth: round2(element.scrollWidth),
           contentHeight: round2(element.scrollHeight),
@@ -3148,6 +3385,10 @@ html[data-ni-root-scroll] body {
       this.pendingScrollOffsets = null;
       this.applyingScrollOffsets = false;
       this.applyingLayouts = 0;
+      this.resetReady = Promise.resolve();
+      this.resetPending = false;
+      this.resetFailure = null;
+      this.nativeHoldsEarlyOffsets = false;
     }
     get available() {
       return this.transport.available;
@@ -3164,22 +3405,30 @@ html[data-ni-root-scroll] body {
       this.stacking.compositionEnabled = transport.available;
       this.stacking.innerScrollMode = transport.innerScrollMode;
       if (transport.available) {
-        transport.reset(createEnvelope());
+        this.beginReset(transport, true);
         this.transportDisposers.push(transport.on("islandError", createEnvelope(), (event) => {
           if (event.island) {
             this.failIsland(event.island, typeof event.reason === "string" ? event.reason : "Native component failed.");
           }
         }));
+        this.transportDisposers.push(
+          // Deferred scroll failures name containers, not islands, so they route
+          // to the scroll-failure path and never touch island lifecycle state.
+          transport.on("scrollError", createEnvelope(), (event) => {
+            const containers = event.containers;
+            if (!Array.isArray(containers))
+              return;
+            this.stacking.failScrollContainers(containers.filter((id) => typeof id === "string"), typeof event.reason === "string" ? event.reason : "Native scroll synchronization failed.");
+          })
+        );
         if (typeof window !== "undefined") {
           const resetOnPageHide = () => {
             this.stacking.prepareForPageHide();
-            transport.reset(createEnvelope());
+            this.beginReset(transport);
           };
-          const reconcileOnPageShow = async (event) => {
-            if (!event.persisted)
-              return;
-            await this.stacking.recreateNativeViews();
-            this.stacking.refresh();
+          const reconcileOnPageShow = (event) => {
+            if (event.persisted)
+              void this.restoreAfterPageShow();
           };
           window.addEventListener("pagehide", resetOnPageHide);
           window.addEventListener("pageshow", reconcileOnPageShow);
@@ -3189,7 +3438,6 @@ html[data-ni-root-scroll] body {
       }
       if (transport.available) {
         this.autostart();
-        this.stacking.notifyTransportAvailable();
       }
       return true;
     }
@@ -3214,7 +3462,7 @@ html[data-ni-root-scroll] body {
       } catch (error) {
         return Promise.reject(error);
       }
-      return this.transport.command(Object.assign(Object.assign({}, createEnvelope()), { island, islandType: nativeComponent, method, params: properties }));
+      return this.afterReset(() => this.transport.command(Object.assign(Object.assign({}, createEnvelope()), { island, islandType: nativeComponent, method, params: properties })));
     }
     listen(eventName, listener) {
       return this.transport.on(eventName, createEnvelope(), listener);
@@ -3249,19 +3497,28 @@ html[data-ni-root-scroll] body {
         subtree: true
       });
       this.stacking.start((payload) => {
+        const reset = this.resetReady;
         this.applyingLayouts++;
         const completeLayout = () => {
+          if (reset !== this.resetReady)
+            return;
           this.applyingLayouts--;
-          if (this.applyingLayouts === 0 && this.pendingScrollOffsets)
+          if (!this.scrollOffsetsBlocked() && this.pendingScrollOffsets)
             void this.flushScrollOffsets();
         };
         return this.transport.applyLayout(payload).catch((error) => {
           const reason = error instanceof Error && error.message ? `Native layout rejected: ${error.message}` : "Native layout rejected by the platform bridge.";
-          for (const component of payload.components) {
-            this.failIsland(component.id, reason);
+          if (reset === this.resetReady && !this.resetFailure) {
+            for (const component of payload.components)
+              this.failIsland(component.id, reason);
           }
           throw error;
-        }).then(() => completeLayout(), (error) => {
+        }).then((acknowledgement) => {
+          if (reset === this.resetReady && !this.resetFailure && (acknowledgement === null || acknowledgement === void 0 ? void 0 : acknowledgement.heldOffsets) === true) {
+            this.nativeHoldsEarlyOffsets = true;
+          }
+          completeLayout();
+        }, (error) => {
           completeLayout();
           throw error;
         });
@@ -3295,30 +3552,135 @@ html[data-ni-root-scroll] body {
         });
       }
     }
+    /**
+     * Hold planning before invoking reset, including a synchronous custom reset.
+     * A successful void result is a legacy backend; a rejection is a failed
+     * session and must never be interpreted as a legacy success.
+     */
+    beginReset(transport, notifyAvailable = false) {
+      this.resetPending = true;
+      this.resetFailure = null;
+      this.nativeHoldsEarlyOffsets = false;
+      this.pendingScrollOffsets = null;
+      this.applyingScrollOffsets = false;
+      this.applyingLayouts = 0;
+      this.stacking.beginTransportReset();
+      const ready = Promise.resolve().then(() => transport.reset(createEnvelope())).then((capabilities) => {
+        if (ready !== this.resetReady)
+          return;
+        this.nativeHoldsEarlyOffsets = (capabilities === null || capabilities === void 0 ? void 0 : capabilities.heldOffsets) === true;
+        this.stacking.nativeAcceptsViewportScrollPaths = (capabilities === null || capabilities === void 0 ? void 0 : capabilities.viewportScrollPaths) === true;
+        if (notifyAvailable)
+          this.stacking.notifyTransportAvailable();
+        if (ready !== this.resetReady)
+          return;
+        this.resetPending = false;
+        this.stacking.completeTransportReset();
+      }).catch((error) => {
+        const failure = new Error(error instanceof Error && error.message ? `Native initialization failed: ${error.message}` : "Native initialization failed while resetting the platform bridge.");
+        if (ready === this.resetReady) {
+          this.resetPending = false;
+          this.resetFailure = failure;
+          this.stacking.failTransportReset(failure);
+        }
+        throw failure;
+      });
+      this.resetReady = ready;
+      void ready.catch(() => void 0);
+    }
+    async afterReset(action) {
+      for (; ; ) {
+        const ready = this.resetReady;
+        try {
+          await ready;
+        } catch (error) {
+          if (ready === this.resetReady)
+            throw error;
+        }
+        if (ready === this.resetReady) {
+          if (this.resetFailure)
+            throw this.resetFailure;
+          return action();
+        }
+      }
+    }
+    async restoreAfterPageShow() {
+      let reset;
+      try {
+        await this.afterReset(() => {
+          reset = this.resetReady;
+          return this.stacking.recreateNativeViews();
+        });
+        if (reset === this.resetReady)
+          this.stacking.refresh();
+      } catch (error) {
+        if (reset !== this.resetReady || this.resetFailure)
+          return;
+        const failure = new Error(error instanceof Error && error.message ? `Native restoration failed: ${error.message}` : "Native components could not be restored after page show.");
+        this.resetFailure = failure;
+        this.stacking.failTransportReset(failure);
+      }
+    }
+    /** An old backend also needs its layout acknowledged before the next sample. */
+    scrollOffsetsBlocked() {
+      return this.resetPending || this.resetFailure !== null || this.applyingLayouts > 0 && !this.nativeHoldsEarlyOffsets;
+    }
     enqueueScrollOffsets(payload) {
+      if (this.resetPending || this.resetFailure)
+        return Promise.resolve();
       this.pendingScrollOffsets = payload;
-      if (!this.applyingScrollOffsets && this.applyingLayouts === 0)
+      if (!this.applyingScrollOffsets && !this.scrollOffsetsBlocked())
         void this.flushScrollOffsets();
       return Promise.resolve();
     }
     async flushScrollOffsets() {
-      if (this.applyingScrollOffsets || this.applyingLayouts > 0)
+      if (this.applyingScrollOffsets || this.scrollOffsetsBlocked())
         return;
+      const reset = this.resetReady;
       this.applyingScrollOffsets = true;
       try {
-        while (this.pendingScrollOffsets) {
+        while (reset === this.resetReady && this.pendingScrollOffsets && !this.scrollOffsetsBlocked()) {
           const payload = this.pendingScrollOffsets;
           this.pendingScrollOffsets = null;
           try {
             await this.transport.applyScrollOffsets(payload);
           } catch (error) {
-            const reason = error instanceof Error && error.message ? `Native scroll synchronization failed: ${error.message}` : "Native scroll synchronization failed.";
-            this.stacking.failScrollContainers(payload.offsets.map((offset) => offset.id), reason);
-            this.pendingScrollOffsets = null;
+            if (reset === this.resetReady && !this.resetFailure)
+              await this.repairScrollSynchronization(error, reset);
           }
         }
       } finally {
-        this.applyingScrollOffsets = false;
+        if (reset === this.resetReady)
+          this.applyingScrollOffsets = false;
+      }
+    }
+    /**
+     * Republishes the scene and sends one repair sample against it, awaiting the
+     * transport rather than the queue, which resolves as soon as it stores a
+     * payload. Awaiting the transport means the sample was accepted, which may
+     * mean held for a layout still in flight, not that it has been presented.
+     *
+     * Usually native does not know a container this scene introduced, which a
+     * fresh scene and sample resolve. Exactly one repair is attempted: a second
+     * forced layout would only repeat, so a refused repair takes the islands down
+     * instead of looping. Runs inside the single offset worker, which is why it
+     * needs no concurrency guard of its own.
+     */
+    async repairScrollSynchronization(error, reset) {
+      var _a, _b;
+      const reason = error instanceof Error && error.message ? `Native scroll synchronization failed: ${error.message}` : "Native scroll synchronization failed.";
+      let repair = null;
+      try {
+        await this.stacking.republish();
+        if (reset !== this.resetReady || this.resetFailure)
+          return;
+        repair = this.stacking.captureScrollOffsets();
+        if (repair)
+          await this.transport.applyScrollOffsets(repair);
+      } catch (_c) {
+        if (reset !== this.resetReady || this.resetFailure)
+          return;
+        this.stacking.failScrollContainers((_b = (_a = repair !== null && repair !== void 0 ? repair : this.pendingScrollOffsets) === null || _a === void 0 ? void 0 : _a.offsets.map((offset) => offset.id)) !== null && _b !== void 0 ? _b : [], reason);
       }
     }
     handleDomMutations(records) {
@@ -3363,7 +3725,7 @@ html[data-ni-root-scroll] body {
       this.scan(root);
       const observer = new MutationObserver((records) => {
         this.handleDomMutations(records);
-        this.stacking.refresh();
+        this.stacking.handleDomMutations(records);
       });
       observer.observe(root, {
         attributes: true,
@@ -3484,7 +3846,7 @@ html[data-ni-root-scroll] body {
     const observedStyles = [
       ...new Set(((_b = options.observedStyles) !== null && _b !== void 0 ? _b : []).map((property) => property.trim()).filter(Boolean))
     ];
-    const structuralSignature = JSON.stringify({
+    const structuralSignature2 = JSON.stringify({
       isInteractive: (_c = options.isInteractive) !== null && _c !== void 0 ? _c : false,
       accessibility: (_d = options.accessibility) !== null && _d !== void 0 ? _d : "web",
       requiresUnobscuredSurface: (_e = options.requiresUnobscuredSurface) !== null && _e !== void 0 ? _e : false,
@@ -3497,7 +3859,7 @@ html[data-ni-root-scroll] body {
     if (existingDefinition) {
       if (existingDefinition.nativeComponent === options.nativeComponent) {
         if (existingDefinition.structuralSignature !== void 0 && existingDefinition.handlers !== void 0) {
-          if (existingDefinition.structuralSignature !== structuralSignature) {
+          if (existingDefinition.structuralSignature !== structuralSignature2) {
             throw new Error(`<${options.tagName}> is already registered with a different definition contract.`);
           }
           existingDefinition.handlers.getProperties = options.getProperties;
@@ -3590,16 +3952,12 @@ html[data-ni-root-scroll] body {
         return this.send("create");
       }
       activateNative() {
-        var _a2, _b2;
+        var _a2;
         if (!this.connected || this.nativeFailed || this.nativeCreated || !nativeIslandsRuntime.available)
           return;
         this.nativeCreated = true;
-        this.restoreFallbackPresentation();
-        if (((_a2 = options.accessibility) !== null && _a2 !== void 0 ? _a2 : "web") === "web") {
-          this.renderAccessibilityFace();
-        }
-        this.hideWebPresentation();
-        for (const [nativeEvent, domEvent] of Object.entries((_b2 = options.events) !== null && _b2 !== void 0 ? _b2 : {})) {
+        this.presentNative();
+        for (const [nativeEvent, domEvent] of Object.entries((_a2 = options.events) !== null && _a2 !== void 0 ? _a2 : {})) {
           this.eventDisposers.push(nativeIslandsRuntime.listen(nativeEvent, (event) => {
             if (event.island !== this.islandId)
               return;
@@ -3665,10 +4023,14 @@ html[data-ni-root-scroll] body {
         if (this.nativeInactiveReason === reason)
           return;
         this.nativeInactiveReason = reason;
-        if (reason === null)
+        if (reason === null) {
           this.removeAttribute("data-native-islands-inactive");
-        else
+          if (this.nativeCreated)
+            this.presentNative();
+        } else {
           this.setAttribute("data-native-islands-inactive", "");
+          this.renderFallback();
+        }
       }
       reconcileObservedStyles() {
         if (!this.connected || observedStyles.length === 0)
@@ -3724,6 +4086,15 @@ html[data-ni-root-scroll] body {
           }
           void this.send("update");
         });
+      }
+      /** Hand the box to native: drop the web control and stop painting the web face. */
+      presentNative() {
+        var _a2;
+        this.restoreFallbackPresentation();
+        if (((_a2 = options.accessibility) !== null && _a2 !== void 0 ? _a2 : "web") === "web") {
+          this.renderAccessibilityFace();
+        }
+        this.hideWebPresentation();
       }
       renderFallback() {
         var _a2;
@@ -3861,7 +4232,7 @@ html[data-ni-root-scroll] body {
     definitionState.definitions.set(options.tagName, {
       nativeComponent: options.nativeComponent,
       constructor: DefinedNativeIsland,
-      structuralSignature,
+      structuralSignature: structuralSignature2,
       handlers
     });
     return DefinedNativeIsland;
@@ -3906,13 +4277,28 @@ html[data-ni-root-scroll] body {
       );
     });
   }
+  function callForCapabilities(action, payload) {
+    const exec = cordovaWindow()?.cordova?.exec;
+    if (!exec) {
+      return Promise.reject(Object.assign(new Error("Cordova is not available."), { code: "unavailable" }));
+    }
+    return new Promise((resolve, reject) => {
+      exec(
+        (result) => resolve(result),
+        (error) => reject(bridgeError(error)),
+        SERVICE,
+        action,
+        [payload]
+      );
+    });
+  }
   function createCordovaTransport() {
     const exec = cordovaWindow()?.cordova?.exec;
     return {
       available: Boolean(exec),
-      innerScrollMode: platform() === "ios" ? "native" : platform() === "android" ? "root" : "unsupported",
+      innerScrollMode: platform() === "ios" ? "native" : platform() === "android" ? "bridge" : "unsupported",
       applyLayout(payload) {
-        return call("applyLayout", payload);
+        return callForCapabilities("applyLayout", payload);
       },
       applyScrollOffsets(payload) {
         return call("applyScrollOffsets", payload);
@@ -3921,7 +4307,7 @@ html[data-ni-root-scroll] body {
         await call("command", request);
       },
       reset(envelope) {
-        void call("reset", envelope).catch(() => void 0);
+        return callForCapabilities("reset", envelope);
       },
       on(eventName, envelope, listener) {
         const listeners = eventListeners.get(eventName) ?? /* @__PURE__ */ new Set();

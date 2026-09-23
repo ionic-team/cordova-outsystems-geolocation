@@ -2,6 +2,7 @@ import {
   defineNativeIsland,
   initializeNativeIslands,
   NATIVE_ISLANDS_TRANSPORT_PRIORITY,
+  type NativeCapabilities,
   type NativeIslandsEnvelope,
   type NativeIslandsEvent,
   type NativeIslandsTransport,
@@ -78,14 +79,36 @@ function call(
   });
 }
 
+/**
+ * Reset and layout report the capabilities supported by native.
+ */
+function callForCapabilities(
+  action: 'applyLayout' | 'reset',
+  payload: NativeIslandsEnvelope,
+): Promise<NativeCapabilities | void> {
+  const exec = cordovaWindow()?.cordova?.exec;
+  if (!exec) {
+    return Promise.reject(Object.assign(new Error('Cordova is not available.'), { code: 'unavailable' }));
+  }
+  return new Promise((resolve, reject) => {
+    exec(
+      (result) => resolve(result as NativeCapabilities | undefined),
+      (error) => reject(bridgeError(error)),
+      SERVICE,
+      action,
+      [payload],
+    );
+  });
+}
+
 function createCordovaTransport(): NativeIslandsTransport {
   const exec = cordovaWindow()?.cordova?.exec;
   return {
     available: Boolean(exec),
-    innerScrollMode: platform() === 'ios' ? 'native' : platform() === 'android' ? 'root' : 'unsupported',
+    innerScrollMode: platform() === 'ios' ? 'native' : platform() === 'android' ? 'bridge' : 'unsupported',
 
     applyLayout(payload) {
-      return call('applyLayout', payload);
+      return callForCapabilities('applyLayout', payload);
     },
 
     applyScrollOffsets(payload) {
@@ -97,7 +120,7 @@ function createCordovaTransport(): NativeIslandsTransport {
     },
 
     reset(envelope) {
-      void call('reset', envelope).catch(() => undefined);
+      return callForCapabilities('reset', envelope);
     },
 
     on(eventName, envelope, listener) {
@@ -260,12 +283,7 @@ function clampedPixelStyle(
   return Number.isFinite(number) ? Math.min(maximum, Math.max(minimum, number)) : fallback;
 }
 
-function nonNegativeIntegerAttribute(
-  element: HTMLElement,
-  name: string,
-  fallback: number,
-  minimum = 0,
-): number {
+function nonNegativeIntegerAttribute(element: HTMLElement, name: string, fallback: number, minimum = 0): number {
   const value = element.getAttribute(name);
   if (value === null) return fallback;
   const number = Number.parseInt(value, 10);

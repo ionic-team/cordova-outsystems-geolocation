@@ -14,6 +14,7 @@ import io.ionic.libs.iongeolocationlib.view.IONGLOCLocationButtonPermissionReque
 import io.ionic.libs.ionnativeislandslib.NativeIslandsBridgeValidationError
 import io.ionic.libs.ionnativeislandslib.NativeIslandsBridgeValidator
 import io.ionic.libs.ionnativeislandslib.NativeIslandsController
+import io.ionic.libs.ionnativeislandslib.NativeIslandsCapabilities
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
@@ -109,6 +110,15 @@ class OSGeolocationIslands : CordovaPlugin() {
                 val cutouts = envelope.opt("cutouts") as JSONObject
                 val scrollContainers = envelope.opt("scrollContainers") as JSONArray
                 val documentRange = envelope.optDouble("documentRange", 0.0).toFloat()
+                val generations = NativeIslandsBridgeValidator.readGenerations(envelope, "layoutSeq", "offsetSeq")
+                if (generations == null) {
+                    reject(
+                        callback,
+                        "invalid_request",
+                        "layout generations must be non-negative integers sent together",
+                    )
+                    return true
+                }
                 controller.validateLayout(
                     components,
                     order,
@@ -127,8 +137,10 @@ class OSGeolocationIslands : CordovaPlugin() {
                     cutouts,
                     scrollContainers,
                     documentRange,
+                    generations[0],
+                    generations[1],
                     failure = { code, message -> reject(callback, code, message) },
-                ) { callback.success() }
+                ) { callback.success(NativeIslandsCapabilities.layoutAcknowledgement()) }
                 true
             }
 
@@ -141,10 +153,16 @@ class OSGeolocationIslands : CordovaPlugin() {
                 ) {
                     return true
                 }
+                val generation = NativeIslandsBridgeValidator.readGenerations(envelope, "layoutSeq")
+                if (generation == null) {
+                    reject(callback, "invalid_request", "layoutSeq must be a non-negative integer")
+                    return true
+                }
                 controller.applyScrollOffsets(
                     sequence = (envelope.opt("sequence") as Number).toLong(),
                     offsets = envelope.opt("offsets") as JSONArray,
                     settled = envelope.optBoolean("settled", false),
+                    layoutSeq = generation[0],
                     failure = { code, message -> reject(callback, code, message) },
                 ) { callback.success() }
                 true
@@ -176,8 +194,9 @@ class OSGeolocationIslands : CordovaPlugin() {
                 if (!validate(callback, NativeIslandsBridgeValidator.validateOperation("reset", envelope))) {
                     return true
                 }
-                controller.reset()
-                callback.success()
+                // Reported from the cleanup itself. Reporting here would let the
+                // next producer start against the old session's watermarks.
+                controller.reset { callback.success(NativeIslandsCapabilities.sessionCapabilities()) }
                 true
             }
 
@@ -213,12 +232,10 @@ class OSGeolocationIslands : CordovaPlugin() {
      * there's no existing nested builder to reuse here, unlike Capacitor's `getJSObjectForLocation`.
      * Passed to [IONGLOCLocationButtonRegistry.register].
      *
-     * `coords` must be a real `org.json.JSONObject`, not a plain Kotlin `Map` — `NativeIslandsController`'s
-     * event-forwarding `eventSink` only does a shallow `Map<String, Any?> -> JSONObject` conversion (one
-     * `put()` per top-level key); a nested plain `Map` value falls through to `Object.toString()` when
-     * later JSON-stringified and arrives in JS as a garbled string instead of a nested object, while a
-     * nested `JSONObject` value is already a type that stringifies correctly. `JSONObject.put(key, null)`
-     * removes the key rather than storing a null, so nullable fields need an explicit `JSONObject.NULL`.
+     * `coords` is built as a real `org.json.JSONObject`. A nested plain `Map` would also survive,
+     * since `NativeIslandsController` converts maps and lists recursively, but building it here keeps
+     * the emitted shape obvious at the call site. `JSONObject.put(key, null)` removes the key rather
+     * than storing a null, so nullable fields need an explicit `JSONObject.NULL`.
      * @param location IONGLOCLocationResult to map
      */
     private fun mapButtonPosition(location: IONGLOCLocationResult): Map<String, Any?> = mapOf(
@@ -293,6 +310,7 @@ class OSGeolocationIslands : CordovaPlugin() {
             reject(callback, error.code, error.message)
             false
         }
+
 
     private fun reject(callback: CallbackContext, code: String, message: String) {
         callback.error(JSONObject().put("code", code).put("message", message))
