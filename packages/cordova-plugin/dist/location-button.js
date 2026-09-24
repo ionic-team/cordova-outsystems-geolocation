@@ -452,6 +452,25 @@
       return null;
     return Math.min(1, Math.max(0, alpha.endsWith("%") ? parsed / 100 : parsed));
   }
+  function hasRootContainment(style) {
+    const contain = style.getPropertyValue("contain").trim();
+    const visibility = style.getPropertyValue("content-visibility").trim();
+    const containerType = style.getPropertyValue("container-type").trim();
+    return contain !== "" && contain !== "none" || visibility !== "" && visibility !== "visible" || containerType !== "" && containerType !== "normal";
+  }
+  function isViewportRootElement(node, style) {
+    return node === document.documentElement || node === document.body && !hasRootContainment(style) && !hasRootContainment(getComputedStyle(document.documentElement));
+  }
+  function bodyBackgroundPropagates() {
+    const root = document.documentElement;
+    const body = document.body;
+    if (!body || body.parentElement !== root)
+      return false;
+    const rootStyle = getComputedStyle(root);
+    if (rootStyle.backgroundImage !== "" && rootStyle.backgroundImage !== "none" || colorAlpha(rootStyle.backgroundColor) !== 0)
+      return false;
+    return !hasRootContainment(rootStyle) && !hasRootContainment(getComputedStyle(body));
+  }
   function separableBackgroundPaint(style) {
     const image = style.backgroundImage.trim() || "none";
     const alpha = colorAlpha(style.backgroundColor);
@@ -483,6 +502,19 @@
     const clips2 = style.backgroundClip.split(",").map((value) => value.trim()).filter(Boolean);
     return (_a = clips2[clips2.length - 1]) !== null && _a !== void 0 ? _a : "border-box";
   }
+  function hasVisiblePseudoElement(el) {
+    return ["::before", "::after"].some((pseudo) => {
+      var _a, _b;
+      const style = getComputedStyle(el, pseudo);
+      const content = ((_a = style.content) !== null && _a !== void 0 ? _a : "").trim();
+      if (content === "" || content === "none" || content === "normal" || style.display === "none" || style.visibility === "hidden" || Number.parseFloat(style.opacity) === 0) {
+        return false;
+      }
+      if (content !== '""' && content !== "''")
+        return true;
+      return ((_b = style.display) !== null && _b !== void 0 ? _b : "").includes("list-item") || style.backgroundColor !== "" && colorAlpha(style.backgroundColor) !== 0 || style.backgroundImage !== "" && style.backgroundImage !== "none" || style.boxShadow !== "" && style.boxShadow !== "none" || style.borderImageSource != null && style.borderImageSource !== "" && style.borderImageSource !== "none" || style.outlineStyle !== "" && style.outlineStyle !== "none" && Number.parseFloat(style.outlineWidth) > 0 || propertyIsActive(style, "filter") || propertyIsActive(style, "backdrop-filter") || propertyIsActive(style, "-webkit-backdrop-filter") || [style.borderTopWidth, style.borderRightWidth, style.borderBottomWidth, style.borderLeftWidth].some((width) => Number.parseFloat(width) > 0);
+    });
+  }
   function hasSparsePaint(el, style) {
     var _a;
     const paintedElementNames = /* @__PURE__ */ new Set(["BUTTON", "CANVAS", "IFRAME", "IMG", "INPUT", "SELECT", "TEXTAREA", "VIDEO"]);
@@ -506,32 +538,14 @@
       var _a2;
       return Number.parseFloat(width) > 0 && ((_a2 = colorAlpha(color)) !== null && _a2 !== void 0 ? _a2 : 0) > 0;
     });
-    return hasBorder || style.boxShadow !== "" && style.boxShadow !== "none" || style.textShadow !== "" && style.textShadow !== "none" || style.outlineStyle !== "" && style.outlineStyle !== "none" && Number.parseFloat(style.outlineWidth) > 0;
+    return hasBorder || hasVisiblePseudoElement(el) || style.boxShadow !== "" && style.boxShadow !== "none" || style.textShadow !== "" && style.textShadow !== "none" || style.outlineStyle !== "" && style.outlineStyle !== "none" && Number.parseFloat(style.outlineWidth) > 0;
   }
   function paintEscapesBorderBox(el) {
     const style = getComputedStyle(el);
     return hasPaintOutsideBorderBox(el, style) || markedLayerPaintEscapes(el, style);
   }
   function hasPaintOutsideBorderBox(el, style) {
-    const hasVisiblePseudo = (pseudo) => {
-      var _a, _b;
-      const pseudoStyle = getComputedStyle(el, pseudo);
-      const content = ((_a = pseudoStyle.content) !== null && _a !== void 0 ? _a : "").trim();
-      if (content === "" || content === "none" || content === "normal")
-        return false;
-      if (pseudoStyle.display === "none" || pseudoStyle.visibility === "hidden" || Number.parseFloat(pseudoStyle.opacity) === 0) {
-        return false;
-      }
-      if (content !== '""' && content !== "''")
-        return true;
-      return ((_b = colorAlpha(pseudoStyle.backgroundColor)) !== null && _b !== void 0 ? _b : 0) > 0 || pseudoStyle.backgroundImage !== "" && pseudoStyle.backgroundImage !== "none" || pseudoStyle.boxShadow !== "" && pseudoStyle.boxShadow !== "none" || [
-        pseudoStyle.borderTopWidth,
-        pseudoStyle.borderRightWidth,
-        pseudoStyle.borderBottomWidth,
-        pseudoStyle.borderLeftWidth
-      ].some((width) => Number.parseFloat(width) > 0);
-    };
-    return style.boxShadow !== "" && style.boxShadow !== "none" || style.textShadow !== "" && style.textShadow !== "none" || style.outlineStyle !== "" && style.outlineStyle !== "none" && Number.parseFloat(style.outlineWidth) > 0 || hasVisiblePseudo("::before") || hasVisiblePseudo("::after");
+    return style.boxShadow !== "" && style.boxShadow !== "none" || style.textShadow !== "" && style.textShadow !== "none" || style.outlineStyle !== "" && style.outlineStyle !== "none" && Number.parseFloat(style.outlineWidth) > 0 || hasVisiblePseudoElement(el);
   }
   function automaticWebLayerCutoutIssue(el, modeledScrollContainer = null, allowViewportPosition = false, requireOpaqueBox = false) {
     const style = getComputedStyle(el);
@@ -580,7 +594,7 @@
     let node = el;
     while (node) {
       const style = getComputedStyle(node);
-      const isViewportRoot = node === document.body || node === document.documentElement;
+      const isViewportRoot = isViewportRootElement(node, style);
       const runtimeClip = runtimeOwnsClip(node, style);
       const zoom = style.getPropertyValue("zoom").trim();
       if (style.position === "sticky" || !allowViewportPosition && style.position === "fixed") {
@@ -601,7 +615,7 @@
           mayMoveWithoutRefresh: false
         };
       }
-      if (node === el && !isViewportRoot && !backgroundOnly && markedLayerPaintEscapes(el, style)) {
+      if (node === el && !(node === document.documentElement || node === document.body && bodyBackgroundPropagates()) && !backgroundOnly && markedLayerPaintEscapes(el, style)) {
         return {
           reason: "web surfaces with out-of-bounds paint or visible overflow cannot use a box-bounded cutout",
           mayMoveWithoutRefresh: false
@@ -631,11 +645,13 @@
     const modeledScrollContainerSet = new Set(modeledScrollContainers === null ? [] : Array.isArray(modeledScrollContainers) ? modeledScrollContainers : [modeledScrollContainers]);
     const issues = [];
     const islandRect = el.getBoundingClientRect();
+    let modeledClip = null;
+    let modeledClipMoves = false;
     let node = el;
     while (node) {
       const style = getComputedStyle(node);
       const element = label(node);
-      const isViewportRoot = node === document.body || node === document.documentElement;
+      const isViewportRoot = isViewportRootElement(node, style);
       const runtimeClip = runtimeOwnsClip(node, style);
       if (!isAxisAlignedTransform(style.transform)) {
         issues.push({
@@ -714,8 +730,14 @@
       }
       const overflowClips = clips(style);
       const paintContains = clipsThroughPaintContainment(style);
-      const modeledScrollClip = modeledScrollContainerSet.has(node) && overflowClips && !paintContains && ["", "0", "0px"].includes(style.getPropertyValue("overflow-clip-margin").trim());
-      if (node !== el && !isViewportRoot && !node.hasAttribute("data-ni-root-router-prototype") && (overflowClips || paintContains) && !modeledScrollClip && (hasUnsupportedClipEdge(style) || !clipOpaqueShapeContains(node, style, islandRect))) {
+      const modeledScrollClip = modeledScrollContainerSet.has(node) && (overflowClips || axisScrolls(style.overflowX) || axisScrolls(style.overflowY)) && !paintContains && ["", "0", "0px"].includes(style.getPropertyValue("overflow-clip-margin").trim());
+      if (modeledScrollClip) {
+        modeledClip = node.getBoundingClientRect();
+        modeledClipMoves = false;
+      } else if (modeledClip && (style.position === "fixed" || style.position === "sticky")) {
+        modeledClipMoves = true;
+      }
+      if (node !== el && !isViewportRoot && !node.hasAttribute("data-ni-root-router-prototype") && (overflowClips || paintContains) && !modeledScrollClip && (hasUnsupportedClipEdge(style) || !clipOpaqueShapeContains(node, style, islandRect) && (modeledClipMoves || !modeledClip || !clipOpaqueShapeContains(node, style, modeledClip)))) {
         issues.push({
           code: "overflow_clip",
           island,
@@ -1385,12 +1407,6 @@ html[data-ni-root-scroll] body {
     }
     return false;
   }
-  function hasVisiblePseudoElement(element) {
-    return ["::before", "::after"].some((pseudo) => {
-      const style = getComputedStyle(element, pseudo);
-      return style.display !== "none" && style.visibility !== "hidden" && style.content !== "" && style.content !== "none" && style.content !== "normal" && Number.parseFloat(style.opacity) > 0;
-    });
-  }
   function borderContains(element, rect) {
     const style = getComputedStyle(element);
     const bounds = docRect(element);
@@ -1455,12 +1471,31 @@ html[data-ni-root-scroll] body {
       index += 1;
     return index;
   }
+  function clippedPaintBound(side) {
+    var _a;
+    let ancestor = side.el ? composedParentElement(side.el) : null;
+    while (ancestor) {
+      const style = getComputedStyle(ancestor);
+      if (["hidden", "clip"].includes(style.overflowX) && ["hidden", "clip"].includes(style.overflowY) && ["", "0", "0px"].includes(style.getPropertyValue("overflow-clip-margin").trim()) && ((_a = fixedOrStickyAncestor(ancestor)) === null || _a === void 0 ? void 0 : _a.position) !== "sticky" && sameCoordinatePath(side, coordinateBasis(ancestor))) {
+        return docRect(ancestor);
+      }
+      ancestor = composedParentElement(ancestor);
+    }
+    return null;
+  }
   function reachableBound(side, sharedDepth) {
     var _a;
     const outermostUnmatched = side.scrollPath[sharedDepth];
-    if (outermostUnmatched !== void 0)
-      return scrollContainerRect(outermostUnmatched);
-    return side.paintEscapesRect ? null : (_a = side.paintRect) !== null && _a !== void 0 ? _a : null;
+    if (outermostUnmatched !== void 0) {
+      const scrollport = scrollContainerRect(outermostUnmatched);
+      if (!scrollport || side.scrollPath.length !== sharedDepth + 1 || side.paintEscapesRect || !side.paintRect)
+        return scrollport;
+      const travelX = Math.max(0, outermostUnmatched.scrollWidth - outermostUnmatched.clientWidth);
+      if (!Number.isFinite(travelX))
+        return scrollport;
+      return Object.assign(Object.assign({}, scrollport), { x: side.paintRect.x - travelX, w: side.paintRect.w + travelX * 2 });
+    }
+    return side.paintEscapesRect ? clippedPaintBound(side) : (_a = side.paintRect) !== null && _a !== void 0 ? _a : null;
   }
   function sameCoordinatePath(left, right) {
     return left.coordinateSpace === right.coordinateSpace && sameScrollPath(left.scrollPath, right.scrollPath);
@@ -1675,10 +1710,14 @@ html[data-ni-root-scroll] body {
       h: round2(Math.max(window.innerHeight, root.scrollHeight, (_b = body === null || body === void 0 ? void 0 : body.scrollHeight) !== null && _b !== void 0 ? _b : 0))
     };
   }
-  function hasVisibleBackground(style) {
-    const image = style.backgroundImage.trim();
-    const color = style.backgroundColor.replace(/\s+/g, "").toLowerCase();
-    return image !== "" && image !== "none" || color !== "" && color !== "transparent" && color !== "rgba(0,0,0,0)" && !color.endsWith("/0)");
+  function opaqueHexColor(value) {
+    const match = /^rgb\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*\)$/.exec(value);
+    if (!match)
+      return null;
+    const channels = match.slice(1).map(Number);
+    if (channels.some((channel) => channel > 255))
+      return null;
+    return `#${channels.map((channel) => channel.toString(16).padStart(2, "0")).join("")}`;
   }
   function isElementVisible(el) {
     const scope = sceneReadScope;
@@ -1777,7 +1816,10 @@ html[data-ni-root-scroll] body {
         return null;
       return Object.assign(Object.assign({}, aperture), { x: round2(aperture.x - window.scrollX), y: round2(aperture.y - window.scrollY) });
     }
-    return side.paintEscapesRect ? null : side.rect;
+    if (!side.paintEscapesRect)
+      return side.rect;
+    const clip = clippedPaintBound(side);
+    return clip && Object.assign(Object.assign({}, clip), { x: round2(clip.x - window.scrollX), y: round2(clip.y - window.scrollY) });
   }
   function structuralSignature(payload, mode) {
     if (mode !== "bridge")
@@ -1934,10 +1976,12 @@ html[data-ni-root-scroll] body {
       this.scrollEndTimer = null;
       this.runtimeClips = /* @__PURE__ */ new Map();
       this.runtimeBackgrounds = /* @__PURE__ */ new Map();
+      this.backgroundSourcesDirty = false;
       this.runtimePaintStyles = /* @__PURE__ */ new WeakMap();
       this.runtimePaintAttributes = /* @__PURE__ */ new WeakMap();
       this.rejectedMasks = /* @__PURE__ */ new Map();
       this.nativeAcceptsViewportScrollPaths = false;
+      this.nativeAcceptsCanvasColor = false;
       this.refresh = () => {
         if (!this.onChange || this.transportSession.state !== "ready")
           return;
@@ -1999,6 +2043,8 @@ html[data-ni-root-scroll] body {
             if (generation === this.planGeneration) {
               this.pendingSignature = null;
               this.pendingLayout = null;
+              if (session === this.transportSession)
+                this.releaseRuntimeBackground(document.body);
             }
           });
         });
@@ -2046,13 +2092,16 @@ html[data-ni-root-scroll] body {
     }
     prepareForPageHide() {
       this.invalidatePendingPlan();
+      this.releaseRuntimeBackgrounds();
       this.rootScroll.clear();
     }
     /** Hold every composition request until reset has established this session's capabilities. */
     beginTransportReset() {
       this.transportSession = { state: "pending" };
       this.nativeAcceptsViewportScrollPaths = false;
+      this.nativeAcceptsCanvasColor = false;
       this.invalidatePendingPlan();
+      this.releaseRuntimeBackgrounds();
     }
     completeTransportReset() {
       if (this.transportSession.state !== "pending")
@@ -2065,6 +2114,7 @@ html[data-ni-root-scroll] body {
         return;
       this.transportSession = { state: "failed", error };
       this.invalidatePendingPlan();
+      this.releaseRuntimeBackgrounds();
       for (const waiter of this.layoutWaiters)
         waiter.reject(error);
       this.layoutWaiters.clear();
@@ -2075,6 +2125,7 @@ html[data-ni-root-scroll] body {
       if (!root) {
         this.automaticLayerClassifications = /* @__PURE__ */ new WeakMap();
         this.rejectedMasks.clear();
+        this.backgroundSourcesDirty = this.runtimeBackgrounds.size > 0;
         return;
       }
       if (root instanceof HTMLElement)
@@ -2153,8 +2204,6 @@ html[data-ni-root-scroll] body {
       let changed = false;
       for (const record of records) {
         if (typeof ShadowRoot !== "undefined" && record.target instanceof ShadowRoot) {
-          for (const element of this.runtimeBackgrounds.keys())
-            this.releaseRuntimeBackground(element);
           changed = true;
           continue;
         }
@@ -2188,10 +2237,6 @@ html[data-ni-root-scroll] body {
           }
         }
         changed = true;
-        if (target instanceof HTMLStyleElement || target instanceof HTMLLinkElement || target.closest("style") !== null) {
-          for (const element of this.runtimeBackgrounds.keys())
-            this.releaseRuntimeBackground(element);
-        }
       }
       if (changed) {
         this.invalidateAutomaticLayers();
@@ -2753,8 +2798,7 @@ html[data-ni-root-scroll] body {
       if (!this.compositionEnabled || this.natives.length === 0)
         return layers;
       const nativeElements = new Set(this.natives.map((native) => native.el));
-      const htmlRuntimeBackground = this.runtimeBackgrounds.get(document.documentElement);
-      const htmlHasBackground = htmlRuntimeBackground !== void 0 || hasVisibleBackground(getComputedStyle(document.documentElement));
+      const bodyPaintsCanvas = !this.runtimeBackgrounds.has(document.documentElement) && bodyBackgroundPropagates();
       const nativeBounds = this.natives.filter((native) => native.el.isConnected).map((native) => {
         const basis = coordinateBasis(native.el);
         const { coordinateSpace, scrollPath: nativeScrollPath } = basis;
@@ -2782,7 +2826,7 @@ html[data-ni-root-scroll] body {
         const runtimeBackground = this.runtimeBackgrounds.get(element);
         const sourceBackground = (_a = runtimeBackground === null || runtimeBackground === void 0 ? void 0 : runtimeBackground.source) !== null && _a !== void 0 ? _a : separableBackgroundPaint(getComputedStyle(element));
         const isViewportRoot = element === document.body || element === document.documentElement;
-        const paintsDocumentCanvas = element === document.documentElement || element === document.body && !htmlHasBackground;
+        const paintsDocumentCanvas = element === document.documentElement || element === document.body && bodyPaintsCanvas;
         const backgroundPaint = sourceBackground !== null && (element.children.length > 0 || isViewportRoot) ? sourceBackground : null;
         const cached = layerScrollPath.length > 0 ? void 0 : this.automaticLayerClassifications.get(element);
         const issue = backgroundPaint !== null ? auditWebLayerCutoutComposition(element, layerScrollPath, true, allowFixedPosition) : cached === void 0 ? automaticWebLayerCutoutIssue(element, (_b = layerScrollPath[layerScrollPath.length - 1]) !== null && _b !== void 0 ? _b : null, allowFixedPosition) : cached === false ? void 0 : cached;
@@ -2968,7 +3012,7 @@ html[data-ni-root-scroll] body {
       if (!state)
         return;
       for (const property of BACKGROUND_PROPERTIES) {
-        if (element.style.getPropertyValue(property) !== state.applied.get(property))
+        if (element.style.getPropertyValue(property) !== state.applied.get(property) || element.style.getPropertyPriority(property) !== "")
           continue;
         const original = state.original.get(property);
         if (original === null || original === void 0 ? void 0 : original.value) {
@@ -2983,6 +3027,11 @@ html[data-ni-root-scroll] body {
       }
       this.runtimePaintStyles.set(element, element.style.cssText);
       this.runtimeBackgrounds.delete(element);
+    }
+    releaseRuntimeBackgrounds() {
+      for (const element of this.runtimeBackgrounds.keys())
+        this.releaseRuntimeBackground(element);
+      this.backgroundSourcesDirty = false;
     }
     applyRuntimeBackground(layer, holes, unionMask) {
       var _a;
@@ -3007,7 +3056,7 @@ html[data-ni-root-scroll] body {
       const width = round2(layer.rect.w);
       const height = round2(layer.rect.h);
       const escapeXml = (value) => value.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-      const path = escapeXml(knockoutPathData(layer.rect, holes));
+      const path = source.image === "none" && !unionMask ? "" : escapeXml(knockoutPathData(layer.rect, holes));
       const svg = source.image === "none" && !unionMask ? "" : [
         `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}"`,
         ` viewBox="0 0 ${width} ${height}" preserveAspectRatio="none">`,
@@ -3095,14 +3144,14 @@ html[data-ni-root-scroll] body {
       const applied = getComputedStyle(layer.el);
       const transparent = applied.backgroundColor === "transparent" || applied.backgroundColor === "rgba(0, 0, 0, 0)";
       const expectedImage = values.get("background-image");
-      if (transparent && (expectedImage === "none" || applied.backgroundImage !== "" && applied.backgroundImage !== "none")) {
+      if (transparent && (expectedImage === "none" ? applied.backgroundImage === "none" : applied.backgroundImage !== "" && applied.backgroundImage !== "none")) {
         return true;
       }
       this.releaseRuntimeBackground(layer.el);
       return false;
     }
-    applyWebKnockouts(natives, layers) {
-      var _a;
+    applyWebKnockouts(natives, layers, relocatedCanvas = false) {
+      var _a, _b;
       let suspended = false;
       const currentLayers = new Set(layers.map((layer) => layer.el));
       for (const element of this.rejectedMasks.keys()) {
@@ -3110,6 +3159,19 @@ html[data-ni-root-scroll] body {
           this.rejectedMasks.delete(element);
       }
       for (const layer of layers) {
+        if (((_a = this.runtimeClips.get(layer.el)) === null || _a === void 0 ? void 0 : _a.kind) !== "mask" || runtimeOwnsMask(layer.el, getComputedStyle(layer.el)))
+          continue;
+        const candidates = knockoutCandidates(natives, Object.assign(Object.assign({}, layer), { cutoutIssue: null }));
+        this.releaseRuntimeClip(layer.el);
+        this.rejectedMasks.set(layer.el, maskStyleKey(layer.el));
+        for (const { native } of candidates) {
+          suspendNative(native, "authored mask properties override native knockout geometry");
+          suspended = true;
+        }
+      }
+      for (const layer of layers) {
+        if (relocatedCanvas && layer.el === document.body)
+          continue;
         const rejected = this.rejectedMasks.get(layer.el);
         if (rejected === void 0)
           continue;
@@ -3132,6 +3194,8 @@ html[data-ni-root-scroll] body {
           this.releaseRuntimeBackground(element);
       }
       for (const layer of layers) {
+        if (relocatedCanvas && layer.el === document.body)
+          continue;
         const holeCandidates = knockoutCandidates(natives, layer).filter(({ native }) => {
           if (sameCoordinatePath(native, layer))
             return true;
@@ -3155,10 +3219,7 @@ html[data-ni-root-scroll] body {
           this.releaseRuntimeClip(layer.el);
           if (this.applyRuntimeBackground(layer, holes, unionMask))
             continue;
-          for (const native of natives) {
-            if (!native.active || !native.visualRect || !above(native, layer) || !intersects(native.visualRect, layer.visualRect)) {
-              continue;
-            }
+          for (const { native } of holeCandidates) {
             suspendNative(native, "the page background cannot be separated from its web content");
             suspended = true;
           }
@@ -3177,7 +3238,7 @@ html[data-ni-root-scroll] body {
           ["mask-clip", "border-box"],
           ["mask-origin", "border-box"]
         ]) : /* @__PURE__ */ new Map([["clip-path", clip]]);
-        if (((_a = this.runtimeClips.get(layer.el)) === null || _a === void 0 ? void 0 : _a.kind) !== kind)
+        if (((_b = this.runtimeClips.get(layer.el)) === null || _b === void 0 ? void 0 : _b.kind) !== kind)
           this.releaseRuntimeClip(layer.el);
         const existing = this.runtimeClips.get(layer.el);
         const state = existing !== null && existing !== void 0 ? existing : {
@@ -3212,9 +3273,21 @@ html[data-ni-root-scroll] body {
         }
       }
       if (suspended)
-        this.applyWebKnockouts(natives, layers);
+        this.applyWebKnockouts(natives, layers, relocatedCanvas);
+    }
+    relocateCanvasColor(natives, layers) {
+      if (!this.nativeAcceptsCanvasColor || this.runtimeBackgrounds.has(document.documentElement) || !bodyBackgroundPropagates() || !natives.some((native) => native.active && native.plane === "underlay"))
+        return null;
+      const body = layers.find((layer) => layer.el === document.body);
+      const source = body === null || body === void 0 ? void 0 : body.backgroundPaint;
+      const color = (source === null || source === void 0 ? void 0 : source.image) === "none" ? opaqueHexColor(source.color) : null;
+      if (!body || body.cutoutIssue !== null || !color)
+        return null;
+      return this.applyRuntimeBackground(body, [body.rect], false) ? color : null;
     }
     resolve() {
+      if (this.backgroundSourcesDirty)
+        this.releaseRuntimeBackgrounds();
       this.pruneDetachedEffects();
       resetPaintOrderCache();
       this.compositionObserver.sync([
@@ -3251,7 +3324,12 @@ html[data-ni-root-scroll] body {
         this.resolveMotionDependencies(natives, layers);
         this.enforceRegionCapacity(natives, layers);
       });
-      this.applyWebKnockouts(natives, layers);
+      let canvasColor = this.relocateCanvasColor(natives, layers);
+      this.applyWebKnockouts(natives, layers, canvasColor !== null);
+      if (canvasColor !== null && !natives.some((native) => native.active && native.plane === "underlay")) {
+        this.releaseRuntimeBackground(document.body);
+        canvasColor = null;
+      }
       for (const native of natives) {
         const previous = native.el.getAttribute("data-native-islands-inactive");
         native.handle.setNativeInactive(native.inactiveReason);
@@ -3352,14 +3430,14 @@ html[data-ni-root-scroll] body {
           offsetY: viewportFixed ? this.rootScroll.offsetFor(element) : offset.y
         });
       }
-      return Object.assign(Object.assign({}, createEnvelope()), {
+      return Object.assign(Object.assign(Object.assign({}, createEnvelope()), {
         components,
         documentRange: round2(this.rootScroll.pageRange()),
         scrollContainers,
         order,
         cutouts,
         exclusions
-      });
+      }), canvasColor ? { canvasColor } : {});
     }
   }
   const LAYER_SELECTOR = "[data-native-islands-opaque-surface]";
@@ -3570,6 +3648,7 @@ html[data-ni-root-scroll] body {
           return;
         this.nativeHoldsEarlyOffsets = (capabilities === null || capabilities === void 0 ? void 0 : capabilities.heldOffsets) === true;
         this.stacking.nativeAcceptsViewportScrollPaths = (capabilities === null || capabilities === void 0 ? void 0 : capabilities.viewportScrollPaths) === true;
+        this.stacking.nativeAcceptsCanvasColor = (capabilities === null || capabilities === void 0 ? void 0 : capabilities.canvasColor) === true;
         if (notifyAvailable)
           this.stacking.notifyTransportAvailable();
         if (ready !== this.resetReady)

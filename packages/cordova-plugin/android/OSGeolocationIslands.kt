@@ -139,6 +139,7 @@ class OSGeolocationIslands : CordovaPlugin() {
                     documentRange,
                     generations[0],
                     generations[1],
+                    envelope.optString("canvasColor").takeIf(String::isNotEmpty),
                     failure = { code, message -> reject(callback, code, message) },
                 ) { callback.success(NativeIslandsCapabilities.layoutAcknowledgement()) }
                 true
