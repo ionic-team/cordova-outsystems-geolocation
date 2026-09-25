@@ -371,7 +371,7 @@
     return clipMargin !== "" && clipMargin !== "0" && clipMargin !== "0px";
   }
   function markedLayerPaintEscapes(el, style) {
-    const ownOutsetPaint = style.boxShadow !== "" && style.boxShadow !== "none" || style.textShadow !== "" && style.textShadow !== "none" || style.outlineStyle !== "" && style.outlineStyle !== "none" && Number.parseFloat(style.outlineWidth) > 0 || propertyIsActive(style, "filter");
+    const ownOutsetPaint = style.textShadow !== "" && style.textShadow !== "none" || style.outlineStyle !== "" && style.outlineStyle !== "none" && Number.parseFloat(style.outlineWidth) > 0 || propertyIsActive(style, "filter");
     const visibleOverflow = style.overflowX === "visible" && el.scrollWidth > el.clientWidth + 1 || style.overflowY === "visible" && el.scrollHeight > el.clientHeight + 1;
     return ownOutsetPaint || visibleOverflow;
   }
@@ -502,9 +502,9 @@
     const clips2 = style.backgroundClip.split(",").map((value) => value.trim()).filter(Boolean);
     return (_a = clips2[clips2.length - 1]) !== null && _a !== void 0 ? _a : "border-box";
   }
-  function hasVisiblePseudoElement(el) {
+  function hasVisiblePseudoElement(el, includeTranslucentFills = false) {
     return ["::before", "::after"].some((pseudo) => {
-      var _a, _b;
+      var _a, _b, _c;
       const style = getComputedStyle(el, pseudo);
       const content = ((_a = style.content) !== null && _a !== void 0 ? _a : "").trim();
       if (content === "" || content === "none" || content === "normal" || style.display === "none" || style.visibility === "hidden" || Number.parseFloat(style.opacity) === 0) {
@@ -512,8 +512,13 @@
       }
       if (content !== '""' && content !== "''")
         return true;
-      return ((_b = style.display) !== null && _b !== void 0 ? _b : "").includes("list-item") || style.backgroundColor !== "" && colorAlpha(style.backgroundColor) !== 0 || style.backgroundImage !== "" && style.backgroundImage !== "none" || style.boxShadow !== "" && style.boxShadow !== "none" || style.borderImageSource != null && style.borderImageSource !== "" && style.borderImageSource !== "none" || style.outlineStyle !== "" && style.outlineStyle !== "none" && Number.parseFloat(style.outlineWidth) > 0 || propertyIsActive(style, "filter") || propertyIsActive(style, "backdrop-filter") || propertyIsActive(style, "-webkit-backdrop-filter") || [style.borderTopWidth, style.borderRightWidth, style.borderBottomWidth, style.borderLeftWidth].some((width) => Number.parseFloat(width) > 0);
+      const fill = style.backgroundColor === "" ? 0 : (_b = colorAlpha(style.backgroundColor)) !== null && _b !== void 0 ? _b : 1;
+      return ((_c = style.display) !== null && _c !== void 0 ? _c : "").includes("list-item") || (includeTranslucentFills ? fill > 0 : fill === 1) || style.backgroundImage !== "" && style.backgroundImage !== "none" || insetShadow(style) || style.borderImageSource != null && style.borderImageSource !== "" && style.borderImageSource !== "none" || style.outlineStyle !== "" && style.outlineStyle !== "none" && Number.parseFloat(style.outlineWidth) > 0 || propertyIsActive(style, "filter") || propertyIsActive(style, "backdrop-filter") || propertyIsActive(style, "-webkit-backdrop-filter") || [style.borderTopWidth, style.borderRightWidth, style.borderBottomWidth, style.borderLeftWidth].some((width) => Number.parseFloat(width) > 0);
     });
+  }
+  function insetShadow(style) {
+    var _a;
+    return /\binset\b/.test((_a = style.boxShadow) !== null && _a !== void 0 ? _a : "");
   }
   function hasSparsePaint(el, style) {
     var _a;
@@ -538,14 +543,14 @@
       var _a2;
       return Number.parseFloat(width) > 0 && ((_a2 = colorAlpha(color)) !== null && _a2 !== void 0 ? _a2 : 0) > 0;
     });
-    return hasBorder || hasVisiblePseudoElement(el) || style.boxShadow !== "" && style.boxShadow !== "none" || style.textShadow !== "" && style.textShadow !== "none" || style.outlineStyle !== "" && style.outlineStyle !== "none" && Number.parseFloat(style.outlineWidth) > 0;
+    return hasBorder || hasVisiblePseudoElement(el) || insetShadow(style) || style.textShadow !== "" && style.textShadow !== "none" || style.outlineStyle !== "" && style.outlineStyle !== "none" && Number.parseFloat(style.outlineWidth) > 0;
   }
   function paintEscapesBorderBox(el) {
     const style = getComputedStyle(el);
     return hasPaintOutsideBorderBox(el, style) || markedLayerPaintEscapes(el, style);
   }
   function hasPaintOutsideBorderBox(el, style) {
-    return style.boxShadow !== "" && style.boxShadow !== "none" || style.textShadow !== "" && style.textShadow !== "none" || style.outlineStyle !== "" && style.outlineStyle !== "none" && Number.parseFloat(style.outlineWidth) > 0 || hasVisiblePseudoElement(el);
+    return style.textShadow !== "" && style.textShadow !== "none" || style.outlineStyle !== "" && style.outlineStyle !== "none" && Number.parseFloat(style.outlineWidth) > 0 || hasVisiblePseudoElement(el);
   }
   function automaticWebLayerCutoutIssue(el, modeledScrollContainer = null, allowViewportPosition = false, requireOpaqueBox = false) {
     const style = getComputedStyle(el);
@@ -1872,13 +1877,36 @@ html[data-ni-root-scroll] body {
     return null;
   }
   function effectImpactForProperty(propertyName) {
-    if (/^(visibility|transform|transform-origin|transform-style|translate|scale|rotate|perspective|opacity|filter|backdrop-filter|mix-blend-mode|isolation|will-change|clip|clip-path|mask(?:-.+)?|offset-.+|background(?:-.+)?|border(?:-.+)?-radius|border-radius|z-index)$/i.test(propertyName)) {
+    if (/^(transform|transform-origin|transform-style|translate|scale|rotate|perspective|offset-.+)$/i.test(propertyName)) {
       return "local-composition";
+    }
+    if (/^(visibility|opacity|filter|backdrop-filter|mix-blend-mode|isolation|will-change|clip|clip-path|mask(?:-.+)?|background(?:-.+)?|border(?:-.+)?-radius|border-radius|z-index)$/i.test(propertyName)) {
+      return "repaint";
     }
     if (/^(color|accent-color|caret-color|border(?:-(?:top|right|bottom|left|block(?:-start|-end)?|inline(?:-start|-end)?))?-color|outline-color|column-rule-color|text-decoration-color|text-emphasis-color)$/i.test(propertyName)) {
       return "none";
     }
     return "global-layout";
+  }
+  function transitionImpact(target, propertyName) {
+    const impact = effectImpactForProperty(propertyName);
+    if (impact !== "global-layout")
+      return impact;
+    if (/^outline-(width|offset|style)$/.test(propertyName))
+      return "repaint";
+    if (/^(border(-(top|right|bottom|left))?-width|padding(-(top|right|bottom|left))?)$/.test(propertyName) && target instanceof HTMLElement && hasFixedBorderBox(target)) {
+      return "repaint";
+    }
+    return impact;
+  }
+  function hasFixedBorderBox(el) {
+    if (typeof CSSUnitValue === "undefined" || getComputedStyle(el).boxSizing !== "border-box")
+      return false;
+    const style = el.computedStyleMap();
+    return ["width", "height"].every((property) => {
+      const value = style.get(property);
+      return value instanceof CSSUnitValue && value.unit === "px";
+    });
   }
   function normalizedCssPropertyName(propertyName) {
     return propertyName.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`);
@@ -1886,7 +1914,7 @@ html[data-ni-root-scroll] body {
   function animationImpact(animation) {
     const transitionProperty = animation.transitionProperty;
     if (typeof transitionProperty === "string") {
-      return effectImpactForProperty(transitionProperty);
+      return transitionImpact(animationTarget(animation), transitionProperty);
     }
     const effect = animation.effect;
     if (typeof (effect === null || effect === void 0 ? void 0 : effect.getKeyframes) !== "function")
@@ -1901,7 +1929,7 @@ html[data-ni-root-scroll] body {
           const propertyImpact = effectImpactForProperty(normalizedCssPropertyName(propertyName));
           if (propertyImpact === "global-layout")
             return propertyImpact;
-          if (propertyImpact === "local-composition")
+          if (impact !== "local-composition" && propertyImpact !== "none")
             impact = propertyImpact;
         }
       }
@@ -2376,7 +2404,7 @@ html[data-ni-root-scroll] body {
       const target = root;
       const onTransitionRun = (event) => {
         if (event instanceof TransitionEvent) {
-          this.beginEffect(event.target, `transition:${event.propertyName}`, effectImpactForProperty(event.propertyName));
+          this.beginEffect(event.target, `transition:${event.propertyName}`, transitionImpact(event.target, event.propertyName));
         }
       };
       const onTransitionEnd = (event) => {
@@ -2402,7 +2430,9 @@ html[data-ni-root-scroll] body {
         }
         this.refresh();
       };
-      const onStyleStateChange = () => {
+      const onStyleStateChange = (event) => {
+        if (event.pointerType === "touch" && event.type !== "pointerup")
+          return;
         this.invalidateAutomaticLayers();
         this.refresh();
       };
@@ -2547,6 +2577,7 @@ html[data-ni-root-scroll] body {
         movingMarkedLayer: false,
         localCompositionTargets: /* @__PURE__ */ new Set()
       };
+      const islands = this.natives.filter((native) => native.el.isConnected).map((native) => docRect(native.el));
       for (const effect of this.collectRunningEffects()) {
         if (((_a = effect.target.parentElement) === null || _a === void 0 ? void 0 : _a.hasAttribute("data-ni-root-scroll-owner")) || document.documentElement.hasAttribute("data-ni-root-scroll-active") && effect.target.parentElement === document.body) {
           continue;
@@ -2555,7 +2586,8 @@ html[data-ni-root-scroll] body {
           safety.globalLayout = true;
         else
           safety.localCompositionTargets.add(effect.target);
-        if (layers.some((layer) => isComposedAncestor(effect.target, layer.el))) {
+        const affects = (layer) => effect.impact !== "repaint" || islands.some((island) => intersects(layer.visualRect, island));
+        if (layers.some((layer) => isComposedAncestor(effect.target, layer.el) && affects(layer))) {
           safety.movingMarkedLayer = true;
         }
       }
@@ -2765,7 +2797,7 @@ html[data-ni-root-scroll] body {
         const paintRight = box2.left + Math.max(box2.width, layer.el.scrollWidth);
         if (paintRight < native.el.getBoundingClientRect().left && !((_c = (_b = (_a = layer.el).getAnimations) === null || _b === void 0 ? void 0 : _b.call(_a, { subtree: true })) !== null && _c !== void 0 ? _c : []).some((animation) => animation.playState === "running") && [layer.el, ...layer.el.querySelectorAll("*")].every((element) => {
           const style2 = getComputedStyle(element);
-          return element.getBoundingClientRect().right < native.el.getBoundingClientRect().left && style2.boxShadow === "none" && style2.textShadow === "none" && style2.filter === "none" && style2.outlineStyle === "none";
+          return element.getBoundingClientRect().right < native.el.getBoundingClientRect().left && style2.textShadow === "none" && style2.filter === "none" && style2.outlineStyle === "none";
         }))
           return;
       }
@@ -2948,7 +2980,7 @@ html[data-ni-root-scroll] body {
           }
           if (canClipLayerAsUnit(layer, native.handle.el))
             continue;
-          const unsafe = backgroundClip !== "border-box" || directTextIntersects(layer.el, native.visualRect) || hasVisiblePseudoElement(layer.el) || /\binset\b/i.test(style.boxShadow) || style.boxShadow !== "none" && style.boxShadow !== "" && !contains(layer.visualRect, native.visualRect) || !borderContains(layer.el, native.visualRect);
+          const unsafe = backgroundClip !== "border-box" || directTextIntersects(layer.el, native.visualRect) || hasVisiblePseudoElement(layer.el, true) || /\binset\b/i.test(style.boxShadow) || style.boxShadow !== "none" && style.boxShadow !== "" && !contains(layer.visualRect, native.visualRect) || !borderContains(layer.el, native.visualRect);
           if (!unsafe)
             continue;
           native.inactiveReason = "overlapping web paint cannot be separated from its background";
@@ -3518,6 +3550,10 @@ html[data-ni-root-scroll] body {
     identity: "custom",
     priority: NATIVE_ISLANDS_TRANSPORT_PRIORITY.carrier
   };
+  function scrollChannel(name) {
+    const channel = name ? globalThis[`nativeIslandsScroll_${name}`] : void 0;
+    return typeof (channel === null || channel === void 0 ? void 0 : channel.postMessage) === "function" ? channel : void 0;
+  }
   class NativeIslandsRuntime {
     constructor() {
       this.transport = createWebTransport();
@@ -3530,7 +3566,7 @@ html[data-ni-root-scroll] body {
       this.domObserver = null;
       this.shadowObservers = /* @__PURE__ */ new Map();
       this.pendingScrollOffsets = null;
-      this.applyingScrollOffsets = false;
+      this.repairingScrollOffsets = false;
       this.applyingLayouts = 0;
       this.resetReady = Promise.resolve();
       this.resetPending = false;
@@ -3568,6 +3604,10 @@ html[data-ni-root-scroll] body {
             this.stacking.failScrollContainers(containers.filter((id) => typeof id === "string"), typeof event.reason === "string" ? event.reason : "Native scroll synchronization failed.");
           })
         );
+        this.transportDisposers.push(transport.on("scrollRejected", createEnvelope(), (event) => {
+          const reason = typeof event.reason === "string" ? event.reason : "Native refused scroll offsets.";
+          this.rejectScrollOffsets(new Error(reason), this.resetReady);
+        }));
         if (typeof window !== "undefined") {
           const resetOnPageHide = () => {
             this.stacking.prepareForPageHide();
@@ -3650,8 +3690,8 @@ html[data-ni-root-scroll] body {
           if (reset !== this.resetReady)
             return;
           this.applyingLayouts--;
-          if (!this.scrollOffsetsBlocked() && this.pendingScrollOffsets)
-            void this.flushScrollOffsets();
+          if (!this.scrollOffsetsBlocked())
+            this.flushScrollOffsets();
         };
         return this.transport.applyLayout(payload).catch((error) => {
           const reason = error instanceof Error && error.message ? `Native layout rejected: ${error.message}` : "Native layout rejected by the platform bridge.";
@@ -3709,7 +3749,7 @@ html[data-ni-root-scroll] body {
       this.resetFailure = null;
       this.nativeHoldsEarlyOffsets = false;
       this.pendingScrollOffsets = null;
-      this.applyingScrollOffsets = false;
+      this.repairingScrollOffsets = false;
       this.applyingLayouts = 0;
       this.stacking.beginTransportReset();
       const ready = Promise.resolve().then(() => transport.reset(createEnvelope())).then((capabilities) => {
@@ -3777,29 +3817,41 @@ html[data-ni-root-scroll] body {
       if (this.resetPending || this.resetFailure)
         return Promise.resolve();
       this.pendingScrollOffsets = payload;
-      if (!this.applyingScrollOffsets && !this.scrollOffsetsBlocked())
-        void this.flushScrollOffsets();
+      this.flushScrollOffsets();
       return Promise.resolve();
     }
-    async flushScrollOffsets() {
-      if (this.applyingScrollOffsets || this.scrollOffsetsBlocked())
+    /**
+     * Native drops samples it has passed, so each frame's sample is sent without
+     * waiting for the previous one to be acknowledged.
+     */
+    flushScrollOffsets() {
+      const payload = this.pendingScrollOffsets;
+      if (!payload || this.repairingScrollOffsets || this.scrollOffsetsBlocked())
         return;
+      this.pendingScrollOffsets = null;
+      const channel = scrollChannel(this.transport.scrollChannel);
+      if (channel) {
+        channel.postMessage(JSON.stringify(payload));
+        return;
+      }
       const reset = this.resetReady;
-      this.applyingScrollOffsets = true;
+      this.transport.applyScrollOffsets(payload).catch((error) => this.rejectScrollOffsets(error, reset));
+    }
+    /** Refusals arrive in send order, so any sent before a repair arrive during it. */
+    rejectScrollOffsets(error, reset) {
+      if (reset !== this.resetReady || this.resetPending || this.resetFailure || this.repairingScrollOffsets)
+        return;
+      void this.repairScrollOffsets(error, reset);
+    }
+    async repairScrollOffsets(error, reset) {
+      this.repairingScrollOffsets = true;
       try {
-        while (reset === this.resetReady && this.pendingScrollOffsets && !this.scrollOffsetsBlocked()) {
-          const payload = this.pendingScrollOffsets;
-          this.pendingScrollOffsets = null;
-          try {
-            await this.transport.applyScrollOffsets(payload);
-          } catch (error) {
-            if (reset === this.resetReady && !this.resetFailure)
-              await this.repairScrollSynchronization(error, reset);
-          }
-        }
+        await this.repairScrollSynchronization(error, reset);
       } finally {
-        if (reset === this.resetReady)
-          this.applyingScrollOffsets = false;
+        if (reset === this.resetReady) {
+          this.repairingScrollOffsets = false;
+          this.flushScrollOffsets();
+        }
       }
     }
     /**
@@ -3811,8 +3863,7 @@ html[data-ni-root-scroll] body {
      * Usually native does not know a container this scene introduced, which a
      * fresh scene and sample resolve. Exactly one repair is attempted: a second
      * forced layout would only repeat, so a refused repair takes the islands down
-     * instead of looping. Runs inside the single offset worker, which is why it
-     * needs no concurrency guard of its own.
+     * instead of looping.
      */
     async repairScrollSynchronization(error, reset) {
       var _a, _b;
@@ -4448,6 +4499,7 @@ html[data-ni-root-scroll] body {
     return {
       available: Boolean(exec),
       innerScrollMode: platform() === "ios" ? "native" : platform() === "android" ? "bridge" : "unsupported",
+      scrollChannel: SERVICE,
       applyLayout(payload) {
         return callForCapabilities("applyLayout", payload);
       },

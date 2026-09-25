@@ -106,6 +106,7 @@ function createCordovaTransport(): NativeIslandsTransport {
   return {
     available: Boolean(exec),
     innerScrollMode: platform() === 'ios' ? 'native' : platform() === 'android' ? 'bridge' : 'unsupported',
+    scrollChannel: SERVICE,
 
     applyLayout(payload) {
       return callForCapabilities('applyLayout', payload);

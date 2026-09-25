@@ -15,6 +15,7 @@ import io.ionic.libs.ionnativeislandslib.NativeIslandsBridgeValidationError
 import io.ionic.libs.ionnativeislandslib.NativeIslandsBridgeValidator
 import io.ionic.libs.ionnativeislandslib.NativeIslandsController
 import io.ionic.libs.ionnativeislandslib.NativeIslandsCapabilities
+import io.ionic.libs.ionnativeislandslib.NativeIslandsScrollChannel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
@@ -78,8 +79,20 @@ class OSGeolocationIslands : CordovaPlugin() {
         } else {
             controller.onHostPause()
         }
-        controller.bind(webView.view as WebView, cordova.activity)
-        cordova.activity.runOnUiThread { controller.ensureContainer() }
+        val view = webView.view as WebView
+        controller.bind(view, cordova.activity)
+        cordova.activity.runOnUiThread {
+            // Cordova serves the app from scheme://hostname.
+            val scheme = preferences.getString("scheme", "https").lowercase()
+            val hostname = preferences.getString("hostname", "localhost").lowercase()
+            NativeIslandsScrollChannel.install(
+                view,
+                "OSGeolocationIslands",
+                setOf("$scheme://$hostname"),
+                controller::receiveScrollOffsets,
+            )
+            controller.ensureContainer()
+        }
     }
 
     override fun execute(action: String, args: JSONArray, callback: CallbackContext): Boolean {
