@@ -1538,12 +1538,11 @@ html[data-ni-root-scroll] body {
     return null;
   }
   function planeSeparatedOverlap(left, right) {
-    const fixedOverlay = (state) => state.plane === "overlay" && state.coordinateSpace === "viewport";
-    const scrolledUnderlay = (state) => state.plane === "underlay" && state.coordinateSpace === "document";
-    const pair = fixedOverlay(left) && scrolledUnderlay(right) ? { overlay: left, underlay: right } : fixedOverlay(right) && scrolledUnderlay(left) ? { overlay: right, underlay: left } : null;
-    if (pair === null)
+    if (left.plane === "overlay" && right.plane === "overlay")
+      return true;
+    if (left.plane === right.plane)
       return false;
-    return above(pair.overlay, pair.underlay);
+    return left.plane === "overlay" ? above(left, right) : above(right, left);
   }
   function unsupportedOverlapReason(left, right) {
     if (left.plane === "underlay" && right.plane === "underlay" && stationaryCoordinatePaths(left, right))
@@ -1702,11 +1701,15 @@ html[data-ni-root-scroll] body {
     const borderRight = Math.max(0, bounds.width - element.clientWidth - borderLeft);
     const borderBottom = Math.max(0, bounds.height - element.clientHeight - borderTop);
     const innerRadius = Math.max(0, radius - Math.max(borderLeft, borderTop, borderRight, borderBottom));
+    const left = bounds.left + window.scrollX + borderLeft;
+    const top = bounds.top + window.scrollY + borderTop;
+    const x = round2(left);
+    const y = round2(top);
     return {
-      x: round2(bounds.left + window.scrollX + borderLeft),
-      y: round2(bounds.top + window.scrollY + borderTop),
-      w: round2(element.clientWidth),
-      h: round2(element.clientHeight),
+      x,
+      y,
+      w: round2(round2(left + Math.min(element.clientWidth, bounds.width - borderLeft)) - x),
+      h: round2(round2(top + Math.min(element.clientHeight, bounds.height - borderTop)) - y),
       r: round2(innerRadius)
     };
   }
@@ -2598,7 +2601,7 @@ html[data-ni-root-scroll] body {
       this.planGeneration++;
       this.pendingSignature = null;
     }
-    buildNatives(motion) {
+    buildNatives(motion, refusedUnderlays = /* @__PURE__ */ new Set()) {
       const modalDialogs = activeModalDialogs();
       const states = this.natives.map((handle, dom) => {
         handle.reconcileObservedStyles();
@@ -2609,7 +2612,8 @@ html[data-ni-root-scroll] body {
         const basis = coordinateBasis(handle.el, discoveredScrollPath);
         const coordinateSpace = basis.coordinateSpace;
         const needsViewportScrollPath = coordinateSpace === "viewport" && basis.scrollPath.length > 0;
-        const plane = coordinateSpace === "viewport" || handle.requiresUnobscuredSurface ? "overlay" : "underlay";
+        const overlayOnly = handle.requiresUnobscuredSurface === true || refusedUnderlays.has(handle.el);
+        const plane = coordinateSpace === "viewport" || overlayOnly ? "overlay" : "underlay";
         const coordinateScrollPath = basis.scrollPath;
         const modeledScrollPath = this.innerScrollMode === "unsupported" ? [] : coordinateScrollPath;
         const composition = auditIslandComposition(handle.islandId, handle.el, modeledScrollPath);
@@ -2710,6 +2714,7 @@ html[data-ni-root-scroll] body {
           visualRect,
           paintRect,
           plane,
+          overlayOnly,
           coordinateSpace,
           scrollPath: activeScrollPath,
           motionDependencies: new Set(activeScrollPath),
@@ -2772,13 +2777,22 @@ html[data-ni-root-scroll] body {
         }
       }
     }
+    /**
+     * Web paint above an overlay is cut out of it as a box, so see-through paint
+     * hides the island instead of blending with it. Only a layer whose position
+     * native cannot follow, such as a sticky one, is refused.
+     */
     detectOverlayCutoutConflicts(natives, layers) {
-      var _a, _b;
+      var _a;
       for (const native of planned(natives, "overlay")) {
-        const unsupported = layers.find((layer) => (clipsProtectedSurface(native) ? this.protectedWebRegion(native, layer) === null : layer.overlayCutoutIssue !== null) && above(layer, native) && canMoveIntoIntersection(layer, native) && (clipsProtectedSurface(native) ? !this.protectedCoveredByAncestor(native, layer, layers) : !this.opaqueWebCover(layer, native, layers)));
-        if (!unsupported)
+        if (clipsProtectedSurface(native))
           continue;
-        suspendNative(native, (_b = (_a = unsupported.overlayCutoutIssue) === null || _a === void 0 ? void 0 : _a.reason) !== null && _b !== void 0 ? _b : "the upper web surface cannot become a native cutout");
+        const issue = (_a = layers.find((layer) => {
+          var _a2;
+          return ((_a2 = layer.overlayCutoutIssue) === null || _a2 === void 0 ? void 0 : _a2.mayMoveWithoutRefresh) === true && above(layer, native) && canMoveIntoIntersection(layer, native) && !this.opaqueWebCover(layer, native, layers);
+        })) === null || _a === void 0 ? void 0 : _a.overlayCutoutIssue;
+        if (issue)
+          suspendNative(native, issue.reason);
       }
     }
     protectedWebRegion(native, layer) {
@@ -2821,7 +2835,9 @@ html[data-ni-root-scroll] body {
       if (layer.rect.r !== 0 || layer.cutoutIssue !== null || layer.overlayCutoutIssue !== null)
         return null;
       if (sameCoordinatePath(layer, native)) {
-        return intersects(layer.rect, native.rect) && edgeStrip(layer.rect, native.rect) ? layer : void 0;
+        if (!intersects(layer.rect, native.rect))
+          return;
+        return edgeStrip(layer.rect, native.rect) ? layer : null;
       }
       const viewport = { x: 0, y: 0, w: window.innerWidth, h: window.innerHeight };
       if (!horizontalScroll && layer.coordinateSpace === "viewport" && layer.scrollPath.length === 0 && native.coordinateSpace === "document" && edgeStrip(layer.rect, viewport))
@@ -2848,7 +2864,7 @@ html[data-ni-root-scroll] body {
               group.add(lower);
           }
         }
-        const safe = Array.from(group).every((candidate) => !candidate.handle.requiresUnobscuredSurface && !candidate.scrollPath.some((element) => this.rootScroll.isRouted(element)) && layers.every((layer) => !canMoveIntoIntersection(candidate, layer) || (above(candidate, layer) ? stationaryCoordinatePaths(candidate, layer) : auditWebLayerCutoutComposition(layer.el, layer.scrollPath, true, layer.coordinateSpace === "viewport", true) === null)));
+        const safe = Array.from(group).every((candidate) => !candidate.overlayOnly && !candidate.scrollPath.some((element) => this.rootScroll.isRouted(element)) && layers.every((layer) => !canMoveIntoIntersection(candidate, layer) || (above(candidate, layer) ? stationaryCoordinatePaths(candidate, layer) : auditWebLayerCutoutComposition(layer.el, layer.scrollPath, true, layer.coordinateSpace === "viewport", true) === null)));
         if (safe)
           for (const candidate of group)
             candidate.plane = "underlay";
@@ -3014,7 +3030,7 @@ html[data-ni-root-scroll] body {
           native.visualRect = null;
         }
       }
-      for (const native of planned(natives)) {
+      for (const native of planned(natives, "underlay")) {
         for (const layer of layers) {
           const routedByRoot = this.innerScrollMode === "root" && native.scrollPath.every((element) => this.rootScroll.isRouted(element)) && layer.scrollPath.every((element) => this.rootScroll.isRouted(element));
           if (layer.cutoutIssue !== null || routedByRoot || native.scrollPath.includes(layer.el) || sameScrollPath(layer.scrollPath, native.scrollPath) || !above(layer, native) || !isElementVisible(layer.el)) {
@@ -3022,23 +3038,9 @@ html[data-ni-root-scroll] body {
           }
           if (!canMoveIntoIntersection(layer, native))
             continue;
-          if (clipsProtectedSurface(native) && this.protectedWebRegion(native, layer) !== null)
-            continue;
           suspendNative(native, "web layers from a different scroll container cannot be composed");
           break;
         }
-      }
-    }
-    enforceUnobscuredSurfaces(natives, layers) {
-      for (const native of natives) {
-        if (!hasResolvedGeometry(native) || !native.handle.requiresUnobscuredSurface)
-          continue;
-        const nativeRect = native.visualRect;
-        const webSurfaceAbove = layers.some((layer) => isElementVisible(layer.el) && above(layer, native) && (clipsProtectedSurface(native) ? intersects(layer.visualRect, nativeRect) && this.protectedWebRegion(native, layer) === null && !this.protectedCoveredByAncestor(native, layer, layers) : intersects(layer.visualRect, nativeRect)));
-        const nativeSurfaceAbove = natives.some((other) => other !== native && other.active && other.visualRect !== null && above(other, native) && intersects(other.visualRect, nativeRect));
-        if (!webSurfaceAbove && !nativeSurfaceAbove)
-          continue;
-        suspendNative(native, "this protected native surface must remain completely unobscured");
       }
     }
     resolveMotionDependencies(natives, layers) {
@@ -3380,18 +3382,9 @@ html[data-ni-root-scroll] body {
         return null;
       return this.applyRuntimeBackground(body, [body.rect], false) ? color : null;
     }
-    resolve() {
-      if (this.backgroundSourcesDirty)
-        this.releaseRuntimeBackgrounds();
-      this.pruneDetachedEffects();
-      resetPaintOrderCache();
-      this.compositionObserver.sync([
-        ...this.natives.map((handle) => handle.el),
-        ...this.layers.map((handle) => handle.el)
-      ]);
-      const layers = withSceneReadScope(() => this.buildLayers());
-      const motion = this.assessMotionSafety(layers);
-      const natives = this.buildNatives(motion);
+    planNatives(layers, motion, refusedUnderlays) {
+      const natives = this.buildNatives(motion, refusedUnderlays);
+      const plannable = natives.filter((native) => native.active);
       const routed = /* @__PURE__ */ new Set();
       for (const native of natives) {
         if (!native.active || this.innerScrollMode !== "root")
@@ -3415,7 +3408,6 @@ html[data-ni-root-scroll] body {
         this.detectBackgroundPaintConflicts(natives, layers);
         this.detectLayerCoordinateConflicts(natives, layers);
         this.detectOverlayCutoutConflicts(natives, layers);
-        this.enforceUnobscuredSurfaces(natives, layers);
         this.resolveMotionDependencies(natives, layers);
         this.enforceRegionCapacity(natives, layers);
       });
@@ -3425,6 +3417,22 @@ html[data-ni-root-scroll] body {
         this.releaseRuntimeBackground(document.body);
         canvasColor = null;
       }
+      const refused = plannable.filter((native) => !native.active && native.plane === "underlay");
+      return { natives, canvasColor, refusedUnderlays: new Set(refused.map((native) => native.el)) };
+    }
+    resolve() {
+      if (this.backgroundSourcesDirty)
+        this.releaseRuntimeBackgrounds();
+      this.pruneDetachedEffects();
+      resetPaintOrderCache();
+      this.compositionObserver.sync([
+        ...this.natives.map((handle) => handle.el),
+        ...this.layers.map((handle) => handle.el)
+      ]);
+      const layers = withSceneReadScope(() => this.buildLayers());
+      const motion = this.assessMotionSafety(layers);
+      const first = this.planNatives(layers, motion, /* @__PURE__ */ new Set());
+      const { natives, canvasColor } = first.refusedUnderlays.size > 0 ? this.planNatives(layers, motion, first.refusedUnderlays) : first;
       for (const native of natives) {
         const previous = native.el.getAttribute("data-native-islands-inactive");
         native.handle.setNativeInactive(native.inactiveReason);
@@ -3463,20 +3471,24 @@ html[data-ni-root-scroll] body {
         exclusions[native.handle.islandId] = [];
         if (!hasPlanGeometry(native))
           continue;
-        if (native.plane === "overlay") {
-          cutouts[native.handle.islandId] = clipsProtectedSurface(native) ? layers.flatMap((layer) => {
-            const source = this.protectedWebRegion(native, layer);
-            return source ? [region(source)] : [];
-          }) : layers.filter((layer) => layer.cutoutIssue === null && layer.overlayCutoutIssue === null && isElementVisible(layer.el) && above(layer, native) && canMoveIntoIntersection(layer, native)).map(region);
-        }
-        exclusions[native.handle.islandId] = clipsProtectedSurface(native) ? layers.flatMap((layer) => {
+        const protectedRegions = (layer) => {
           const source = this.protectedWebRegion(native, layer);
-          return source && touchable(layer) ? [region(source)] : [];
-        }) : layers.filter((layer) => touchable(layer) && above(layer, native) && canMoveIntoIntersection(layer, native)).map(region);
+          if (source)
+            return [region(source)];
+          return source === null && !this.protectedCoveredByAncestor(native, layer, layers) ? [region(layer)] : [];
+        };
+        if (native.plane === "overlay") {
+          cutouts[native.handle.islandId] = clipsProtectedSurface(native) ? layers.flatMap(protectedRegions) : layers.filter((layer) => (layer.overlayCutoutIssue === null ? layer.cutoutIssue === null : !layer.overlayCutoutIssue.mayMoveWithoutRefresh && !this.opaqueWebCover(layer, native, layers)) && isElementVisible(layer.el) && above(layer, native) && canMoveIntoIntersection(layer, native)).map(region);
+        }
+        exclusions[native.handle.islandId] = clipsProtectedSurface(native) ? layers.flatMap((layer) => touchable(layer) ? protectedRegions(layer) : []) : layers.filter((layer) => touchable(layer) && above(layer, native) && canMoveIntoIntersection(layer, native)).map(region);
         for (const other of natives) {
           if (other !== native && hasPlanGeometry(other) && above(other, native) && canMoveIntoIntersection(other, native)) {
             exclusions[native.handle.islandId].push(nativeRegion(other));
           }
+        }
+        if (native.handle.requiresUnobscuredSurface) {
+          const cut = new Set(cutouts[native.handle.islandId].map((region2) => JSON.stringify(region2)));
+          cutouts[native.handle.islandId].push(...exclusions[native.handle.islandId].filter((region2) => !cut.has(JSON.stringify(region2))));
         }
       }
       const components = natives.filter((native) => native.handle.canAttemptNative()).map((native) => {
