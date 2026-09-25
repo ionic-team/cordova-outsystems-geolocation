@@ -2775,7 +2775,7 @@ html[data-ni-root-scroll] body {
       const scrollBox = scroller === null || scroller === void 0 ? void 0 : scroller.getBoundingClientRect();
       const box = sticky === null || sticky === void 0 ? void 0 : sticky.getBoundingClientRect();
       const color = style.backgroundColor.replace(/\s/g, "");
-      if (!horizontalScroll && sticky && style.position === "sticky" && style.top === "0px" && /^rgb\(\d+,\d+,\d+\)$/.test(color) && scroller && scrollBox && box && sticky.parentElement && Math.abs(scrollBox.left) <= 1 && Math.abs(scrollBox.top) <= 1 && scrollBox.width >= window.innerWidth - 1 && scrollBox.height >= window.innerHeight - 1 && sticky.parentElement.getBoundingClientRect().height >= scroller.scrollHeight - 1 && Math.abs(box.top - scrollBox.top) <= 1 && box.left <= 0 && box.right >= window.innerWidth) {
+      if (!horizontalScroll && sticky && style.position === "sticky" && style.top === "0px" && /^rgb\(\d+,\d+,\d+\)$/.test(color) && scroller && scrollBox && box && sticky.parentElement && Math.abs(scrollBox.left) <= 1 && Math.abs(scrollBox.top) <= 1 && scrollBox.width >= window.innerWidth - 1 && scrollBox.height >= window.innerHeight - 1 && sticky.parentElement.getBoundingClientRect().height >= scroller.scrollHeight - 1 && Math.abs(box.top - scrollBox.top) <= 1 && box.left <= 0 && box.right >= window.innerWidth - 1) {
         if (sticky === layer.el && layer.rect.r === 0) {
           return { rect: viewportRect(sticky), coordinateSpace: "viewport", scrollPath: [] };
         }
