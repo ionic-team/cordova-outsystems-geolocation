@@ -591,6 +591,7 @@ function registerLocationButton(protectedSurface: boolean): void {
     isInteractive: true,
     accessibility: 'native',
     requiresUnobscuredSurface: protectedSurface,
+    supportsProtectedSurfaceClip: protectedSurface,
     observedAttributes: OBSERVED_ATTRIBUTES,
     observedStyles: OBSERVED_STYLES,
     getProperties: (element) => {
