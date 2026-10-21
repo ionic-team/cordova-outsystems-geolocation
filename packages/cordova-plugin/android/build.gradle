@@ -40,3 +40,10 @@ android {
         exclude 'META-INF/LICENSE'
     }
 }
+
+// Cordova apps only get this file, so it writes its own R8 rules where clean won't remove them.
+// Gson serializes IONGLOCLocationResult by field name.
+def r8Rules = new File(rootDir, '.gradle/outsystems-geolocation-rules.pro')
+r8Rules.parentFile.mkdirs()
+r8Rules.text = '-keepclassmembers class io.ionic.libs.iongeolocationlib.model.IONGLOCLocationResult { <fields>; }\n'
+android.buildTypes.release.proguardFile(r8Rules)
