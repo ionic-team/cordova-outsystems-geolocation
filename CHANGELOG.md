@@ -1,3 +1,10 @@
+## [1.3.4](https://github.com/ionic-team/cordova-outsystems-geolocation/compare/1.3.3...1.3.4) (2026-10-23)
+
+
+### Bug Fixes
+
+* **android:** keep location result fields from R8 ([20f5665](https://github.com/ionic-team/cordova-outsystems-geolocation/commit/20f56658914f8f3ba565f98f6707cfeb65e80104))
+
 ## [1.3.3](https://github.com/ionic-team/cordova-outsystems-geolocation/compare/1.3.2...1.3.3) (2026-09-18)
 
 
