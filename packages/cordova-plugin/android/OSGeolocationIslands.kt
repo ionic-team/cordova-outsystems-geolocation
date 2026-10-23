@@ -139,6 +139,8 @@ class OSGeolocationIslands : CordovaPlugin() {
                     cutouts,
                     scrollContainers,
                     documentRange,
+                    envelope.optJSONArray("motions"),
+                    tints = envelope.optJSONObject("tints"),
                 )?.let { reason ->
                     reject(callback, "invalid_request", reason)
                     return true
@@ -153,8 +155,13 @@ class OSGeolocationIslands : CordovaPlugin() {
                     generations[0],
                     generations[1],
                     envelope.optString("canvasColor").takeIf(String::isNotEmpty),
+                    envelope.optJSONArray("motions"),
+                    (envelope.opt("sentAt") as? Number)?.toDouble(),
+                    tints = envelope.optJSONObject("tints"),
                     failure = { code, message -> reject(callback, code, message) },
-                ) { callback.success(NativeIslandsCapabilities.layoutAcknowledgement()) }
+                ) {
+                    callback.success(NativeIslandsCapabilities.layoutAcknowledgement(controller.lastLayoutAppliedAt))
+                }
                 true
             }
 
@@ -178,6 +185,7 @@ class OSGeolocationIslands : CordovaPlugin() {
                     settled = envelope.optBoolean("settled", false),
                     layoutSeq = generation[0],
                     documentOffsetY = (envelope.opt("documentOffsetY") as? Number)?.toFloat(),
+                    sentAt = (envelope.opt("sentAt") as? Number)?.toDouble(),
                     failure = { code, message -> reject(callback, code, message) },
                 ) { callback.success() }
                 true
@@ -189,11 +197,11 @@ class OSGeolocationIslands : CordovaPlugin() {
                 }
                 val params = envelope.opt("params") as? JSONObject ?: JSONObject()
                 controller.dispatchCommand(
-                    (envelope.opt("protocolVersion") as Number).toInt(),
                     envelope.opt("island") as String,
                     envelope.opt("islandType") as String,
                     envelope.opt("method") as String,
                     jsonToMap(params),
+                    NativeIslandsBridgeValidator.commandInstance(envelope),
                 ) { result ->
                     val code = result.optString("code")
                     if (code.isNotEmpty()) {
