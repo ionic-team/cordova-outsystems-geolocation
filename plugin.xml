@@ -22,6 +22,7 @@
         <source-file src="packages/cordova-plugin/android/OSGeolocationPermissionEvents.kt" target-dir="app/src/main/kotlin/com/outsystems/plugins/geolocation"/>
         <source-file src="packages/cordova-plugin/android/OSGeolocationErrors.kt" target-dir="app/src/main/kotlin/com/outsystems/plugins/geolocation"/>
         <framework src="packages/cordova-plugin/android/build.gradle" custom="true" type="gradleReference"/>
+        <resource-file src="local-maven-iongeolocation-android" target="local-maven-iongeolocation-android"/>
     </platform>
     <platform name="ios" package="swift">
         <config-file parent="/*" target="config.xml">

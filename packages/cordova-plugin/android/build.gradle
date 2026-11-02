@@ -10,7 +10,7 @@ buildscript {
 }
 
 dependencies {
-    implementation("io.ionic.libs:iongeolocation-android:2.2.2")
+    implementation("io.ionic.libs:iongeolocation-android:99.0.0-rmet5348")
     implementation("androidx.browser:browser:1.8.0")
     implementation("com.google.android.gms:play-services-auth:21.2.0")
     implementation("com.google.android.gms:play-services-location:21.3.0")
@@ -47,3 +47,8 @@ def r8Rules = new File(rootDir, '.gradle/outsystems-geolocation-rules.pro')
 r8Rules.parentFile.mkdirs()
 r8Rules.text = '-keepclassmembers class io.ionic.libs.iongeolocationlib.model.IONGLOCLocationResult { <fields>; }\n'
 android.buildTypes.release.proguardFile(r8Rules)
+
+// RMET-5348 TEST ONLY - do not merge: resolve the locally built native library bundled in this plugin (local-maven-iongeolocation-android)
+repositories {
+    maven { url "${rootDir}/app/src/main/local-maven-iongeolocation-android" }
+}
