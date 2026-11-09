@@ -3,7 +3,6 @@ import {
   initializeNativeIslands,
   NATIVE_ISLANDS_TRANSPORT_PRIORITY,
   type NativeCapabilities,
-  type NativeIslandsEnvelope,
   type NativeIslandsEvent,
   type NativeIslandsTransport,
 } from '@capacitor/native-islands/internal/runtime';
@@ -55,10 +54,7 @@ function bridgeError(value: unknown): Error & { code?: string } {
   return error;
 }
 
-function call(
-  action: 'applyLayout' | 'applyScrollOffsets' | 'command' | 'reset',
-  payload: NativeIslandsEnvelope,
-): Promise<void> {
+function call(action: 'applyLayout' | 'applyScrollOffsets' | 'command' | 'reset', payload: object): Promise<void> {
   const exec = cordovaWindow()?.cordova?.exec;
   if (!exec) {
     return Promise.reject(
@@ -82,10 +78,7 @@ function call(
 /**
  * Reset and layout report the capabilities supported by native.
  */
-function callForCapabilities(
-  action: 'applyLayout' | 'reset',
-  payload: NativeIslandsEnvelope,
-): Promise<NativeCapabilities | void> {
+function callForCapabilities(action: 'applyLayout' | 'reset', payload: object): Promise<NativeCapabilities | void> {
   const exec = cordovaWindow()?.cordova?.exec;
   if (!exec) {
     return Promise.reject(Object.assign(new Error('Cordova is not available.'), { code: 'unavailable' }));
@@ -120,11 +113,11 @@ function createCordovaTransport(): NativeIslandsTransport {
       await call('command', request);
     },
 
-    reset(envelope) {
-      return callForCapabilities('reset', envelope);
+    reset() {
+      return callForCapabilities('reset', {});
     },
 
-    on(eventName, envelope, listener) {
+    on(eventName, listener) {
       const listeners = eventListeners.get(eventName) ?? new Set();
       listeners.add(listener);
       eventListeners.set(eventName, listeners);
@@ -144,7 +137,7 @@ function createCordovaTransport(): NativeIslandsTransport {
           },
           SERVICE,
           'events',
-          [envelope],
+          [{}],
         );
       }
 

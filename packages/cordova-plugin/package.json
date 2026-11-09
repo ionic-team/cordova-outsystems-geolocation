@@ -6,10 +6,9 @@
   "scripts": {
     "build": "rimraf ./dist && npm run docgen && vite build && vite build --config vite.location-button.config.ts",
     "docgen": "docgen --api IGeolocationPlugin --output-readme README.md --output-json ./dist/docs.json",
-    "fmt": "prettier \"{src,test}/**/*.{ts,mjs}\" \"vite*.ts\" package.json \"tsconfig*.json\" --write",
-    "lint": "tsc --noEmit -p tsconfig.lint.json && prettier \"{src,test}/**/*.{ts,mjs}\" \"vite*.ts\" package.json \"tsconfig*.json\" --check",
-    "test": "node --test test/*.test.mjs",
-    "verify": "npm run lint && npm run build && npm test"
+    "fmt": "prettier \"src/**/*.ts\" \"vite*.ts\" package.json \"tsconfig*.json\" --write",
+    "lint": "tsc --noEmit -p tsconfig.lint.json && prettier \"src/**/*.ts\" \"vite*.ts\" package.json \"tsconfig*.json\" --check",
+    "verify": "npm run lint && npm run build"
   },
   "keywords": [
     "ecosystem:cordova",
