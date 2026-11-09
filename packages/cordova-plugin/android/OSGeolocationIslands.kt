@@ -14,7 +14,6 @@ import io.ionic.libs.iongeolocationlib.view.IONGLOCLocationButtonPermissionReque
 import io.ionic.libs.ionnativeislandslib.NativeIslandsBridgeValidationError
 import io.ionic.libs.ionnativeislandslib.NativeIslandsBridgeValidator
 import io.ionic.libs.ionnativeislandslib.NativeIslandsController
-import io.ionic.libs.ionnativeislandslib.NativeIslandsCapabilities
 import io.ionic.libs.ionnativeislandslib.NativeIslandsScrollChannel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -136,12 +135,9 @@ class OSGeolocationIslands : CordovaPlugin() {
             }
 
             "reset" -> {
-                if (!validate(callback, NativeIslandsBridgeValidator.validateOperation("reset", envelope))) {
-                    return true
+                controller.submitReset(envelope, failure = { code, message -> reject(callback, code, message) }) {
+                    callback.success(it)
                 }
-                // Reported from the cleanup itself. Reporting here would let the
-                // next producer start against the old session's watermarks.
-                controller.reset { callback.success(NativeIslandsCapabilities.sessionCapabilities()) }
                 true
             }
 
