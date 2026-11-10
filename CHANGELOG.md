@@ -1,3 +1,17 @@
+## [1.3.4](https://github.com/ionic-team/cordova-outsystems-geolocation/compare/1.3.3...1.3.4) (2026-10-23)
+
+
+### Bug Fixes
+
+* **android:** keep location result fields from R8 ([20f5665](https://github.com/ionic-team/cordova-outsystems-geolocation/commit/20f56658914f8f3ba565f98f6707cfeb65e80104))
+
+## [1.3.3](https://github.com/ionic-team/cordova-outsystems-geolocation/compare/1.3.2...1.3.3) (2026-09-18)
+
+
+### Bug Fixes
+
+* Cordova iOS 8 / MABS 13 compatibility and SPM support ([#29](https://github.com/ionic-team/cordova-outsystems-geolocation/issues/29)) ([355d4c8](https://github.com/ionic-team/cordova-outsystems-geolocation/commit/355d4c8d24a3386ce3c0aa13d75134bb30b7c6e9)), closes [#endif](https://github.com/ionic-team/cordova-outsystems-geolocation/issues/endif)
+
 ## [1.3.2](https://github.com/ionic-team/cordova-outsystems-geolocation/compare/1.3.1...1.3.2) (2026-08-05)
 
 

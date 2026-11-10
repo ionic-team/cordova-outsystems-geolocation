@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<plugin id="com.outsystems.plugins.geolocation" version="1.3.2" xmlns="http://apache.org/cordova/ns/plugins/1.0" xmlns:android="http://schemas.android.com/apk/res/android">
+<plugin id="com.outsystems.plugins.geolocation" version="1.3.4" xmlns="http://apache.org/cordova/ns/plugins/1.0" xmlns:android="http://schemas.android.com/apk/res/android">
     <name>OSGeolocationPlugin</name>
     <description>OutSystems' cordova geolocation plugin</description>
     <author>OutSystems Inc</author>
@@ -36,7 +36,7 @@
         <lib-file src="packages/cordova-plugin/libs/android/ionnativeislands-android-release.aar" />
         <framework src="packages/cordova-plugin/android/build.gradle" custom="true" type="gradleReference" />
     </platform>
-    <platform name="ios">
+    <platform name="ios" package="swift">
         <config-file parent="/*" target="config.xml">
             <feature name="OSGeolocation">
                 <param name="ios-package" value="OSGeolocation"/>
@@ -55,7 +55,7 @@
                 <source url="https://cdn.cocoapods.org/"/>
             </config>
             <pods use-frameworks="true">
-                <pod name="IONGeolocationLib" spec="2.1.1"/>
+                <pod name="IONGeolocationLib" spec="3.0.0" nospm="true"/>
             </pods>
         </podspec>
     </platform>
