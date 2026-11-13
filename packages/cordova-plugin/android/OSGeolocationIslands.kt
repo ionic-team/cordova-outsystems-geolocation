@@ -14,7 +14,6 @@ import io.ionic.libs.iongeolocationlib.view.IONGLOCLocationButtonPermissionReque
 import io.ionic.libs.ionnativeislandslib.NativeIslandsBridgeValidationError
 import io.ionic.libs.ionnativeislandslib.NativeIslandsBridgeValidator
 import io.ionic.libs.ionnativeislandslib.NativeIslandsController
-import io.ionic.libs.ionnativeislandslib.NativeIslandsCapabilities
 import io.ionic.libs.ionnativeislandslib.NativeIslandsScrollChannel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -90,6 +89,7 @@ class OSGeolocationIslands : CordovaPlugin() {
                 "OSGeolocationIslands",
                 setOf("$scheme://$hostname"),
                 controller::receiveScrollOffsets,
+                controller::receiveDirect,
             )
             controller.ensureContainer()
         }
@@ -114,112 +114,30 @@ class OSGeolocationIslands : CordovaPlugin() {
 
         return when (action) {
             "applyLayout" -> {
-                if (!validate(callback, NativeIslandsBridgeValidator.validateLayoutOperation(envelope))) {
-                    return true
-                }
-                val components = envelope.opt("components") as JSONArray
-                val order = envelope.opt("order") as JSONArray
-                val exclusions = envelope.opt("exclusions") as JSONObject
-                val cutouts = envelope.opt("cutouts") as JSONObject
-                val scrollContainers = envelope.opt("scrollContainers") as JSONArray
-                val documentRange = envelope.optDouble("documentRange", 0.0).toFloat()
-                val generations = NativeIslandsBridgeValidator.readGenerations(envelope, "layoutSeq", "offsetSeq")
-                if (generations == null) {
-                    reject(
-                        callback,
-                        "invalid_request",
-                        "layout generations must be non-negative integers sent together",
-                    )
-                    return true
-                }
-                controller.validateLayout(
-                    components,
-                    order,
-                    exclusions,
-                    cutouts,
-                    scrollContainers,
-                    documentRange,
-                    envelope.optJSONArray("motions"),
-                    tints = envelope.optJSONObject("tints"),
-                )?.let { reason ->
-                    reject(callback, "invalid_request", reason)
-                    return true
-                }
-                controller.applyLayout(
-                    components,
-                    order,
-                    exclusions,
-                    cutouts,
-                    scrollContainers,
-                    documentRange,
-                    generations[0],
-                    generations[1],
-                    envelope.optString("canvasColor").takeIf(String::isNotEmpty),
-                    envelope.optJSONArray("motions"),
-                    (envelope.opt("sentAt") as? Number)?.toDouble(),
-                    tints = envelope.optJSONObject("tints"),
-                    failure = { code, message -> reject(callback, code, message) },
-                ) {
-                    callback.success(NativeIslandsCapabilities.layoutAcknowledgement(controller.lastLayoutAppliedAt))
+                controller.submitLayout(envelope, failure = { code, message -> reject(callback, code, message) }) {
+                    callback.success(it)
                 }
                 true
             }
 
             "applyScrollOffsets" -> {
-                if (
-                    !validate(
-                        callback,
-                        NativeIslandsBridgeValidator.validateScrollOffsetsOperation(envelope),
-                    )
-                ) {
-                    return true
+                controller.submitScrollOffsets(envelope, failure = { code, message -> reject(callback, code, message) }) {
+                    callback.success()
                 }
-                val generation = NativeIslandsBridgeValidator.readGenerations(envelope, "layoutSeq")
-                if (generation == null) {
-                    reject(callback, "invalid_request", "layoutSeq must be a non-negative integer")
-                    return true
-                }
-                controller.applyScrollOffsets(
-                    sequence = (envelope.opt("sequence") as Number).toLong(),
-                    offsets = envelope.opt("offsets") as JSONArray,
-                    settled = envelope.optBoolean("settled", false),
-                    layoutSeq = generation[0],
-                    documentOffsetY = (envelope.opt("documentOffsetY") as? Number)?.toFloat(),
-                    sentAt = (envelope.opt("sentAt") as? Number)?.toDouble(),
-                    failure = { code, message -> reject(callback, code, message) },
-                ) { callback.success() }
                 true
             }
 
             "command" -> {
-                if (!validate(callback, NativeIslandsBridgeValidator.validateCommandOperation(envelope))) {
-                    return true
-                }
-                val params = envelope.opt("params") as? JSONObject ?: JSONObject()
-                controller.dispatchCommand(
-                    envelope.opt("island") as String,
-                    envelope.opt("islandType") as String,
-                    envelope.opt("method") as String,
-                    jsonToMap(params),
-                    NativeIslandsBridgeValidator.commandInstance(envelope),
-                ) { result ->
-                    val code = result.optString("code")
-                    if (code.isNotEmpty()) {
-                        reject(callback, code, result.optString("error", code))
-                    } else {
-                        callback.success()
-                    }
+                controller.submitCommand(envelope, failure = { code, message -> reject(callback, code, message) }) {
+                    callback.success()
                 }
                 true
             }
 
             "reset" -> {
-                if (!validate(callback, NativeIslandsBridgeValidator.validateOperation("reset", envelope))) {
-                    return true
+                controller.submitReset(envelope, failure = { code, message -> reject(callback, code, message) }) {
+                    callback.success(it)
                 }
-                // Reported from the cleanup itself. Reporting here would let the
-                // next producer start against the old session's watermarks.
-                controller.reset { callback.success(NativeIslandsCapabilities.sessionCapabilities()) }
                 true
             }
 
@@ -334,26 +252,8 @@ class OSGeolocationIslands : CordovaPlugin() {
             false
         }
 
-
     private fun reject(callback: CallbackContext, code: String, message: String) {
         callback.error(JSONObject().put("code", code).put("message", message))
-    }
-
-    private fun jsonToMap(json: JSONObject): Map<String, Any?> {
-        val map = HashMap<String, Any?>()
-        val keys = json.keys()
-        while (keys.hasNext()) {
-            val key = keys.next()
-            map[key] = normalizeJSON(json.opt(key))
-        }
-        return map
-    }
-
-    private fun normalizeJSON(value: Any?): Any? = when (value) {
-        null, JSONObject.NULL -> null
-        is JSONObject -> jsonToMap(value)
-        is JSONArray -> (0 until value.length()).map { normalizeJSON(value.opt(it)) }
-        else -> value
     }
 
     private fun closeEventsChannel() {
