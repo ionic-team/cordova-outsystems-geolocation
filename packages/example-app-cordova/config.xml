@@ -8,6 +8,9 @@
     <content src="index.html" />
     <allow-intent href="http://*/*" />
     <allow-intent href="https://*/*" />
+    <platform name="android">
+        <preference name="android-minSdkVersion" value="26" />
+    </platform>
     <platform name="ios">
         <preference name="XCodeVersion" value="15.1"/>
         <preference name="deployment-target" value="14.0"/>
