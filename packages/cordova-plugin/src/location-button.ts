@@ -466,7 +466,7 @@ function installFallbackStyles(root: Document | ShadowRoot = document): void {
       box-sizing: border-box;
       overflow: hidden;
       border: 0 solid #000000;
-      border-radius: 22px;
+      border-radius: 16px;
       background-color: #0b57d0;
       color: #ffffff;
     }
@@ -601,7 +601,7 @@ function registerLocationButton(protectedSurface: boolean): void {
       // element has sizing CSS before it's first measured, even inside a shadow root.
       installFallbackStyles(styleRootFor(element));
       const style = getComputedStyle(element);
-      const cornerRadius = pixelStyle(style, 'border-top-left-radius', 0, 68, 22);
+      const cornerRadius = pixelStyle(style, 'border-top-left-radius', 0, 68, 16);
       const textColor = colorStyle(style, STYLE_PROPERTIES.textColor, '#FFFFFF');
       return {
         textType: textType(element),
