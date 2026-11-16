@@ -337,9 +337,7 @@ const locationButtonStyles = [
   ["iconColor", "--os-location-button-icon-color", ""],
   ["borderColor", "border-color", ""],
   ["cornerRadius", "border-radius", "px"],
-  ["pressedCornerRadius", "--os-location-button-pressed-corner-radius", "px"],
-  ["borderWidth", "border-width", "px"],
-  ["clickablePadding", "--os-location-button-clickable-padding", "px"]
+  ["borderWidth", "border-width", "px"]
 ];
 const locationButtonAttributes = [
   ["textType", "text-type", (value) => String(value)],

@@ -378,9 +378,7 @@ export interface LocationButtonProperties {
     iconColor?: string
     borderColor?: string
     cornerRadius?: number
-    pressedCornerRadius?: number
     borderWidth?: number
-    clickablePadding?: number
     /** Maximum age (ms) of a cached position the button may reuse instead of fetching fresh. */
     maximumAge?: number
     /** Timeout (ms) for the underlying location fetch. */
@@ -409,9 +407,7 @@ const locationButtonStyles: ReadonlyArray<[
     ["iconColor", "--os-location-button-icon-color", ""],
     ["borderColor", "border-color", ""],
     ["cornerRadius", "border-radius", "px"],
-    ["pressedCornerRadius", "--os-location-button-pressed-corner-radius", "px"],
     ["borderWidth", "border-width", "px"],
-    ["clickablePadding", "--os-location-button-clickable-padding", "px"],
 ]
 
 // Properties that map to plugin-observed HTML attributes on <os-location-button>, rather than

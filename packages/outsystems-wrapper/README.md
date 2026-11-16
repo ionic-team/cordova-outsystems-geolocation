@@ -30,8 +30,6 @@ os-location-button {
   border-color: #000000;
   border-width: 1px;
   border-radius: 16px;
-  --os-location-button-pressed-corner-radius: 12px;
-  --os-location-button-clickable-padding: 6px;
   z-index: 2;
 }
 ```

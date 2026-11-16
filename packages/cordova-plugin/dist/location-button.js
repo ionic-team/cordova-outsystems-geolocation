@@ -10234,9 +10234,7 @@
     textColor: "color",
     iconTint: "--os-location-button-icon-color",
     strokeColor: "border-top-color",
-    strokeWidth: "border-top-width",
-    pressedCornerRadius: "--os-location-button-pressed-corner-radius",
-    clickablePadding: "--os-location-button-clickable-padding"
+    strokeWidth: "border-top-width"
   };
   const OBSERVED_ATTRIBUTES = ["text-type", "maximum-age", "timeout", "enable-location-fallback"];
   const OBSERVED_STYLES = [
@@ -10245,8 +10243,6 @@
     STYLE_PROPERTIES.iconTint,
     STYLE_PROPERTIES.strokeColor,
     STYLE_PROPERTIES.strokeWidth,
-    STYLE_PROPERTIES.pressedCornerRadius,
-    STYLE_PROPERTIES.clickablePadding,
     "border-top-left-radius"
   ];
   const HEX_COLOR = /^#[0-9A-Fa-f]{6}$/;
@@ -10272,12 +10268,6 @@
     if (!value.endsWith("px")) return fallback;
     const number = Number.parseFloat(value);
     return Number.isFinite(number) && number >= minimum && number <= maximum ? number : fallback;
-  }
-  function clampedPixelStyle(style, name, minimum, maximum, fallback) {
-    const value = style.getPropertyValue(name).trim();
-    if (!value.endsWith("px")) return fallback;
-    const number = Number.parseFloat(value);
-    return Number.isFinite(number) ? Math.min(maximum, Math.max(minimum, number)) : fallback;
   }
   function nonNegativeIntegerAttribute(element, name, fallback, minimum = 0) {
     const value = element.getAttribute(name);
@@ -10461,7 +10451,7 @@
       block-size: 100%;
       min-inline-size: 3rem;
       min-block-size: 3rem;
-      padding-inline: calc(1rem + clamp(4px, var(--os-location-button-clickable-padding, 6px), 8px));
+      padding-inline: 1rem;
       border: inherit;
       border-image-source: linear-gradient(transparent, transparent);
       border-image-slice: 1;
@@ -10476,7 +10466,7 @@
     .os-location-button-fallback::before {
       content: '';
       position: absolute;
-      inset: clamp(4px, var(--os-location-button-clickable-padding, 6px), 8px);
+      inset: 0;
       z-index: 0;
       box-sizing: border-box;
       border-width: inherit;
@@ -10484,10 +10474,6 @@
       border-color: inherit;
       border-radius: inherit;
       background-color: inherit;
-    }
-
-    .os-location-button-fallback:active::before {
-      border-radius: clamp(0px, var(--os-location-button-pressed-corner-radius, 12px), 68px);
     }
 
     .os-location-button-fallback > * {
@@ -10568,9 +10554,7 @@
           iconTint: colorStyle(style, STYLE_PROPERTIES.iconTint, textColor),
           strokeColor: colorStyle(style, STYLE_PROPERTIES.strokeColor, "#000000"),
           cornerRadius,
-          pressedCornerRadius: pixelStyle(style, STYLE_PROPERTIES.pressedCornerRadius, 0, 68, 12),
           strokeWidth: pixelStyle(style, STYLE_PROPERTIES.strokeWidth, 0, 3, 0),
-          clickablePadding: clampedPixelStyle(style, STYLE_PROPERTIES.clickablePadding, 4, 8, 6),
           maximumAge: nonNegativeIntegerAttribute(element, "maximum-age", 0),
           timeout: nonNegativeIntegerAttribute(element, "timeout", 1e4, 1),
           enableLocationFallback: booleanAttribute(element, "enable-location-fallback", true)
