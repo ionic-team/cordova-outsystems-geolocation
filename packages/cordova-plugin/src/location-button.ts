@@ -1,9 +1,9 @@
 import {
   defineNativeIsland,
+  directChannel,
   initializeNativeIslands,
   NATIVE_ISLANDS_TRANSPORT_PRIORITY,
   type NativeCapabilities,
-  type NativeIslandsEnvelope,
   type NativeIslandsEvent,
   type NativeIslandsTransport,
 } from '@capacitor/native-islands/internal/runtime';
@@ -57,34 +57,7 @@ function bridgeError(value: unknown): Error & { code?: string } {
 
 function call(
   action: 'applyLayout' | 'applyScrollOffsets' | 'command' | 'reset',
-  payload: NativeIslandsEnvelope,
-): Promise<void> {
-  const exec = cordovaWindow()?.cordova?.exec;
-  if (!exec) {
-    return Promise.reject(
-      Object.assign(new Error('Cordova is not available.'), {
-        code: 'unavailable',
-      }),
-    );
-  }
-
-  return new Promise((resolve, reject) => {
-    exec(
-      () => resolve(),
-      (error) => reject(bridgeError(error)),
-      SERVICE,
-      action,
-      [payload],
-    );
-  });
-}
-
-/**
- * Reset and layout report the capabilities supported by native.
- */
-function callForCapabilities(
-  action: 'applyLayout' | 'reset',
-  payload: NativeIslandsEnvelope,
+  payload: object,
 ): Promise<NativeCapabilities | void> {
   const exec = cordovaWindow()?.cordova?.exec;
   if (!exec) {
@@ -101,30 +74,51 @@ function callForCapabilities(
   });
 }
 
+let resetBarrier: Promise<void> = Promise.resolve();
+// Until the page's direct handler is found, layouts and commands go through cordova.exec. The
+// first direct call waits for any still under way there, so no call overtakes an earlier one.
+let pendingExec: Promise<unknown> = Promise.resolve();
+
+function send(operation: 'applyLayout' | 'command', payload: object): Promise<NativeCapabilities | void> {
+  return resetBarrier.then(() => {
+    const channel = directChannel(SERVICE, 'android');
+    if (channel) return pendingExec.then(() => channel(operation, payload));
+    const sent = call(operation, payload);
+    pendingExec = sent.catch(() => undefined);
+    return sent;
+  });
+}
+
 function createCordovaTransport(): NativeIslandsTransport {
   const exec = cordovaWindow()?.cordova?.exec;
   return {
     available: Boolean(exec),
     innerScrollMode: platform() === 'ios' ? 'native' : platform() === 'android' ? 'bridge' : 'unsupported',
     scrollChannel: SERVICE,
+    ordered: true,
 
     applyLayout(payload) {
-      return callForCapabilities('applyLayout', payload);
+      return send('applyLayout', payload);
     },
 
     applyScrollOffsets(payload) {
-      return call('applyScrollOffsets', payload);
+      return resetBarrier.then(() => call('applyScrollOffsets', payload)).then(() => undefined);
     },
 
     async command(request) {
-      await call('command', request);
+      await send('command', request);
     },
 
-    reset(envelope) {
-      return callForCapabilities('reset', envelope);
+    reset() {
+      const started = resetBarrier.then(() => call('reset', {}));
+      resetBarrier = started.then(
+        () => undefined,
+        () => undefined,
+      );
+      return started;
     },
 
-    on(eventName, envelope, listener) {
+    on(eventName, listener) {
       const listeners = eventListeners.get(eventName) ?? new Set();
       listeners.add(listener);
       eventListeners.set(eventName, listeners);
@@ -144,7 +138,7 @@ function createCordovaTransport(): NativeIslandsTransport {
           },
           SERVICE,
           'events',
-          [envelope],
+          [{}],
         );
       }
 
