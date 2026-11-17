@@ -3,13 +3,13 @@
       display: inline-block;
       inline-size: min(100%, 22rem);
       min-inline-size: 3rem;
-      block-size: 3.25rem;
+      block-size: 3rem;
       min-block-size: 3rem;
       max-block-size: 136px;
       box-sizing: border-box;
       overflow: hidden;
       border: 0 solid #000000;
-      border-radius: 22px;
+      border-radius: 16px;
       background-color: #0b57d0;
       color: #ffffff;
     }
@@ -84,4 +84,4 @@
       white-space: nowrap;
       border: 0;
     }
-  `,s instanceof ShadowRoot){s.append(t);return}document.head.append(t)}function ar(s){if(!(typeof document>"u"||typeof HTMLElement>"u"||typeof customElements>"u"||customElements.get("os-location-button"))){if(gn(),Kt()==="ios"){class t extends HTMLElement{constructor(){super(...arguments),this.connected=!1}static get observedAttributes(){return nr}connectedCallback(){this.connected||(this.connected=!0,ws(this))}attributeChangedCallback(n,i,o){this.connected&&i!==o&&ws(this)}}customElements.define("os-location-button",t);return}Su({tagName:"os-location-button",nativeComponent:"os.locationButton",isInteractive:!0,accessibility:"native",requiresUnobscuredSurface:s,supportsProtectedSurfaceClip:s,observedAttributes:nr,observedStyles:Nu,getProperties:t=>{gn(rr(t));const e=getComputedStyle(t),n=ys(e,"border-top-left-radius",0,68,22),i=mn(e,nt.textColor,"#FFFFFF");return{textType:sr(t),backgroundColor:mn(e,nt.backgroundColor,"#0B57D0"),textColor:i,iconTint:mn(e,nt.iconTint,i),strokeColor:mn(e,nt.strokeColor,"#000000"),cornerRadius:n,pressedCornerRadius:ys(e,nt.pressedCornerRadius,0,68,12),strokeWidth:ys(e,nt.strokeWidth,0,3,0),clickablePadding:Lu(e,nt.clickablePadding,4,8,6),maximumAge:Jt(t,"maximum-age",0),timeout:Jt(t,"timeout",1e4,1),enableLocationFallback:ir(t,"enable-location-fallback",!0)}},renderFallback:ws,events:{grant:"location-grant",position:"location-position",buttonError:"location-error"}})}}function lr(){if(Eu(),Kt()==="android"){gn(),_u().then(ar);return}ar(!1)}jt()?.cordova&&!jt()?.cordova?.platformId?document.addEventListener("deviceready",lr,{once:!0}):lr()})();
+  `,s instanceof ShadowRoot){s.append(t);return}document.head.append(t)}function ar(s){if(!(typeof document>"u"||typeof HTMLElement>"u"||typeof customElements>"u"||customElements.get("os-location-button"))){if(gn(),Kt()==="ios"){class t extends HTMLElement{constructor(){super(...arguments),this.connected=!1}static get observedAttributes(){return nr}connectedCallback(){this.connected||(this.connected=!0,ws(this))}attributeChangedCallback(n,i,o){this.connected&&i!==o&&ws(this)}}customElements.define("os-location-button",t);return}Su({tagName:"os-location-button",nativeComponent:"os.locationButton",isInteractive:!0,accessibility:"native",requiresUnobscuredSurface:s,supportsProtectedSurfaceClip:s,observedAttributes:nr,observedStyles:Nu,getProperties:t=>{gn(rr(t));const e=getComputedStyle(t),n=ys(e,"border-top-left-radius",0,68,16),i=mn(e,nt.textColor,"#FFFFFF");return{textType:sr(t),backgroundColor:mn(e,nt.backgroundColor,"#0B57D0"),textColor:i,iconTint:mn(e,nt.iconTint,i),strokeColor:mn(e,nt.strokeColor,"#000000"),cornerRadius:n,pressedCornerRadius:ys(e,nt.pressedCornerRadius,0,68,12),strokeWidth:ys(e,nt.strokeWidth,0,3,0),clickablePadding:Lu(e,nt.clickablePadding,4,8,6),maximumAge:Jt(t,"maximum-age",0),timeout:Jt(t,"timeout",1e4,1),enableLocationFallback:ir(t,"enable-location-fallback",!0)}},renderFallback:ws,events:{grant:"location-grant",position:"location-position",buttonError:"location-error"}})}}function lr(){if(Eu(),Kt()==="android"){gn(),_u().then(ar);return}ar(!1)}jt()?.cordova&&!jt()?.cordova?.platformId?document.addEventListener("deviceready",lr,{once:!0}):lr()})();
