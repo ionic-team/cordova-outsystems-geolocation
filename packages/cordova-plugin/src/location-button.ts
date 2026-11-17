@@ -109,8 +109,10 @@ function createCordovaTransport(): NativeIslandsTransport {
       await send('command', request);
     },
 
+    // A reset reaches native after any earlier one, so it does not wait for an earlier answer, which a
+    // page frozen in the back/forward cache never gets.
     reset() {
-      const started = resetBarrier.then(() => call('reset', {}));
+      const started = call('reset', {});
       resetBarrier = started.then(
         () => undefined,
         () => undefined,
