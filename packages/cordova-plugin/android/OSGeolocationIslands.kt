@@ -149,7 +149,7 @@ class OSGeolocationIslands : CordovaPlugin() {
      * @param exception Throwable to map
      */
     private fun mapButtonErrorCode(exception: Throwable): String? =
-        (exception as? IONGLOCException)?.let { mapToErrorInfo(it).code }
+        ((exception as? IONGLOCException)?.let { mapToErrorInfo(it) } ?: OSGeolocationErrors.POSITION_UNAVAILABLE).code
 
     /**
      * Maps a Location Button `fetchPosition()` success into the nested `{ timestamp, coords }`
