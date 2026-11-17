@@ -7,18 +7,10 @@ dependencies {
     )
     // Still an alpha release (1.0.0-alpha01 is the latest published); pinned, not a range.
     implementation 'androidx.core.locationbutton:locationbutton:1.0.0-alpha01'
-    implementation("androidx.browser:browser:1.8.0")
-    implementation("com.google.android.gms:play-services-auth:21.2.0")
     implementation("com.google.android.gms:play-services-location:21.3.0")
 
     implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.4'
     implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3'
-
-    // appcompact
-    implementation "androidx.appcompat:appcompat:1.7.0"
-
-    // constraint layout
-    implementation "androidx.constraintlayout:constraintlayout:2.2.0-alpha13"
 
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.6.4")
     implementation 'com.google.code.gson:gson:2.10.1'
