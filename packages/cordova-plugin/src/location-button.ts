@@ -1,7 +1,6 @@
 import {
   createCordovaTransport,
   defineNativeIsland,
-  directChannel,
   initializeNativeIslands,
   NATIVE_ISLANDS_TRANSPORT_PRIORITY,
 } from '@capacitor/native-islands/internal/runtime';
