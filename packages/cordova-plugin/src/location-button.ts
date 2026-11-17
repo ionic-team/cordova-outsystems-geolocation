@@ -1,11 +1,8 @@
 import {
+  createCordovaTransport,
   defineNativeIsland,
   initializeNativeIslands,
   NATIVE_ISLANDS_TRANSPORT_PRIORITY,
-  type NativeCapabilities,
-  type NativeIslandsEnvelope,
-  type NativeIslandsEvent,
-  type NativeIslandsTransport,
 } from '@capacitor/native-islands/internal/runtime';
 
 import type { OSGLOCPosition, PluginError, Position } from './definitions';
@@ -26,8 +23,6 @@ interface CordovaWindow {
 type LocationButtonPlatform = 'android' | 'ios' | 'web';
 
 const SERVICE = 'OSGeolocationIslands';
-const eventListeners = new Map<string, Set<(event: NativeIslandsEvent) => void>>();
-let eventChannelOpen = false;
 let runtimeInitialized = false;
 
 function cordovaWindow(): CordovaWindow | undefined {
@@ -38,122 +33,6 @@ function platform(): LocationButtonPlatform {
   const id = cordovaWindow()?.cordova?.platformId?.toLowerCase();
   if (id === 'android' || id === 'ios') return id;
   return 'web';
-}
-
-function bridgeError(value: unknown): Error & { code?: string } {
-  if (value instanceof Error) return value;
-  const payload =
-    typeof value === 'object' && value !== null ? (value as { code?: unknown; message?: unknown }) : undefined;
-  const error = new Error(
-    typeof payload?.message === 'string'
-      ? payload.message
-      : typeof value === 'string'
-        ? value
-        : 'Native component command failed.',
-  ) as Error & { code?: string };
-  if (typeof payload?.code === 'string') error.code = payload.code;
-  return error;
-}
-
-function call(
-  action: 'applyLayout' | 'applyScrollOffsets' | 'command' | 'reset',
-  payload: NativeIslandsEnvelope,
-): Promise<void> {
-  const exec = cordovaWindow()?.cordova?.exec;
-  if (!exec) {
-    return Promise.reject(
-      Object.assign(new Error('Cordova is not available.'), {
-        code: 'unavailable',
-      }),
-    );
-  }
-
-  return new Promise((resolve, reject) => {
-    exec(
-      () => resolve(),
-      (error) => reject(bridgeError(error)),
-      SERVICE,
-      action,
-      [payload],
-    );
-  });
-}
-
-/**
- * Reset and layout report the capabilities supported by native.
- */
-function callForCapabilities(
-  action: 'applyLayout' | 'reset',
-  payload: NativeIslandsEnvelope,
-): Promise<NativeCapabilities | void> {
-  const exec = cordovaWindow()?.cordova?.exec;
-  if (!exec) {
-    return Promise.reject(Object.assign(new Error('Cordova is not available.'), { code: 'unavailable' }));
-  }
-  return new Promise((resolve, reject) => {
-    exec(
-      (result) => resolve(result as NativeCapabilities | undefined),
-      (error) => reject(bridgeError(error)),
-      SERVICE,
-      action,
-      [payload],
-    );
-  });
-}
-
-function createCordovaTransport(): NativeIslandsTransport {
-  const exec = cordovaWindow()?.cordova?.exec;
-  return {
-    available: Boolean(exec),
-    innerScrollMode: platform() === 'ios' ? 'native' : platform() === 'android' ? 'bridge' : 'unsupported',
-    scrollChannel: SERVICE,
-
-    applyLayout(payload) {
-      return callForCapabilities('applyLayout', payload);
-    },
-
-    applyScrollOffsets(payload) {
-      return call('applyScrollOffsets', payload);
-    },
-
-    async command(request) {
-      await call('command', request);
-    },
-
-    reset(envelope) {
-      return callForCapabilities('reset', envelope);
-    },
-
-    on(eventName, envelope, listener) {
-      const listeners = eventListeners.get(eventName) ?? new Set();
-      listeners.add(listener);
-      eventListeners.set(eventName, listeners);
-
-      if (!eventChannelOpen && exec) {
-        eventChannelOpen = true;
-        exec(
-          (value) => {
-            const message = value as { event?: string; data?: NativeIslandsEvent } | undefined;
-            if (!message?.event || !message.data) return;
-            for (const handler of eventListeners.get(message.event) ?? []) {
-              handler(message.data);
-            }
-          },
-          () => {
-            eventChannelOpen = false;
-          },
-          SERVICE,
-          'events',
-          [envelope],
-        );
-      }
-
-      return () => {
-        listeners.delete(listener);
-        if (listeners.size === 0) eventListeners.delete(eventName);
-      };
-    },
-  };
 }
 
 function requiresUnobscuredSurface(): Promise<boolean> {
@@ -175,7 +54,7 @@ function requiresUnobscuredSurface(): Promise<boolean> {
 
 function initializeCordovaRuntime(): void {
   if (runtimeInitialized || platform() !== 'android') return;
-  const transport = createCordovaTransport();
+  const transport = createCordovaTransport(SERVICE);
   if (!transport.available) return;
   runtimeInitialized = true;
   initializeNativeIslands(transport, {
