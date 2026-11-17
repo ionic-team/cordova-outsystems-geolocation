@@ -331,6 +331,11 @@ hasNativeTimeoutHandling_fn = function(success) {
 const OSGeolocationInstance = new OSGeolocation();
 const locationButtonMounts = /* @__PURE__ */ new Map();
 const locationButtonMountByContainerId = /* @__PURE__ */ new Map();
+const defaultBackgroundColor = "var(--token-bg-primary-base-default, var(--background-color-primary, var(--token-semantics-primary-base, var(--color-primary, #105CEF))))";
+function resolveBackgroundColor(value) {
+  const color = typeof value === "string" ? value.trim() : "";
+  return color !== "" && CSS.supports("color", color) ? color : defaultBackgroundColor;
+}
 const locationButtonStyles = [
   ["backgroundColor", "background-color", ""],
   ["textColor", "color", ""],
@@ -357,6 +362,10 @@ function applyLocationButtonProperties(element, properties) {
   }
   for (const [property, cssProperty, unit] of locationButtonStyles) {
     if (!Object.prototype.hasOwnProperty.call(properties, property)) continue;
+    if (property === "backgroundColor") {
+      element.style.setProperty(cssProperty, resolveBackgroundColor(properties[property]));
+      continue;
+    }
     const value = properties[property];
     if (value === void 0 || value === null || value === "") {
       element.style.removeProperty(cssProperty);

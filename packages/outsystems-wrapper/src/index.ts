@@ -397,6 +397,19 @@ interface LocationButtonMount {
 const locationButtonMounts = new Map<string, LocationButtonMount>()
 const locationButtonMountByContainerId = new Map<string, string>()
 
+// Primary color of the app's design system, used when BackgroundColor is empty or isn't a valid
+// CSS color. Resolved by the browser on the element: the background primary variables first
+// (Mobile UI, then OutSystems UI), then the regular primary variables (Mobile UI, then
+// OutSystems UI), then the default OutSystems primary.
+const defaultBackgroundColor =
+    "var(--token-bg-primary-base-default, var(--background-color-primary, " +
+    "var(--token-semantics-primary-base, var(--color-primary, #105CEF))))"
+
+function resolveBackgroundColor(value: unknown): string {
+    const color = typeof value === "string" ? value.trim() : ""
+    return color !== "" && CSS.supports("color", color) ? color : defaultBackgroundColor
+}
+
 const locationButtonStyles: ReadonlyArray<[
     keyof LocationButtonProperties,
     string,
@@ -440,6 +453,10 @@ function applyLocationButtonProperties(
 
     for (const [property, cssProperty, unit] of locationButtonStyles) {
         if (!Object.prototype.hasOwnProperty.call(properties, property)) continue
+        if (property === "backgroundColor") {
+            element.style.setProperty(cssProperty, resolveBackgroundColor(properties[property]))
+            continue
+        }
         const value = properties[property]
         if (value === undefined || value === null || value === "") {
             element.style.removeProperty(cssProperty)

@@ -333,6 +333,11 @@ var __privateMethod = (obj, member, method) => (__accessCheck(obj, member, "acce
   const OSGeolocationInstance = new OSGeolocation();
   const locationButtonMounts = /* @__PURE__ */ new Map();
   const locationButtonMountByContainerId = /* @__PURE__ */ new Map();
+  const defaultBackgroundColor = "var(--token-bg-primary-base-default, var(--background-color-primary, var(--token-semantics-primary-base, var(--color-primary, #105CEF))))";
+  function resolveBackgroundColor(value) {
+    const color = typeof value === "string" ? value.trim() : "";
+    return color !== "" && CSS.supports("color", color) ? color : defaultBackgroundColor;
+  }
   const locationButtonStyles = [
     ["backgroundColor", "background-color", ""],
     ["textColor", "color", ""],
@@ -341,17 +346,28 @@ var __privateMethod = (obj, member, method) => (__accessCheck(obj, member, "acce
     ["cornerRadius", "border-radius", "px"],
     ["borderWidth", "border-width", "px"]
   ];
+  const locationButtonAttributes = [
+    ["textType", "text-type", (value) => String(value)],
+    ["maximumAge", "maximum-age", (value) => String(value)],
+    ["timeout", "timeout", (value) => String(value)],
+    ["enableLocationFallback", "enable-location-fallback", (value) => value ? "true" : "false"]
+  ];
   function applyLocationButtonProperties(element, properties) {
-    if (Object.prototype.hasOwnProperty.call(properties, "textType")) {
-      const value = properties.textType;
-      if (!value) {
-        element.removeAttribute("text-type");
+    for (const [property, attribute, format] of locationButtonAttributes) {
+      if (!Object.prototype.hasOwnProperty.call(properties, property)) continue;
+      const value = properties[property];
+      if (value === void 0 || value === null || value === "") {
+        element.removeAttribute(attribute);
       } else {
-        element.setAttribute("text-type", value);
+        element.setAttribute(attribute, format(value));
       }
     }
     for (const [property, cssProperty, unit] of locationButtonStyles) {
       if (!Object.prototype.hasOwnProperty.call(properties, property)) continue;
+      if (property === "backgroundColor") {
+        element.style.setProperty(cssProperty, resolveBackgroundColor(properties[property]));
+        continue;
+      }
       const value = properties[property];
       if (value === void 0 || value === null || value === "") {
         element.style.removeProperty(cssProperty);
@@ -381,10 +397,24 @@ var __privateMethod = (obj, member, method) => (__accessCheck(obj, member, "acce
       const detail = event.detail;
       if (typeof detail?.granted === "boolean") onGrant?.(detail.granted);
     };
+    const isNestedPosition = (value) => "coords" in value && value.coords != null;
     const positionListener = (event) => {
       const detail = event.detail;
-      if (detail?.coords && Number.isFinite(detail.coords.latitude) && Number.isFinite(detail.coords.longitude) && Number.isFinite(detail.coords.accuracy) && Number.isFinite(detail.timestamp)) {
-        onPosition?.(detail);
+      if (!detail) return;
+      const position = isNestedPosition(detail) ? detail : {
+        timestamp: detail.timestamp,
+        coords: {
+          latitude: detail.latitude,
+          longitude: detail.longitude,
+          accuracy: detail.accuracy,
+          altitude: detail.altitude,
+          altitudeAccuracy: detail.altitudeAccuracy,
+          heading: detail.heading,
+          speed: detail.speed
+        }
+      };
+      if (Number.isFinite(position.coords.latitude) && Number.isFinite(position.coords.longitude) && Number.isFinite(position.coords.accuracy) && Number.isFinite(position.timestamp)) {
+        onPosition?.(position);
       }
     };
     const errorListener = (event) => {

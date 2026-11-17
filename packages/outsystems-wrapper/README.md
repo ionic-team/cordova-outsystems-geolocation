@@ -19,7 +19,14 @@ by Container ID with `updateLocationButtonInContainer` and
 `destroyLocationButtonInContainer`. The wrapper forwards grant, position, and error
 events to the supplied callbacks.
 
-Appearance options set ordinary CSS properties on the custom element. Style classes
+Appearance options set ordinary CSS properties on the custom element. When
+`backgroundColor` is empty or isn't a valid CSS color (`CSS.supports('color', value)`),
+the wrapper uses the app's primary color from the design system instead, resolved by the
+browser on the element in this order: the background primary variables
+`--token-bg-primary-base-default` (Mobile UI) and `--background-color-primary`
+(OutSystems UI), then the regular primary variables `--token-semantics-primary-base`
+(Mobile UI) and `--color-primary` (OutSystems UI), and finally `#105CEF`. If the property
+isn't passed at all, the element keeps its own default (`#0B57D0`). Style classes
 can customize the same properties directly:
 
 ```css
