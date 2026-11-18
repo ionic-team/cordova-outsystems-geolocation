@@ -333,15 +333,18 @@ var __privateMethod = (obj, member, method) => (__accessCheck(obj, member, "acce
   const OSGeolocationInstance = new OSGeolocation();
   const locationButtonMounts = /* @__PURE__ */ new Map();
   const locationButtonMountByContainerId = /* @__PURE__ */ new Map();
+  const defaultBackgroundColor = "var(--token-bg-primary-base-default, var(--background-color-primary, var(--token-semantics-primary-base, var(--color-primary, #105CEF))))";
+  function resolveBackgroundColor(value) {
+    const color = typeof value === "string" ? value.trim() : "";
+    return color !== "" && CSS.supports("color", color) ? color : defaultBackgroundColor;
+  }
   const locationButtonStyles = [
     ["backgroundColor", "background-color", ""],
     ["textColor", "color", ""],
     ["iconColor", "--os-location-button-icon-color", ""],
     ["borderColor", "border-color", ""],
     ["cornerRadius", "border-radius", "px"],
-    ["pressedCornerRadius", "--os-location-button-pressed-corner-radius", "px"],
-    ["borderWidth", "border-width", "px"],
-    ["clickablePadding", "--os-location-button-clickable-padding", "px"]
+    ["borderWidth", "border-width", "px"]
   ];
   const locationButtonAttributes = [
     ["textType", "text-type", (value) => String(value)],
@@ -361,6 +364,10 @@ var __privateMethod = (obj, member, method) => (__accessCheck(obj, member, "acce
     }
     for (const [property, cssProperty, unit] of locationButtonStyles) {
       if (!Object.prototype.hasOwnProperty.call(properties, property)) continue;
+      if (property === "backgroundColor") {
+        element.style.setProperty(cssProperty, resolveBackgroundColor(properties[property]));
+        continue;
+      }
       const value = properties[property];
       if (value === void 0 || value === null || value === "") {
         element.style.removeProperty(cssProperty);

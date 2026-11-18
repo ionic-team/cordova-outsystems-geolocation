@@ -1,59 +1,18 @@
-buildscript {
-    repositories {
-        google()
-        mavenCentral()
-    }
-
-    dependencies {
-        if (org.gradle.util.GradleVersion.current() < org.gradle.util.GradleVersion.version('9.1')) {
-            classpath 'com.android.tools.build:gradle:8.2.2'
-        }
-    }
-}
-
-def locationButtonCompileSdkValue =
-    rootProject.ext.has('compileSdkVersion')
-        ? rootProject.ext.compileSdkVersion
-        : (project.ext.has('cordovaConfig') && cordovaConfig.COMPILE_SDK_VERSION
-            ? cordovaConfig.COMPILE_SDK_VERSION
-            : 36)
-def locationButtonCompileSdkMatch =
-    locationButtonCompileSdkValue.toString() =~ /(\d+)$/
-def locationButtonCompileSdk =
-    locationButtonCompileSdkMatch ? locationButtonCompileSdkMatch[0][1].toInteger() : 36
-def locationButtonLibraryDirectory =
-    [file('libs'), file('src/main/libs')].find {
-        new File(it, 'IONGeolocationLib-compat-release.aar').isFile()
-    }
-
 dependencies {
-    if (locationButtonLibraryDirectory != null) {
-        if (locationButtonCompileSdk >= 37) {
-            implementation files(
-                new File(locationButtonLibraryDirectory, 'IONGeolocationLib-api37-release.aar'),
-            )
-            implementation 'androidx.core.locationbutton:locationbutton:1.0.0-alpha01'
-        } else {
-            implementation files(
-                new File(locationButtonLibraryDirectory, 'IONGeolocationLib-compat-release.aar'),
-            )
-        }
-        implementation files(
-            new File(locationButtonLibraryDirectory, 'ionnativeislands-android-release.aar'),
-        )
-    }
-    implementation("androidx.browser:browser:1.8.0")
-    implementation("com.google.android.gms:play-services-auth:21.2.0")
+    // Applied inside the :app project (MABS 13 / compileSdk 37), where plugin.xml's <lib-file>
+    // entries place the AARs in app/libs.
+    implementation files(
+        'libs/IONGeolocationLib-release.aar',
+        'libs/ionnativeislands-android-release.aar',
+    )
+    // Using compose androidx library instead of views because Views has UI issues
+    // See https://issuetracker.google.com/issues/567953859
+    implementation 'androidx.core.locationbutton:locationbutton-compose:1.0.0-alpha01'
+    implementation 'androidx.compose.foundation:foundation:1.12.1'
     implementation("com.google.android.gms:play-services-location:21.3.0")
 
     implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.4'
     implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3'
-
-    // appcompact
-    implementation "androidx.appcompat:appcompat:1.7.0"
-
-    // constraint layout
-    implementation "androidx.constraintlayout:constraintlayout:2.2.0-alpha13"
 
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.6.4")
     implementation 'com.google.code.gson:gson:2.10.1'
@@ -61,11 +20,6 @@ dependencies {
 
 
 android {
-    buildTypes {
-        debug {
-            // do not upload debug versions to crashlytics
-        }
-    }
     packagingOptions {
         exclude 'META-INF/NOTICE'
         exclude 'META-INF/LICENSE'

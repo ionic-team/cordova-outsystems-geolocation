@@ -18,9 +18,7 @@ export interface LocationButtonProperties {
     iconColor?: string;
     borderColor?: string;
     cornerRadius?: number;
-    pressedCornerRadius?: number;
     borderWidth?: number;
-    clickablePadding?: number;
     /** Maximum age (ms) of a cached position the button may reuse instead of fetching fresh. */
     maximumAge?: number;
     /** Timeout (ms) for the underlying location fetch. */

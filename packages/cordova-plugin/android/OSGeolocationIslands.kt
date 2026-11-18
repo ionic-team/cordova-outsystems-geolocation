@@ -1,7 +1,5 @@
 package com.outsystems.plugins.geolocation
 
-import android.Manifest
-import android.content.pm.PackageManager
 import android.webkit.WebView
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.lifecycle.Lifecycle
@@ -10,7 +8,6 @@ import io.ionic.libs.iongeolocationlib.controller.IONGLOCController
 import io.ionic.libs.iongeolocationlib.model.IONGLOCException
 import io.ionic.libs.iongeolocationlib.model.IONGLOCLocationResult
 import io.ionic.libs.iongeolocationlib.view.IONGLOCLocationButtonRegistry
-import io.ionic.libs.iongeolocationlib.view.IONGLOCLocationButtonPermissionRequester
 import io.ionic.libs.ionnativeislandslib.NativeIslandsBridgeValidationError
 import io.ionic.libs.ionnativeislandslib.NativeIslandsBridgeValidator
 import io.ionic.libs.ionnativeislandslib.NativeIslandsController
@@ -21,7 +18,6 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import org.apache.cordova.CallbackContext
 import org.apache.cordova.CordovaPlugin
-import org.apache.cordova.PermissionHelper
 import org.apache.cordova.PluginResult
 import org.json.JSONArray
 import org.json.JSONObject
@@ -32,17 +28,8 @@ class OSGeolocationIslands : CordovaPlugin() {
     private lateinit var controller: NativeIslandsController
     private lateinit var locationController: IONGLOCController
     private lateinit var locationCoroutineScope: CoroutineScope
-    private val pendingPermissionResults = mutableListOf<(Boolean) -> Unit>()
-    private var permissionRequestInFlight = false
-
     @Volatile
     private var eventsChannel: CallbackContext? = null
-
-    private val permissionRequester = IONGLOCLocationButtonPermissionRequester { callback ->
-        cordova.activity.runOnUiThread {
-            requestPreciseLocation(callback)
-        }
-    }
 
     override fun pluginInitialize() {
         // Owns its own IONGLOCController, independent of OSGeolocation's — the two
@@ -59,9 +46,7 @@ class OSGeolocationIslands : CordovaPlugin() {
         locationController = IONGLOCController(cordova.context, activityLauncher)
 
         IONGLOCLocationButtonRegistry.register(
-            cordova.activity,
             locationController,
-            permissionRequester,
             ::mapButtonErrorCode,
             ::mapButtonPosition,
         )
@@ -164,7 +149,7 @@ class OSGeolocationIslands : CordovaPlugin() {
      * @param exception Throwable to map
      */
     private fun mapButtonErrorCode(exception: Throwable): String? =
-        (exception as? IONGLOCException)?.let { mapToErrorInfo(it).code }
+        ((exception as? IONGLOCException)?.let { mapToErrorInfo(it) } ?: OSGeolocationErrors.POSITION_UNAVAILABLE).code
 
     /**
      * Maps a Location Button `fetchPosition()` success into the nested `{ timestamp, coords }`
@@ -196,51 +181,6 @@ class OSGeolocationIslands : CordovaPlugin() {
         },
     )
 
-    private fun requestPreciseLocation(callback: (Boolean) -> Unit) {
-        if (PermissionHelper.hasPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)) {
-            callback(true)
-            return
-        }
-
-        pendingPermissionResults += callback
-        if (permissionRequestInFlight) return
-
-        permissionRequestInFlight = true
-        try {
-            PermissionHelper.requestPermissions(
-                this,
-                LOCATION_BUTTON_PERMISSION_REQUEST_CODE,
-                arrayOf(
-                    Manifest.permission.ACCESS_FINE_LOCATION,
-                    Manifest.permission.ACCESS_COARSE_LOCATION,
-                ),
-            )
-        } catch (_: RuntimeException) {
-            completePermissionRequest(false)
-        }
-    }
-
-    override fun onRequestPermissionResult(
-        requestCode: Int,
-        permissions: Array<out String>,
-        grantResults: IntArray,
-    ) {
-        if (requestCode != LOCATION_BUTTON_PERMISSION_REQUEST_CODE) return
-        val fineIndex = permissions.indexOf(Manifest.permission.ACCESS_FINE_LOCATION)
-        val fineGranted =
-            fineIndex >= 0 &&
-                fineIndex < grantResults.size &&
-                grantResults[fineIndex] == PackageManager.PERMISSION_GRANTED
-        completePermissionRequest(fineGranted)
-    }
-
-    private fun completePermissionRequest(granted: Boolean) {
-        permissionRequestInFlight = false
-        val callbacks = pendingPermissionResults.toList()
-        pendingPermissionResults.clear()
-        callbacks.forEach { callback -> callback(granted) }
-    }
-
     private fun validate(
         callback: CallbackContext,
         error: NativeIslandsBridgeValidationError?,
@@ -267,7 +207,6 @@ class OSGeolocationIslands : CordovaPlugin() {
     override fun onReset() {
         closeEventsChannel()
         controller.reset()
-        pendingPermissionResults.clear()
     }
 
     override fun onResume(multitasking: Boolean) {
@@ -280,15 +219,11 @@ class OSGeolocationIslands : CordovaPlugin() {
 
     override fun onDestroy() {
         closeEventsChannel()
-        pendingPermissionResults.clear()
-        permissionRequestInFlight = false
         controller.dispose()
         locationCoroutineScope.cancel()
-        IONGLOCLocationButtonRegistry.unregister(cordova.activity)
     }
 
     companion object {
-        private const val LOCATION_BUTTON_PERMISSION_REQUEST_CODE = 22333
         private val SUPPORTED_ACTIONS =
             setOf(
                 "applyLayout",
