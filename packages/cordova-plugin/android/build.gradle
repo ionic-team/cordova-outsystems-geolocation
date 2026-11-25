@@ -1,20 +1,8 @@
 dependencies {
-    // Applied inside the :app project (MABS 13 / compileSdk 37), where plugin.xml's <lib-file>
-    // entries place the AARs in app/libs.
-    implementation files(
-        'libs/IONGeolocationLib-release.aar',
-        'libs/ionnativeislands-android-release.aar',
-    )
-    // Using compose androidx library instead of views because Views has UI issues
-    // See https://issuetracker.google.com/issues/567953859
-    implementation 'androidx.core.locationbutton:locationbutton-compose:1.0.0-alpha01'
-    implementation 'androidx.compose.foundation:foundation:1.12.1'
-    implementation("com.google.android.gms:play-services-location:21.3.0")
+    // Brings ionnativeislands-android and the AndroidX location button.
+    implementation 'io.ionic.libs:iongeolocation-android:4.0.0'
 
     implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.4'
-    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3'
-
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.6.4")
     implementation 'com.google.code.gson:gson:2.10.1'
 }
 

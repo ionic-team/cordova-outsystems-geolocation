@@ -14,10 +14,19 @@ npm run build
 
 ## Location Button
 
+The button is Android only. Call `OSGeolocationInstance.getLocationButtonState(success)`
+to know which button the device shows. It passes one of:
+
+- `AVAILABLE_SYSTEM`: Android 17 and later (MABS 13), where the system draws the button.
+- `AVAILABLE_COMPAT`: older Android versions (MABS 13), with Google's compatibility button.
+- `UNAVAILABLE`: iOS, PWA, MABS 12, or native code without the button (for example older
+  native code that received new web code through an OTA update). Show your own control.
+
 Use `mountLocationButton` to mount the component. UI Blocks can update and destroy it
 by Container ID with `updateLocationButtonInContainer` and
 `destroyLocationButtonInContainer`. The wrapper forwards grant, position, and error
-events to the supplied callbacks.
+events to the supplied callbacks. Where the state is `UNAVAILABLE`, the mounted
+element renders nothing.
 
 Appearance options set ordinary CSS properties on the custom element. When
 `backgroundColor` is empty or isn't a valid CSS color (`CSS.supports('color', value)`),

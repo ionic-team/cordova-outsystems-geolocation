@@ -1,4 +1,4 @@
-import { ClearWatchOptions, OSGLOCPosition, PluginError, Position, CurrentPositionOptions, WatchPositionOptions } from "../../cordova-plugin/src/definitions"
+import { ClearWatchOptions, LocationButtonState, OSGLOCPosition, PluginError, Position, CurrentPositionOptions, WatchPositionOptions } from "../../cordova-plugin/src/definitions"
 import { v4 as uuidv4 } from 'uuid'
 
 class OSGeolocation {
@@ -221,6 +221,33 @@ class OSGeolocation {
     }
 
     /**
+     * Tells whether the Location Button shows a button: AVAILABLE_SYSTEM on Android 17 and later,
+     * AVAILABLE_COMPAT on older Android versions, and UNAVAILABLE on iOS, in a PWA, or when the
+     * native code doesn't support the button.
+     */
+    getLocationButtonState(success: (state: LocationButtonStateValue) => void): void {
+        const resolve = (result?: Partial<LocationButtonState>) => {
+            if (result?.state === "system") success("AVAILABLE_SYSTEM")
+            else if (result?.state === "compat") success("AVAILABLE_COMPAT")
+            else success("UNAVAILABLE")
+        }
+        let plugin: { getLocationButtonState?: () => Promise<LocationButtonState> } | undefined
+        if (this.#isCapacitorPluginDefined()) {
+            // @ts-ignore
+            plugin = window.CapacitorPlugins.Geolocation
+        } else if (this.#isCordovaPluginDefined()) {
+            // @ts-ignore
+            plugin = cordova.plugins.Geolocation
+        }
+        // Older native code, for example after an OTA update, doesn't have the method.
+        if (typeof plugin?.getLocationButtonState !== "function") {
+            resolve()
+            return
+        }
+        plugin.getLocationButtonState().then(resolve, () => resolve())
+    }
+
+    /**
     * Clears the specified heading watch.
     */
     clearWatch(options: ClearWatchOptions, success: () => void = () => { }, error: (error: PluginError | GeolocationPositionError) => void = () => { }): void {
@@ -363,6 +390,8 @@ class OSGeolocation {
 
 export const OSGeolocationInstance = new OSGeolocation()
 
+export type LocationButtonStateValue = "AVAILABLE_SYSTEM" | "AVAILABLE_COMPAT" | "UNAVAILABLE"
+
 export type LocationButtonTextType =
     | "precise-location"
     | "use-precise-location"
@@ -466,6 +495,16 @@ function applyLocationButtonProperties(
     }
 }
 
+// The Geolocation plugin defines the element, hidden where the state is UNAVAILABLE. Where it is never
+// defined (a PWA, or older native code) or not defined yet, the element shows nothing either.
+function hideUndefinedLocationButtons(): void {
+    if (document.querySelector("style[data-os-location-button-undefined]")) return
+    const style = document.createElement("style")
+    style.dataset.osLocationButtonUndefined = ""
+    style.textContent = "os-location-button:not(:defined) { display: none !important; }"
+    document.head.append(style)
+}
+
 export function mountLocationButton(
     containerId: string,
     properties: LocationButtonProperties,
@@ -476,11 +515,7 @@ export function mountLocationButton(
     if (typeof document === "undefined" || typeof customElements === "undefined") {
         throw new Error("Location Button requires a browser document")
     }
-    if (!customElements.get("os-location-button")) {
-        throw new Error(
-            "Location Button is not registered; load the Geolocation element resource before mounting",
-        )
-    }
+    hideUndefinedLocationButtons()
     const container = document.getElementById(containerId)
     if (!container) {
         throw new Error(`Location Button container not found: ${containerId}`)

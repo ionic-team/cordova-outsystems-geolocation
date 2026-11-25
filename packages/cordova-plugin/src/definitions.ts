@@ -35,6 +35,30 @@ export interface IGeolocationPlugin {
    * @since 1.2.0
    */
   hasNativeTimeoutHandling(success: (value: boolean) => void, error: (error: PluginError) => void): void;
+
+  /**
+   * Tells whether the `os-location-button` element shows a button on this device.
+   *
+   * The button is Android only. Use this to show your own control where it is `unavailable`, or to
+   * hide the `compat` button on older Android versions.
+   *
+   * @since 1.4.0
+   */
+  getLocationButtonState(): Promise<LocationButtonState>;
+}
+
+export interface LocationButtonState {
+  /**
+   * `system` on Android 17 and later, where the system draws the button.
+   *
+   * `compat` on older Android versions, which show Google's compatibility button.
+   *
+   * `unavailable` on iOS and in the browser, or when the native code doesn't support the button,
+   * where the `os-location-button` element renders nothing.
+   *
+   * @since 1.4.0
+   */
+  state: 'system' | 'compat' | 'unavailable';
 }
 
 export type PluginError = {

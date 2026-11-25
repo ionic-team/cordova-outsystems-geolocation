@@ -61,6 +61,24 @@
     ...CurrentPositionOptionsDefault,
     ...ClearWatchOptionsDefault
   };
+  function getLocationButtonState() {
+    const cordova2 = typeof window === "undefined" ? void 0 : window.cordova;
+    const exec2 = cordova2?.exec;
+    if (cordova2?.platformId !== "android" || !exec2) return Promise.resolve({ state: "unavailable" });
+    return new Promise((resolve) => {
+      exec2(
+        (value) => {
+          const state = value?.state;
+          resolve({ state: state === "system" || state === "compat" ? state : "unavailable" });
+        },
+        // Native code without the method, such as an older binary, can't tell.
+        () => resolve({ state: "unavailable" }),
+        "OSGeolocationIslands",
+        "getLocationButtonState",
+        []
+      );
+    });
+  }
   const exec = cordova.require("cordova/exec");
   function getCurrentPosition(options, success, error) {
     options = { ...CurrentPositionOptionsDefault, ...options };
@@ -119,7 +137,8 @@
     getCurrentPosition,
     watchPosition,
     clearWatch,
-    hasNativeTimeoutHandling
+    hasNativeTimeoutHandling,
+    getLocationButtonState
   };
   f(true);
 });

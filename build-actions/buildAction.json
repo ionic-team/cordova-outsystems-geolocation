@@ -32,6 +32,17 @@
                     "file": "AndroidManifest.xml",
                     "condition": "eq($LOCATION_PERMISSION_TYPE, NONE)",
                     "delete": "//uses-permission[@android:name='android.permission.ACCESS_COARSE_LOCATION']"
+                },
+                {
+                    "file": "AndroidManifest.xml",
+                    "condition": "eq($LOCATION_PERMISSION_TYPE, ONLY_FOR_LOCATION_BUTTON)",
+                    "delete": "//uses-permission[@android:name='android.permission.ACCESS_FINE_LOCATION']"
+                },
+                {
+                    "file": "AndroidManifest.xml",
+                    "target": "manifest",
+                    "condition": "eq($LOCATION_PERMISSION_TYPE, ONLY_FOR_LOCATION_BUTTON)",
+                    "merge": "<manifest>\n  <uses-permission android:name=\"android.permission.ACCESS_FINE_LOCATION\" android:usesPermissionFlags=\"onlyForLocationButton\" />\n</manifest>"
                 }
             ]
         }

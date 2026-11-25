@@ -11,12 +11,13 @@ This plugin requires location permissions in `AndroidManifest.xml`. The build ac
 | `manifest` merge | Adds `ACCESS_FINE_LOCATION` and `ACCESS_COARSE_LOCATION` unconditionally |
 | `manifest` delete | Removes `ACCESS_FINE_LOCATION` when `LOCATION_PERMISSION_TYPE` is `APPROXIMATE` or `NONE` |
 | `manifest` delete | Removes `ACCESS_COARSE_LOCATION` when `LOCATION_PERMISSION_TYPE` is `NONE` |
+| `manifest` delete and merge | Declares `ACCESS_FINE_LOCATION` with `android:usesPermissionFlags="onlyForLocationButton"` when `LOCATION_PERMISSION_TYPE` is `ONLY_FOR_LOCATION_BUTTON` |
 
 ## Variables
 
 | Variable | Type | Required | Default | Description |
 |----------|------|----------|---------|-------------|
-| `LOCATION_PERMISSION_TYPE` | string | no | `PRECISE` | Controls which location permissions are declared in the manifest. Both permissions are added unconditionally and then pruned based on this value: `PRECISE` keeps both, `APPROXIMATE` removes `ACCESS_FINE_LOCATION`, `NONE` removes both. Unset or empty string behaves as `PRECISE`. Values are case-sensitive. |
+| `LOCATION_PERMISSION_TYPE` | string | no | `PRECISE` | Controls which location permissions are declared in the manifest. Both permissions are added unconditionally and then pruned based on this value: `PRECISE` keeps both, `APPROXIMATE` removes `ACCESS_FINE_LOCATION`, `NONE` removes both, `ONLY_FOR_LOCATION_BUTTON` keeps both but flags `ACCESS_FINE_LOCATION` with `onlyForLocationButton`, so on Android 17 and later precise location is granted only through the location button. Unset or empty string behaves as `PRECISE`. Values are case-sensitive. |
 
 ## ODC Setup
 

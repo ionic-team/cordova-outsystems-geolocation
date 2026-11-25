@@ -57,12 +57,6 @@ class OSGeolocationIslands : CordovaPlugin() {
                 keepCallback = true
             })
         }
-        val lifecycle = (cordova.activity as? LifecycleOwner)?.lifecycle
-        if (lifecycle?.currentState?.isAtLeast(Lifecycle.State.RESUMED) == true) {
-            controller.onHostResume()
-        } else {
-            controller.onHostPause()
-        }
         val view = webView.view as WebView
         controller.bind(view, cordova.activity)
         cordova.activity.runOnUiThread {
@@ -76,19 +70,22 @@ class OSGeolocationIslands : CordovaPlugin() {
                 controller::receiveScrollOffsets,
                 controller::receiveDirect,
             )
-            controller.ensureContainer()
+            // Read on the UI thread after binding, so it can't overwrite a resume that arrived first.
+            // The controller adds its native host with the first layout, not at app launch.
+            val lifecycle = (cordova.activity as? LifecycleOwner)?.lifecycle
+            if (lifecycle?.currentState?.isAtLeast(Lifecycle.State.RESUMED) == true) {
+                controller.onHostResume()
+            } else {
+                controller.onHostPause()
+            }
         }
     }
 
     override fun execute(action: String, args: JSONArray, callback: CallbackContext): Boolean {
         if (action !in SUPPORTED_ACTIONS) return false
-        if (action == "capabilities") {
-            callback.success(
-                JSONObject().put(
-                    "requiresUnobscuredSurface",
-                    IONGLOCLocationButtonRegistry.requiresUnobscuredSurface(),
-                ),
-            )
+        if (action == "getLocationButtonState") {
+            val state = if (IONGLOCLocationButtonRegistry.requiresUnobscuredSurface()) "system" else "compat"
+            callback.success(JSONObject().put("state", state))
             return true
         }
         val envelope = args.opt(0) as? JSONObject
@@ -231,7 +228,7 @@ class OSGeolocationIslands : CordovaPlugin() {
                 "command",
                 "reset",
                 "events",
-                "capabilities",
+                "getLocationButtonState",
             )
     }
 }

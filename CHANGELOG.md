@@ -41,11 +41,17 @@
 
 ## [Unreleased]
 
-- Add `<os-location-button>` with an Android native implementation and browser
-  fallback without changing the existing Geolocation actions.
+- Add `<os-location-button>`, Android's location button, without changing the existing
+  Geolocation actions. Android 17 and later show the system button, older versions
+  Google's compatibility button. On iOS and in the browser the element is hidden.
+- Add `getLocationButtonState()` (`system`, `compat` or `unavailable`) and the OutSystems
+  wrapper's `getLocationButtonState` (`AVAILABLE_SYSTEM`, `AVAILABLE_COMPAT` or `UNAVAILABLE`).
+- Add the `ONLY_FOR_LOCATION_BUTTON` value to `LOCATION_PERMISSION_TYPE`.
 - Include Native Islands within Geolocation so applications do not install it
   separately.
 - Add Location Button lifecycle helpers to the OutSystems wrapper.
+- chore(android): depend on `io.ionic.libs:iongeolocation-android:4.0.0` from Maven Central,
+  which brings the alpha AndroidX library `androidx.core.locationbutton` 1.0.0-alpha01.
 
 ## [1.2.0]
 

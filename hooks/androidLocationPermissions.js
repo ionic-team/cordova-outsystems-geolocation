@@ -4,6 +4,7 @@ const path = require('path');
 const PRECISE = 'PRECISE';
 const APPROXIMATE = 'APPROXIMATE';
 const NONE = 'NONE';
+const ONLY_FOR_LOCATION_BUTTON = 'ONLY_FOR_LOCATION_BUTTON';
 const FINE_LOCATION = 'android.permission.ACCESS_FINE_LOCATION';
 const COARSE_LOCATION = 'android.permission.ACCESS_COARSE_LOCATION';
 
@@ -17,7 +18,7 @@ module.exports = function(context) {
 
     let locationPermissionType = configParser.getPlatformPreference('LOCATION_PERMISSION_TYPE', 'android');
 
-    if (locationPermissionType !== PRECISE && locationPermissionType !== APPROXIMATE && locationPermissionType !== NONE) {
+    if (![PRECISE, APPROXIMATE, NONE, ONLY_FOR_LOCATION_BUTTON].includes(locationPermissionType)) {
         locationPermissionType = PRECISE;
     }
 
@@ -35,6 +36,9 @@ module.exports = function(context) {
 
     if (locationPermissionType === PRECISE) {
         addPermissionToManifest(manifestXmlDoc, FINE_LOCATION);
+    } else if (locationPermissionType === ONLY_FOR_LOCATION_BUTTON) {
+        // On Android 17 and later, precise location is then granted only through the location button.
+        addPermissionToManifest(manifestXmlDoc, FINE_LOCATION, 'onlyForLocationButton');
     }
     addPermissionToManifest(manifestXmlDoc, COARSE_LOCATION);
 
@@ -47,13 +51,16 @@ function requireFromPlugin(pluginRoot, moduleId) {
     return require(require.resolve(moduleId, { paths: [pluginRoot] }));
 }
 
-function addPermissionToManifest(manifestXmlDoc, permission) {
+function addPermissionToManifest(manifestXmlDoc, permission, usesPermissionFlags) {
     const existingPermissions = Array.from(manifestXmlDoc.getElementsByTagName('uses-permission'));
-    const alreadyExists = existingPermissions.some(el => el.getAttribute('android:name') === permission);
+    let element = existingPermissions.find(el => el.getAttribute('android:name') === permission);
 
-    if (!alreadyExists) {
-        const newPermission = manifestXmlDoc.createElement('uses-permission');
-        newPermission.setAttribute('android:name', permission);
-        manifestXmlDoc.documentElement.appendChild(newPermission);
+    if (!element) {
+        element = manifestXmlDoc.createElement('uses-permission');
+        element.setAttribute('android:name', permission);
+        manifestXmlDoc.documentElement.appendChild(element);
+    }
+    if (usesPermissionFlags) {
+        element.setAttribute('android:usesPermissionFlags', usesPermissionFlags);
     }
 }

@@ -162,6 +162,29 @@ class OSGeolocation {
     return watchId;
   }
   /**
+   * Tells whether the Location Button shows a button: AVAILABLE_SYSTEM on Android 17 and later,
+   * AVAILABLE_COMPAT on older Android versions, and UNAVAILABLE on iOS, in a PWA, or when the
+   * native code doesn't support the button.
+   */
+  getLocationButtonState(success) {
+    const resolve = (result) => {
+      if (result?.state === "system") success("AVAILABLE_SYSTEM");
+      else if (result?.state === "compat") success("AVAILABLE_COMPAT");
+      else success("UNAVAILABLE");
+    };
+    let plugin;
+    if (__privateMethod(this, _OSGeolocation_instances, isCapacitorPluginDefined_fn).call(this)) {
+      plugin = window.CapacitorPlugins.Geolocation;
+    } else if (__privateMethod(this, _OSGeolocation_instances, isCordovaPluginDefined_fn).call(this)) {
+      plugin = cordova.plugins.Geolocation;
+    }
+    if (typeof plugin?.getLocationButtonState !== "function") {
+      resolve();
+      return;
+    }
+    plugin.getLocationButtonState().then(resolve, () => resolve());
+  }
+  /**
   * Clears the specified heading watch.
   */
   clearWatch(options, success = () => {
@@ -374,15 +397,18 @@ function applyLocationButtonProperties(element, properties) {
     }
   }
 }
+function hideUndefinedLocationButtons() {
+  if (document.querySelector("style[data-os-location-button-undefined]")) return;
+  const style = document.createElement("style");
+  style.dataset.osLocationButtonUndefined = "";
+  style.textContent = "os-location-button:not(:defined) { display: none !important; }";
+  document.head.append(style);
+}
 function mountLocationButton(containerId, properties, onGrant, onPosition, onError) {
   if (typeof document === "undefined" || typeof customElements === "undefined") {
     throw new Error("Location Button requires a browser document");
   }
-  if (!customElements.get("os-location-button")) {
-    throw new Error(
-      "Location Button is not registered; load the Geolocation element resource before mounting"
-    );
-  }
+  hideUndefinedLocationButtons();
   const container = document.getElementById(containerId);
   if (!container) {
     throw new Error(`Location Button container not found: ${containerId}`);

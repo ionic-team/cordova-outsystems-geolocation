@@ -100,6 +100,16 @@ function wireRegularApi() {
     });
 }
 
+function showLocationButtonState() {
+    const element = document.getElementById('button-state');
+    window.OSGeolocationWrapper.OSGeolocationInstance.getLocationButtonState((wrapperState) => {
+        cordova.plugins.Geolocation.getLocationButtonState().then(({ state }) => {
+            element.textContent = `Location button state: ${state} (wrapper: ${wrapperState})`;
+            console.log(element.textContent);
+        });
+    });
+}
+
 function onDeviceReady() {
     // Cordova is now initialized. Have fun!
 
@@ -107,6 +117,7 @@ function onDeviceReady() {
     document.getElementById('deviceready').classList.add('ready');
     document.getElementById('test-ui').style.display = 'block';
 
+    showLocationButtonState();
     wireRawButton();
     wireWrapperButton();
     wireRegularApi();

@@ -5,11 +5,18 @@ declare class OSGeolocation {
     getCurrentPosition(success: (position: Position) => void, error: (err: PluginError | GeolocationPositionError) => void, options: CurrentPositionOptions): void;
     watchPosition(success: (result: Position) => void, error: (error: PluginError | GeolocationPositionError) => void, options: WatchPositionOptions): string | number;
     /**
+     * Tells whether the Location Button shows a button: AVAILABLE_SYSTEM on Android 17 and later,
+     * AVAILABLE_COMPAT on older Android versions, and UNAVAILABLE on iOS, in a PWA, or when the
+     * native code doesn't support the button.
+     */
+    getLocationButtonState(success: (state: LocationButtonStateValue) => void): void;
+    /**
     * Clears the specified heading watch.
     */
     clearWatch(options: ClearWatchOptions, success?: () => void, error?: (error: PluginError | GeolocationPositionError) => void): void;
 }
 export declare const OSGeolocationInstance: OSGeolocation;
+export type LocationButtonStateValue = "AVAILABLE_SYSTEM" | "AVAILABLE_COMPAT" | "UNAVAILABLE";
 export type LocationButtonTextType = "precise-location" | "use-precise-location" | "share-precise-location" | "near-my-precise-location" | "near-your-precise-location" | "none";
 export interface LocationButtonProperties {
     textType?: LocationButtonTextType;

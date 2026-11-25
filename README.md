@@ -26,4 +26,7 @@ This project has two packages:
 
 1. the cordova plugin, `com.outsystems.plugins.geolocation`
 2. a wrapper consumed by the OutSystems' low-code module, `outsystems-wrapper`
+
+The plugin includes `<os-location-button>`, Android's location button, which is hidden on
+iOS and in the browser. See [the plugin's README](packages/cordova-plugin/README.md#location-button).
  

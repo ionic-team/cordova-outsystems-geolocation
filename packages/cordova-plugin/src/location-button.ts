@@ -5,55 +5,14 @@ import {
   NATIVE_ISLANDS_TRANSPORT_PRIORITY,
 } from '@capacitor/native-islands/internal/runtime';
 
-import type { OSGLOCPosition, PluginError, Position } from './definitions';
-
-interface CordovaWindow {
-  cordova?: {
-    exec?: (
-      success: (value: unknown) => void,
-      error: (value: unknown) => void,
-      service: string,
-      action: string,
-      args: unknown[],
-    ) => void;
-    platformId?: string;
-  };
-}
-
-type LocationButtonPlatform = 'android' | 'ios' | 'web';
+import type { Position } from './definitions';
+import { getLocationButtonState } from './location-button-state';
 
 const SERVICE = 'OSGeolocationIslands';
 let runtimeInitialized = false;
 
-function cordovaWindow(): CordovaWindow | undefined {
-  return typeof window === 'undefined' ? undefined : (window as CordovaWindow);
-}
-
-function platform(): LocationButtonPlatform {
-  const id = cordovaWindow()?.cordova?.platformId?.toLowerCase();
-  if (id === 'android' || id === 'ios') return id;
-  return 'web';
-}
-
-function requiresUnobscuredSurface(): Promise<boolean> {
-  const exec = cordovaWindow()?.cordova?.exec;
-  if (!exec) return Promise.resolve(true);
-  return new Promise((resolve) => {
-    exec(
-      (value) => {
-        const capabilities = value as { requiresUnobscuredSurface?: unknown } | undefined;
-        resolve(capabilities?.requiresUnobscuredSurface !== false);
-      },
-      () => resolve(true),
-      SERVICE,
-      'capabilities',
-      [],
-    );
-  });
-}
-
 function initializeCordovaRuntime(): void {
-  if (runtimeInitialized || platform() !== 'android') return;
+  if (runtimeInitialized) return;
   const transport = createCordovaTransport(SERVICE);
   if (!transport.available) return;
   runtimeInitialized = true;
@@ -82,14 +41,14 @@ declare global {
   }
 }
 
-const TEXT_LABELS: Record<string, string> = {
-  'use-precise-location': 'Use precise location',
-  'share-precise-location': 'Share precise location',
-  'near-my-precise-location': 'Near my precise location',
-  'near-your-precise-location': 'Near your precise location',
-  'precise-location': 'Precise location',
-  none: 'Share location',
-};
+const TEXT_TYPES = [
+  'use-precise-location',
+  'share-precise-location',
+  'near-my-precise-location',
+  'near-your-precise-location',
+  'precise-location',
+  'none',
+];
 
 const STYLE_PROPERTIES = {
   backgroundColor: 'background-color',
@@ -112,8 +71,8 @@ const HEX_COLOR = /^#[0-9A-Fa-f]{6}$/;
 const RGB_COLOR = /^rgba?\((.+)\)$/;
 
 function textType(element: HTMLElement): string {
-  const value = element.getAttribute('text-type') ?? 'precise-location';
-  return value in TEXT_LABELS ? value : 'precise-location';
+  const value = element.getAttribute('text-type') ?? 'use-precise-location';
+  return TEXT_TYPES.includes(value) ? value : 'use-precise-location';
 }
 
 function colorStyle(style: CSSStyleDeclaration, name: string, fallback: string): string {
@@ -161,156 +120,16 @@ function booleanAttribute(element: HTMLElement, name: string, fallback: boolean)
   return fallback;
 }
 
-function dispatch<T>(element: HTMLElement, type: string, detail: T): void {
-  element.dispatchEvent(new CustomEvent(type, { bubbles: true, composed: true, detail }));
-}
-
-function toLocationButtonPosition(position: OSGLOCPosition): LocationButtonPositionDetail {
-  return {
-    timestamp: position.timestamp,
-    coords: {
-      latitude: position.latitude,
-      longitude: position.longitude,
-      accuracy: position.accuracy,
-      altitude: position.altitude,
-      altitudeAccuracy: position.altitudeAccuracy,
-      heading: position.heading,
-      speed: position.speed,
-      magneticHeading: position.magneticHeading,
-      trueHeading: position.trueHeading,
-      headingAccuracy: position.headingAccuracy,
-      course: position.course,
-    },
-  };
-}
-
-function dispatchPosition(element: HTMLElement, position: Position): void {
-  // Already shaped like LocationButtonPositionDetail — send it as is, no mapping needed.
-  dispatch<LocationButtonPositionDetail>(element, 'location-position', position);
-}
-
-function requestNativeFallback(element: HTMLElement): void {
-  const exec = cordovaWindow()?.cordova?.exec;
-  if (!exec) {
-    dispatch<LocationButtonErrorDetail>(element, 'location-error', {
-      reason: 'Cordova is not available',
-    });
-    return;
-  }
-  exec(
-    (value) => {
-      const position = value as OSGLOCPosition;
-      dispatch<LocationButtonGrantDetail>(element, 'location-grant', {
-        granted: true,
-      });
-      dispatch<LocationButtonPositionDetail>(element, 'location-position', toLocationButtonPosition(position));
-    },
-    (value) => {
-      const error = value as PluginError | undefined;
-      if (error?.code === 'OS-PLUG-GLOC-0003' || error?.code === 'OS-PLUG-GLOC-0008') {
-        dispatch<LocationButtonGrantDetail>(element, 'location-grant', {
-          granted: false,
-        });
-      }
-      dispatch<LocationButtonErrorDetail>(element, 'location-error', {
-        reason: error?.message || 'Location request failed',
-        code: error?.code,
-      });
-    },
-    'OSGeolocation',
-    'getCurrentPosition',
-    [
-      {
-        enableHighAccuracy: true,
-        timeout: nonNegativeIntegerAttribute(element, 'timeout', 10_000, 1),
-        maximumAge: nonNegativeIntegerAttribute(element, 'maximum-age', 0),
-        enableLocationFallback: booleanAttribute(element, 'enable-location-fallback', true),
-      },
-    ],
-  );
-}
-
-function renderFallback(element: HTMLElement): void {
-  // Same shadow-DOM concern as the native path's getProperties() call: this is the actual
-  // fallback face used in PWA/web (no native transport ever initialized for 'web' — see boot()),
-  // on iOS, and whenever native composition isn't available. Without this, an element nested
-  // inside a shadow root never gets the plugin's sizing CSS and collapses to zero size — clicking
-  // "does nothing" because there's nothing there to click, not because the handler is broken.
-  installFallbackStyles(styleRootFor(element));
-  element.dataset.osLocationButtonFallbackFace = '';
-  const button = document.createElement('button');
-  button.type = 'button';
-  button.className = 'os-location-button-fallback';
-  const normalizedTextType = textType(element);
-  const label = TEXT_LABELS[normalizedTextType];
-  const icon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-  icon.classList.add('os-location-button-fallback__icon');
-  icon.setAttribute('viewBox', '0 0 960 960');
-  icon.setAttribute('aria-hidden', 'true');
-  const iconPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-  iconPath.setAttribute(
-    'd',
-    'M440 918v-80q-125-14-214.5-103.5T122 520H42v-80h80q14-125 103.5-214.5T440 122V42h80v80q125 14 214.5 103.5T838 440h80v80h-80q-14 125-103.5 214.5T520 838v80h-80Zm40-158q116 0 198-82t82-198q0-116-82-198t-198-82q-116 0-198 82t-82 198q0 116 82 198t198 82Zm0-120q-66 0-113-47t-47-113q0-66 47-113t113-47q66 0 113 47t47 113q0 66-47 113t-113 47Zm0-80q33 0 56.5-23.5T560 480q0-33-23.5-56.5T480 400q-33 0-56.5 23.5T400 480q0 33 23.5 56.5T480 560Z',
-  );
-  icon.append(iconPath);
-  const text = document.createElement('span');
-  text.className = normalizedTextType === 'none' ? 'os-location-button-fallback__visually-hidden' : '';
-  text.textContent = label;
-  button.append(icon, text);
-  button.setAttribute('aria-label', label);
-  button.addEventListener('click', () => {
-    const currentPlatform = platform();
-    if (currentPlatform !== 'web') {
-      requestNativeFallback(element);
-      return;
-    }
-    if (!navigator.geolocation) {
-      dispatch<LocationButtonErrorDetail>(element, 'location-error', {
-        reason: 'Browser geolocation is unavailable',
-      });
-      return;
-    }
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        dispatch<LocationButtonGrantDetail>(element, 'location-grant', {
-          granted: true,
-        });
-        dispatchPosition(element, position);
-      },
-      (error) => {
-        if (error.code === error.PERMISSION_DENIED) {
-          dispatch<LocationButtonGrantDetail>(element, 'location-grant', {
-            granted: false,
-          });
-        }
-        dispatch<LocationButtonErrorDetail>(element, 'location-error', {
-          reason: error.message || 'Browser location request failed',
-        });
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: nonNegativeIntegerAttribute(element, 'timeout', 10_000, 1),
-        maximumAge: nonNegativeIntegerAttribute(element, 'maximum-age', 0),
-      },
-    );
-  });
-  element.replaceChildren(button);
-}
-
 const installedStyleRoots = new WeakSet<Document | ShadowRoot>();
 
-// A native island's host element can live inside a shadow root (e.g. an app wrapping its UI in a
-// custom element with attachShadow()). Shadow DOM style encapsulation means CSS appended to
-// document.head never reaches it, so an element that gets emptied once native composition
-// activates (see clearChildren() in the shared runtime) has no sizing CSS and collapses to zero
-// height. Resolving the actual root here lets installFallbackStyles() inject a scoped copy where
-// the element really lives, not just into the top-level document.
+// The element can live inside a shadow root, which CSS in document.head never reaches. Without its
+// sizing CSS it collapses to zero size and the native button has nothing to fill.
 function styleRootFor(element: HTMLElement): Document | ShadowRoot {
   const root = element.getRootNode();
   return root instanceof ShadowRoot ? root : document;
 }
 
-function installFallbackStyles(root: Document | ShadowRoot = document): void {
+function installStyles(root: Document | ShadowRoot = document): void {
   if (installedStyleRoots.has(root)) return;
   installedStyleRoots.add(root);
   if (root.querySelector('style[data-os-location-button]')) return;
@@ -320,7 +139,7 @@ function installFallbackStyles(root: Document | ShadowRoot = document): void {
   style.textContent = `
     :where(os-location-button) {
       display: inline-block;
-      inline-size: min(100%, 22rem);
+      inline-size: 100%;
       min-inline-size: 3rem;
       block-size: 3rem;
       min-block-size: 3rem;
@@ -333,71 +152,10 @@ function installFallbackStyles(root: Document | ShadowRoot = document): void {
       color: #ffffff;
     }
 
-    :where([data-os-location-button-fallback-face]) {
+    :where(os-location-button[data-native-islands-fallback]) {
       background-clip: text !important;
       border-image-source: linear-gradient(transparent, transparent) !important;
       border-image-slice: 1 !important;
-    }
-
-    .os-location-button-fallback {
-      position: relative;
-      isolation: isolate;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 0.5rem;
-      inline-size: 100%;
-      block-size: 100%;
-      min-inline-size: 3rem;
-      min-block-size: 3rem;
-      padding-inline: 1rem;
-      border: inherit;
-      border-image-source: linear-gradient(transparent, transparent);
-      border-image-slice: 1;
-      border-radius: inherit;
-      background-color: inherit;
-      background-clip: text;
-      color: inherit;
-      font: 500 0.875rem/1.25rem Roboto, system-ui, sans-serif;
-      letter-spacing: 0.007142857em;
-    }
-
-    .os-location-button-fallback::before {
-      content: '';
-      position: absolute;
-      inset: 0;
-      z-index: 0;
-      box-sizing: border-box;
-      border-width: inherit;
-      border-style: inherit;
-      border-color: inherit;
-      border-radius: inherit;
-      background-color: inherit;
-    }
-
-    .os-location-button-fallback > * {
-      position: relative;
-      z-index: 1;
-    }
-
-    .os-location-button-fallback__icon {
-      color: var(--os-location-button-icon-color, currentColor);
-      inline-size: 1.25rem;
-      block-size: 1.25rem;
-      flex: 0 0 auto;
-      fill: currentColor;
-    }
-
-    .os-location-button-fallback__visually-hidden {
-      position: absolute;
-      inline-size: 1px;
-      block-size: 1px;
-      padding: 0;
-      margin: -1px;
-      overflow: hidden;
-      clip-path: inset(50%);
-      white-space: nowrap;
-      border: 0;
     }
   `;
 
@@ -419,31 +177,6 @@ function registerLocationButton(protectedSurface: boolean): void {
     return;
   }
 
-  installFallbackStyles();
-
-  if (platform() === 'ios') {
-    class OsLocationButtonFallback extends HTMLElement {
-      private connected = false;
-
-      static get observedAttributes(): string[] {
-        return OBSERVED_ATTRIBUTES;
-      }
-
-      connectedCallback(): void {
-        if (this.connected) return;
-        this.connected = true;
-        renderFallback(this);
-      }
-
-      attributeChangedCallback(_name: string, oldValue: string | null, newValue: string | null): void {
-        if (this.connected && oldValue !== newValue) renderFallback(this);
-      }
-    }
-
-    customElements.define('os-location-button', OsLocationButtonFallback);
-    return;
-  }
-
   defineNativeIsland({
     tagName: 'os-location-button',
     nativeComponent: 'os.locationButton',
@@ -455,9 +188,9 @@ function registerLocationButton(protectedSurface: boolean): void {
     observedStyles: OBSERVED_STYLES,
     getProperties: (element) => {
       // Runs synchronously during connectedCallback() (activateNative() -> send('create')),
-      // before any async/rAF-scheduled geometry measurement — early enough to guarantee the
+      // before any async/rAF-scheduled geometry measurement, early enough to guarantee the
       // element has sizing CSS before it's first measured, even inside a shadow root.
-      installFallbackStyles(styleRootFor(element));
+      installStyles(styleRootFor(element));
       const style = getComputedStyle(element);
       const cornerRadius = pixelStyle(style, 'border-top-left-radius', 0, 68, 16);
       const textColor = colorStyle(style, STYLE_PROPERTIES.textColor, '#FFFFFF');
@@ -474,7 +207,8 @@ function registerLocationButton(protectedSurface: boolean): void {
         enableLocationFallback: booleanAttribute(element, 'enable-location-fallback', true),
       };
     },
-    renderFallback,
+    // Called while Native Islands isn't running, so it starts with the first button rather than at app launch.
+    renderFallback: () => queueMicrotask(initializeCordovaRuntime),
     events: {
       grant: 'location-grant',
       position: 'location-position',
@@ -483,18 +217,25 @@ function registerLocationButton(protectedSurface: boolean): void {
   });
 }
 
-function boot(): void {
-  initializeCordovaRuntime();
-  if (platform() === 'android') {
-    installFallbackStyles();
-    void requiresUnobscuredSurface().then(registerLocationButton);
-    return;
-  }
-  registerLocationButton(false);
+// Where there is no button (iOS, the browser, or when its state is unavailable), the element stays in the DOM but is hidden.
+function defineHiddenLocationButton(): void {
+  if (typeof customElements === 'undefined' || typeof HTMLElement === 'undefined') return;
+  if (customElements.get('os-location-button')) return;
+  customElements.define(
+    'os-location-button',
+    class extends HTMLElement {
+      connectedCallback(): void {
+        this.style.setProperty('display', 'none', 'important');
+      }
+    },
+  );
 }
 
-if (cordovaWindow()?.cordova && !cordovaWindow()?.cordova?.platformId) {
-  document.addEventListener('deviceready', boot, { once: true });
-} else {
-  boot();
-}
+void getLocationButtonState().then(({ state }) => {
+  if (state === 'unavailable') {
+    defineHiddenLocationButton();
+    return;
+  }
+  installStyles();
+  registerLocationButton(state === 'system');
+});

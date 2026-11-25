@@ -9,6 +9,7 @@ import type {
   CurrentPositionOptions,
   WatchPositionOptions,
 } from './definitions';
+import { getLocationButtonState } from './location-button-state';
 
 const exec = require('cordova/exec');
 
@@ -84,4 +85,5 @@ module.exports = {
   watchPosition,
   clearWatch,
   hasNativeTimeoutHandling,
+  getLocationButtonState,
 };
